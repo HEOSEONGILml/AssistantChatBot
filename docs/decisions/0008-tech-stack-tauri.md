@@ -1,6 +1,6 @@
 # 0008. Windows 앱은 Tauri(Rust + TypeScript)로 만든다
 
-- 상태: 채택
+- 상태: 일부 수정됨 ([0011](0011-python-brain-local-sidecar.md)) — 두뇌는 파이썬 프로세스로
 - 날짜: 2026-10-14
 
 ## 배경
