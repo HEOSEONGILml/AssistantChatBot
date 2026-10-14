@@ -38,7 +38,14 @@
 - 질문 정의나 Jev 모델 버전을 바꾸면 점수가 달라진다. 평가 데이터로 임계값을 다시 산출한다.
 - API 상세와 사내 사용 사례는 `docs/references/typesafe-jev.md`를 본다.
 
-## 5. 문서 작성 스타일
+## 5. 도구 사용
+
+- **superpowers**: 설계는 `brainstorming`, 계획은 `writing-plans`, 구현은 `test-driven-development`, 완료 선언 전에는 `verification-before-completion`을 쓴다.
+- **Context7**: 라이브러리·프레임워크 API를 쓰기 전에 Context7로 최신 문서를 확인한다. 기억에 의존해 API를 쓰지 않는다. 스택을 고를 때도 후보 라이브러리 문서를 Context7로 확인한다.
+- **serena**: 코드가 생긴 뒤에는 심볼 단위 탐색·편집에 serena를 쓴다.
+- **chrome-devtools**: 웹 기반 UI는 실제 브라우저에서 동작을 확인한다.
+
+## 6. 문서 작성 스타일
 
 - 한국어로 쓴다. 문장은 짧게, 결론부터 쓴다.
 - 흐름과 구조는 mermaid 다이어그램으로 그린다.
