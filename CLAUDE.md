@@ -35,6 +35,7 @@
 | 개발 실행 | `npm run tauri dev` |
 | 프론트엔드 테스트 | `npm test` |
 | Rust 테스트 | `cd src-tauri && cargo test` |
+| 설치 파일 빌드 | `npm run tauri build` → `src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi` |
 
 **개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 강아지 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).
 
