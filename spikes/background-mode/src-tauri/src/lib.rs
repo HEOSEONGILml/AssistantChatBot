@@ -6,6 +6,21 @@ mod occlusion;
 use tauri::Manager;
 
 #[tauri::command]
+fn set_overlay(window: tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
+    window.set_always_on_top(enabled).map_err(|e| e.to_string())?;
+    window.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_click_through(window: tauri::WebviewWindow, through: bool) -> Result<(), String> {
+    println!("PROBE click_through={through}");
+    window.set_ignore_cursor_events(through).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn cursor_pos() -> (i32, i32) { desktop::cursor() }
+
+#[tauri::command]
 fn region_covered_by(window: tauri::WebviewWindow, region: geom::Rect) -> Result<Vec<String>, String> {
     let raw = window.hwnd().map_err(|e| e.to_string())?;
     let hits = occlusion::covering_windows(region, windows::Win32::Foundation::HWND(raw.0 as _));
@@ -63,7 +78,7 @@ pub fn run() {
             hook::start(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![attach_to_desktop, attach_color_key, wallpaper_bytes, spike_mode, region_covered_by, desktop_status])
+        .invoke_handler(tauri::generate_handler![attach_to_desktop, attach_color_key, wallpaper_bytes, spike_mode, region_covered_by, desktop_status, set_overlay, set_click_through, cursor_pos])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

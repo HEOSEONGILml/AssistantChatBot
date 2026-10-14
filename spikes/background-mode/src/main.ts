@@ -48,9 +48,10 @@ document.getElementById("btn-attach-wp")!.addEventListener("click", async () => 
 // 스파이크 자동 실행: SPIKE_MODE 환경 변수로 버튼 클릭을 대신한다
 invoke<string>("spike_mode").then((mode) => {
   if (mode) log(`auto mode=${mode}`);
+  if (mode.startsWith("overlay")) { startOverlay(); mode = mode.replace("overlay", ""); }
   if (mode.endsWith("-low")) { lowBubble = true; mode = mode.replace("-low", ""); }
   if (mode.endsWith("-freeze")) { frozen = true; mode = mode.replace("-freeze", ""); }
-  const btn = { attach: "btn-attach", wp: "btn-attach-wp", key: "btn-attach-key" }[mode as "attach" | "wp" | "key"];
+  const btn = (mode as string) === "" ? undefined : { attach: "btn-attach", wp: "btn-attach-wp", key: "btn-attach-key" }[mode as "attach" | "wp" | "key"];
   if (btn) setTimeout(() => document.getElementById(btn)!.click(), 1500);
 });
 
@@ -75,3 +76,20 @@ async function probe() {
   } catch (e) { log(`probe error: ${e}`); }
 }
 setInterval(probe, 3000);
+
+async function startOverlay() {
+  await invoke("set_overlay", { enabled: true });
+  let through = true;
+  setInterval(async () => {
+    const [px, py] = await invoke<[number, number]>("cursor_pos");
+    const dpr = window.devicePixelRatio;
+    const r = dog.getBoundingClientRect();
+    const over = px / dpr >= r.left && px / dpr < r.right && py / dpr >= r.top && py / dpr < r.bottom;
+    if (over === through) {
+      through = !over;
+      await invoke("set_click_through", { through });
+    }
+  }, 50);
+  dog.addEventListener("click", () => { log("overlay: dog clicked"); invoke("desktop_status"); });
+  log("overlay mode");
+}
