@@ -25,9 +25,11 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let win = app.get_webview_window("character").expect("character window");
+            // 작업 영역(작업 표시줄 제외)만 덮는다. 창에 문제가 생겨도 작업 표시줄과 트레이(종료)는 쓸 수 있게
             if let Some(mon) = win.primary_monitor()? {
-                win.set_position(*mon.position())?;
-                win.set_size(*mon.size())?;
+                let wa = mon.work_area();
+                win.set_position(wa.position)?;
+                win.set_size(wa.size)?;
             }
 
             let house_i = MenuItem::with_id(app, "house", "강아지 집에 넣기/꺼내기", true, None::<&str>)?;

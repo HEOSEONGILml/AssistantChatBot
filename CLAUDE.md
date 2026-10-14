@@ -36,6 +36,8 @@
 | 프론트엔드 테스트 | `npm test` |
 | Rust 테스트 | `cd src-tauri && cargo test` |
 
+**개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 강아지 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).
+
 화면과 분리된 순수 로직(`src/body/*.ts`, `src/shared/*.ts`)은 단위 테스트한다. 창·Win32에 의존하는 동작은 `docs/manual-checks/`의 체크리스트로 확인한다.
 
 ## 4. Jev 사용 규칙
