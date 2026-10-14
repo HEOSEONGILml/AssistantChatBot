@@ -8,6 +8,8 @@ import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX } from "./body/house";
 import type { Reaction, Signal } from "./shared/types";
 import { stubReact } from "./body/stub-brain";
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { loadSettings, type Settings } from "./shared/settings";
 import "./styles.css";
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -69,7 +71,6 @@ async function main() {
     if (r) emit("reaction", r);
   });
   listen("toggle-house", doToggleHouse);
-  listen<boolean>("setting-hide-house", (e) => (hideHouseWhenInside = e.payload));
 
   // 클릭 통과: 커서가 강아지·집 위에 있을 때만 클릭을 받는다
   let through = true;
@@ -140,6 +141,40 @@ async function main() {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+
+  // 전역 단축키: 설정에서 읽어 등록하고, 설정이 바뀌면 다시 등록한다
+  let active: Settings | null = null;
+
+  async function applyShortcuts(s: Settings) {
+    const prev = active;
+    if (prev) { await unregister(prev.inputShortcut).catch(() => {}); await unregister(prev.houseShortcut).catch(() => {}); }
+    try {
+      await register(s.inputShortcut, (e) => {
+        if (e.state !== "Pressed" || dog.mode === "in_house") return;
+        const b = cssBoxToPhys(dogBox(), origin, scale);
+        emit("open-input", { x: b.left, y: b.top });
+      });
+      await register(s.houseShortcut, (e) => { if (e.state === "Pressed") doToggleHouse(); });
+      active = s;
+    } catch (err) {
+      await unregister(s.inputShortcut).catch(() => {});
+      await unregister(s.houseShortcut).catch(() => {});
+      emit("shortcut-error", `단축키 등록 실패: ${err}. 이전 단축키를 유지합니다.`);
+      if (prev && prev !== s) await applyShortcuts(prev);
+    }
+  }
+
+  const s0 = await loadSettings();
+  hideHouseWhenInside = s0.hideHouseWhenInside;
+  await applyShortcuts(s0);
+  listen<Settings>("settings-changed", async (e) => {
+    hideHouseWhenInside = e.payload.hideHouseWhenInside;
+    await applyShortcuts(e.payload);
+  });
+
+  // 첫 실행 안내: 키가 없으면 돌아다니기만 하고 안내 말풍선
+  const hasKeys = (await invoke<boolean>("key_has", { name: "typesafe" })) && (await invoke<boolean>("key_has", { name: "gemini" }));
+  if (!hasKeys) { bubble = showBubble("트레이 아이콘 → 설정에서 키를 넣어 주세요"); bubbleEl.textContent = bubble!.text; }
 }
 
 main();
