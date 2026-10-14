@@ -3,7 +3,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
-import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World } from "./body/dog";
+import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
@@ -93,6 +93,7 @@ async function main() {
   let userActive = true, userIdleMs = 0;
   let cursorCss: { x: number; y: number } | null = null;
   let petting = newPetting();
+  let wins: Win[] = [];
   let press: { x: number; y: number; offX: number; offY: number; samples: { x: number; y: number; t: number }[] } | null = null;
   let last = performance.now();
   let animStart = last;
@@ -173,8 +174,8 @@ async function main() {
     if (dog.mode === "held") {
       const first = press.samples[0], lastS = press.samples[press.samples.length - 1];
       const dtS = Math.max((lastS.t - first.t) / 1000, 0.016);
-      dog = release(dog, (lastS.x - first.x) / dtS, (lastS.y - first.y) / dtS);
-      emit("signal", { kind: "interaction", type: "throw" });
+      dog = release(dog, (lastS.x - first.x) / dtS, (lastS.y - first.y) / dtS, Date.now());
+      if (dog.mode === "thrown") emit("signal", { kind: "interaction", type: "throw" });
     } else {
       dog = poke(dog, Date.now());
       emit("signal", { kind: "interaction", type: "poke" });
@@ -187,6 +188,17 @@ async function main() {
     if (houseVisible() && boxContains(houseBox, p)) return doToggleHouse();
     if (houseVisible() && boxContains(chatBox, p)) return toggleInput();
   });
+
+  // 주변 창: 강아지가 올라앉거나 구경할 창. 위치·크기와 사용 중인지만 받는다(제목·내용은 읽지 않는다)
+  type WinInfo = { id: number; left: number; top: number; right: number; bottom: number; active: boolean };
+  setInterval(async () => {
+    const list = await invoke<WinInfo[]>("windows_snapshot").catch(() => [] as WinInfo[]);
+    wins = list.map((x) => {
+      const tl = physToCss({ x: x.left, y: x.top }, origin, scale);
+      const br = physToCss({ x: x.right, y: x.bottom }, origin, scale);
+      return { id: x.id, left: tl.x - area.left, top: tl.y - area.top, width: br.x - tl.x, height: br.y - tl.y, active: x.active };
+    });
+  }, 200);
 
   // 사용자가 자리에 있는지: 말풍선 "봤다" 판정과 강아지 잠들기에 쓴다
   setInterval(async () => {
@@ -203,7 +215,7 @@ async function main() {
     const dt = Math.min(now - last, 250); // 절전 복귀 등으로 dt가 튀어도 순간이동하지 않게
     last = now;
     const wasInside = dog.mode === "in_house";
-    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, rand: Math.random });
+    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, rand: Math.random });
     if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; emit("signal", { kind: "house", inside: true, awayMs: 0 }); }
 
     const anim = currentAnimation(dog);
@@ -218,7 +230,7 @@ async function main() {
       const f = frameAt(manifest, anim, now - animStart);
       const fr = frames.get(`${f.sx},${f.sy}`);
       const b = dogBox();
-      const left = Math.round(b.left), top = Math.round(b.top); // 픽셀아트가 번지지 않게 정수 좌표에 그린다
+      const left = Math.round(b.left), top = Math.round(b.top - dog.hop); // 정수 좌표(번짐 방지), 점프 중이면 위로 띄운다
       const flip = facingLeft ? dog.dir === 1 : dog.dir === -1;
       ctx.save();
       if (flip) { ctx.translate(left + dogW, 0); ctx.scale(-1, 1); ctx.translate(-left, 0); }
@@ -237,7 +249,7 @@ async function main() {
       // 강아지 머리 위 가운데에 맞추고(꼬리가 강아지를 가리킴) 화면 밖으로 나가지 않게 한다
       const bw = bubbleEl.offsetWidth, bh = bubbleEl.offsetHeight;
       bubbleEl.style.left = `${Math.max(0, Math.min(b.left + dogW / 2 - bw / 2, window.innerWidth - bw))}px`;
-      bubbleEl.style.top = `${Math.max(0, b.top + headTop - bh - BUBBLE_GAP)}px`;
+      bubbleEl.style.top = `${Math.max(0, b.top - dog.hop + headTop - bh - BUBBLE_GAP)}px`;
     }
     requestAnimationFrame(frame);
   };

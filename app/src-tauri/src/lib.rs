@@ -9,6 +9,9 @@ fn cursor_pos() -> (i32, i32) { signals::cursor() }
 #[tauri::command]
 fn idle_ms() -> u32 { signals::idle_ms() }
 
+#[tauri::command]
+fn windows_snapshot() -> Vec<signals::WinInfo> { signals::windows() }
+
 #[tauri::command] fn key_set(name: String, value: String) -> Result<(), String> { keys::set(&name, &value) }
 #[tauri::command] fn key_has(name: String) -> Result<bool, String> { keys::has(&name) }
 #[tauri::command] fn key_delete(name: String) -> Result<(), String> { keys::delete(&name) }
@@ -52,7 +55,7 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![cursor_pos, idle_ms, key_set, key_has, key_delete])
+        .invoke_handler(tauri::generate_handler![cursor_pos, idle_ms, windows_snapshot, key_set, key_has, key_delete])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

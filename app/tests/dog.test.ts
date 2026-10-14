@@ -1,13 +1,13 @@
 import { describe, test, expect } from "vitest";
 import {
-  newDog, step, playAction, toggleHouse, currentAnimation, decide, grab, holdAt, release, poke,
-  SLEEP_IDLE_MS, type World, type Senses, type Dog,
+  newDog, step, playAction, toggleHouse, currentAnimation, decide, grab, holdAt, release, poke, pickBehavior,
+  SLEEP_IDLE_MS, type World, type Senses, type Dog, type Win,
 } from "../src/body/dog";
 
 // 강아지 크기 100×80, 움직일 수 있는 영역은 강아지 왼쪽 위 기준 x 0~900, y 0~520
 const w: World = { width: 1000, height: 600, dogWidth: 100, dogHeight: 80, houseX: 800, houseY: 520, walkSpeed: 100, runSpeed: 250 };
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
-const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, rand: seq(0.99), ...o });
+const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], rand: seq(0.99), ...o });
 const at = (x: number, y: number, o: Partial<Dog> = {}): Dog => ({ ...newDog(x, y), ...o });
 
 describe("idle", () => {
@@ -53,7 +53,7 @@ describe("decide", () => {
     expect(d.running).toBe(true);
   });
   test("커서가 가까우면 가끔 커서 쪽으로 다가가 조금 앞에서 멈춘다", () => {
-    const d = decide(at(100, 100), w, 0, senses({ cursor: { x: 450, y: 140 }, rand: seq(0.1) }));
+    const d = decide(at(100, 100), w, 0, senses({ cursor: { x: 450, y: 140 }, rand: seq(0.01) }));
     expect(d.mode).toBe("walk_to");
     const cx = d.targetX + w.dogWidth / 2, cy = d.targetY + w.dogHeight / 2;
     const gap = Math.hypot(450 - cx, 140 - cy);
@@ -164,25 +164,125 @@ describe("몸 상호작용", () => {
     d = holdAt(d, -50, 1000, w);
     expect([d.x, d.y]).toEqual([0, 520]);
   });
-  test("던지면 날아가다 중력으로 떨어져 바닥에 착지한다", () => {
-    let d = release(grab(at(300, 100)), 200, -300);
+  test("천천히 끌어다 놓으면 그 자리에 그대로 둔다", () => {
+    let d = holdAt(grab(at(300, 300)), 500, 150, w);
+    d = release(d, 100, 50); // 느림
+    expect(d.mode).toBe("idle");
+    expect([d.x, d.y]).toEqual([500, 150]);
+  });
+  test("빠르게 던지면 날아가다 화면 아래 바닥에 떨어진다", () => {
+    let d = release(grab(at(300, 100)), 900, -300);
     expect(d.mode).toBe("thrown");
     expect(currentAnimation(d)).toBe("run");
     d = step(d, w, 0, 100, senses());
     expect(d.x).toBeGreaterThan(300);
     expect(d.y).toBeLessThan(100); // 처음엔 위로
-    for (let i = 0; i < 100 && d.mode === "thrown"; i++) d = step(d, w, i * 16, 16, senses());
+    for (let i = 0; i < 300 && d.mode === "thrown"; i++) d = step(d, w, i * 16, 16, senses());
     expect(d.mode).toBe("idle");
     expect(d.y).toBe(w.height - w.dogHeight);
   });
+  test("바닥에 세게 떨어지면 한 번 튕긴다", () => {
+    let d = release(grab(at(300, 420)), 0, 1500);
+    d = step(d, w, 0, 100, senses());
+    expect(d.mode).toBe("thrown");
+    expect(d.vy).toBeLessThan(0);
+  });
   test("화면 좌우 끝에 부딪히면 튕겨 나온다", () => {
-    let d = release(grab(at(880, 100)), 2000, 0);
+    let d = release(grab(at(880, 100)), 2000, -400);
     d = step(d, w, 0, 50, senses());
     expect(d.x).toBeLessThanOrEqual(w.width - w.dogWidth);
     expect(d.vx).toBeLessThan(0);
   });
   test("잡고 있거나 날아가는 동안에는 집 버튼을 무시한다", () => {
     expect(toggleHouse(grab(at(300, 200)), 0).mode).toBe("held");
-    expect(toggleHouse(release(grab(at(300, 200)), 0, 0), 0).mode).toBe("thrown");
+    expect(toggleHouse(release(grab(at(300, 200)), 900, -300), 0).mode).toBe("thrown");
   });
+});
+
+// ---- 강아지가 먼저 하는 인터랙션 ----
+const win = (o: Partial<Win> = {}): Win => ({ id: 1, left: 400, top: 300, width: 400, height: 200, active: true, ...o });
+const cursorNear = { x: 350, y: 240 };
+
+describe("행동 고르기", () => {
+  test("커서도 창도 없으면 대기 아니면 걷기만 나온다", () => {
+    const s = senses();
+    expect(pickBehavior(at(300, 200), w, s, 0.0)).toBe("idle");
+    expect(pickBehavior(at(300, 200), w, s, 0.99)).toBe("walk");
+  });
+  test("커서가 가까우면 다가가기·따라가기·사냥이 후보가 된다", () => {
+    const s = senses({ cursor: cursorNear });
+    const picked = new Set([0.01, 0.11, 0.16].map((r) => pickBehavior(at(300, 200), w, s, r)));
+    expect(picked).toEqual(new Set(["approach", "follow", "hunt"]));
+  });
+  test("창이 있으면 올라앉기·관찰이 후보가 된다", () => {
+    const s = senses({ windows: [win()] });
+    const picked = new Set([0.01, 0.12].map((r) => pickBehavior(at(300, 200), w, s, r)));
+    expect(picked).toEqual(new Set(["perch", "watch"]));
+  });
+});
+
+describe("커서 따라가기", () => {
+  test("정해진 시간 동안 커서 쪽으로 따라가고, 시간이 지나면 대기", () => {
+    let d: Dog = at(100, 100, { mode: "follow", until: 1000 });
+    const s = senses({ cursor: { x: 600, y: 300 } });
+    d = step(d, w, 0, 200, s);
+    expect(d.x).toBeGreaterThan(100);
+    expect(d.y).toBeGreaterThan(100);
+    expect(d.dir).toBe(1);
+    d = step(d, w, 1000, 16, s);
+    expect(d.mode).toBe("idle");
+  });
+  test("커서가 사라지면 그만둔다", () =>
+    expect(step(at(100, 100, { mode: "follow", until: 5000 }), w, 0, 16, senses()).mode).toBe("idle"));
+});
+
+describe("커서 사냥", () => {
+  test("멀면 달려가고, 가까워지면 점프해 덮친다", () => {
+    let d: Dog = at(0, 200, { mode: "hunt", until: 99999 });
+    const s = senses({ cursor: { x: 600, y: 240 } });
+    d = step(d, w, 0, 500, s);
+    expect(currentAnimation(d)).toBe("run");
+    for (let i = 0; i < 100 && d.mode === "hunt"; i++) d = step(d, w, i * 16, 16, s);
+    expect(d.mode).toBe("pounce");
+    const startT = d.pounceStart;
+    const mid = step(d, w, startT + 200, 16, s);
+    expect(mid.hop).toBeGreaterThan(10);
+    const end = step(mid, w, startT + 1000, 16, s);
+    expect(end.mode).not.toBe("pounce");
+    expect(end.hop).toBe(0);
+  });
+});
+
+describe("창 위에 올라앉기", () => {
+  const s = senses({ windows: [win()] });
+  test("창 윗변으로 가서 앉는다", () => {
+    let d = decide(at(300, 400), w, 0, { ...s, rand: seq(0.01, 0.5, 0.5, 0.5) });
+    expect(d.mode).toBe("perch_to");
+    for (let i = 0; i < 300 && d.mode === "perch_to"; i++) d = step(d, w, i * 16, 16, s);
+    expect(d.mode).toBe("perched");
+    expect(d.y).toBeCloseTo(300 - w.dogHeight);
+    expect(["idle_sit", "idle_lay"]).toContain(currentAnimation(d));
+  });
+  test("창을 옮기면 같이 움직이고, 창이 사라지면 떨어진다", () => {
+    let d = at(500, 220, { mode: "perched", targetWin: 1, perchFx: 0.5, until: 99999 });
+    d = step(d, w, 0, 16, senses({ windows: [win({ left: 200, top: 250 })] }));
+    expect(d.x).toBeCloseTo(200 + 200 - w.dogWidth / 2);
+    expect(d.y).toBeCloseTo(250 - w.dogHeight);
+    d = step(d, w, 16, 16, senses({ windows: [] }));
+    expect(d.mode).toBe("thrown");
+  });
+});
+
+describe("주변 관찰", () => {
+  const s = senses({ windows: [win()] });
+  test("창 옆으로 가서 창 쪽을 바라보며 앉는다", () => {
+    let d = decide(at(100, 400), w, 0, { ...s, rand: seq(0.12, 0.5) });
+    expect(d.mode).toBe("watch_to");
+    for (let i = 0; i < 300 && d.mode === "watch_to"; i++) d = step(d, w, i * 16, 16, s);
+    expect(d.mode).toBe("watching");
+    expect(d.dir).toBe(1); // 창은 강아지 오른쪽
+    expect(currentAnimation(d)).toBe("idle_sit");
+  });
+  test("창이 사라지면 그만둔다", () =>
+    expect(step(at(100, 400, { mode: "watching", targetWin: 1, until: 99999 }), w, 0, 16, senses()).mode).toBe("idle"));
 });
