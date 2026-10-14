@@ -1,6 +1,6 @@
 # 0009. 배경 모드는 "배경화면 대체" 방식으로 구현한다
 
-- 상태: 채택
+- 상태: 대체됨 ([0010](0010-overlay-only-with-doghouse.md)) — 배경 모드 자체를 뺐다
 - 날짜: 2026-10-14
 - 근거: [배경 모드 스파이크 결과](../spikes/background-mode.md)
 - 수정: [0003](0003-windows-display-modes.md)의 배경 모드 구현 방식
