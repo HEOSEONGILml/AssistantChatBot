@@ -162,7 +162,9 @@ export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
     case "watch":
       return { ...d, mode: "watch_to", targetWin: pickWindow(w, s).id };
     case "idle":
-      return { ...d, mode: "idle", pose: pickPose(s.rand()), until: now + between(s.rand(), PROFILES[s.activity].idleMin, PROFILES[s.activity].idleMax) };
+      // 쉬기에서는 자세를 고르지 않고 그 자리에 엎드려 잔다 (vision)
+      const pose = s.activity === "rest" ? "sleep" : pickPose(s.rand());
+      return { ...d, mode: "idle", pose, until: now + between(s.rand(), PROFILES[s.activity].idleMin, PROFILES[s.activity].idleMax) };
     case "walk": {
       const angle = s.rand() * 2 * Math.PI; // 화면 좌표: 0=오른쪽, π/2=아래
       const dist = between(s.rand(), WALK_MIN_PX, WALK_MAX_PX);
@@ -196,7 +198,8 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
   }
   switch (d.mode) {
     case "idle": {
-      if (d.pose === "sleep") return decide(d, w, now, s); // 사용자가 돌아왔다
+      // 자리 비움으로 잠들었다가 사용자가 돌아왔으면 깬다. 쉬기에서는 깨지 않는다
+      if (d.pose === "sleep" && s.activity !== "rest") return decide(d, w, now, s);
       let n = d;
       if (cursorDistance(d, w, s) < LOOK_RADIUS) n = { ...n, dir: s.cursor!.x >= center(d, w).x ? 1 : -1 };
       return now >= n.until ? decide(n, w, now, s) : n;

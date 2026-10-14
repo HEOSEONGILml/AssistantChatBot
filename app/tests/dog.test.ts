@@ -299,10 +299,18 @@ describe("움직임 정도", () => {
     expect(count("calm", "walk")).toBeLessThan(count("normal", "walk"));
     expect(count("normal", "walk")).toBeLessThan(count("lively", "walk"));
   });
-  test("쉬기는 대기 시간이 더 길다", () => {
-    const rest = decide(at(300, 200), w, 0, senses({ activity: "rest", rand: seq(0.1, 0.0, 0) }));
-    const normal = decide(at(300, 200), w, 0, senses({ activity: "normal", rand: seq(0.1, 0.0, 0) }));
-    expect(rest.until).toBeGreaterThan(normal.until);
+  test("쉬기에서는 그 자리에 엎드려 잔다", () => {
+    const d = decide(at(300, 200), w, 0, senses({ activity: "rest", rand: seq(0.1, 0.0, 0) }));
+    expect(d.mode).toBe("idle");
+    expect(currentAnimation(d)).toBe("sleep");
+  });
+  test("쉬기에서는 사용자가 PC를 쓰고 있어도 깨지 않는다", () => {
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "rest", userIdleMs: 0 }));
+    expect(currentAnimation(d)).toBe("sleep");
+  });
+  test("쉬기를 풀면 깨어난다", () => {
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "normal", userIdleMs: 0, rand: seq(0.1, 0.0, 0) }));
+    expect(currentAnimation(d)).toBe("idle_stand");
   });
   test("쉬기에서는 던져진 뒤에도 걸어 다니지 않는다", () => {
     const d = step(at(300, 200, { until: 0 }), w, 1000, 16, senses({ activity: "rest", rand: seq(0.99) }));
