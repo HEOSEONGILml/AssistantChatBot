@@ -1,14 +1,24 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+mod geom;
+mod signals;
+
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn region_covered(window: tauri::WebviewWindow, region: geom::Rect) -> Result<bool, String> {
+    let raw = window.hwnd().map_err(|e| e.to_string())?;
+    let above = signals::windows_above(windows::Win32::Foundation::HWND(raw.0 as _));
+    Ok(geom::covered(&region, &above))
 }
+
+#[tauri::command]
+fn cursor_pos() -> (i32, i32) { signals::cursor() }
+
+#[tauri::command]
+fn idle_ms() -> u32 { signals::idle_ms() }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![region_covered, cursor_pos, idle_ms])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
