@@ -28,7 +28,8 @@ export type Dog = {
 // width·height: 다닐 수 있는 영역(작업 영역) 크기. houseX·houseY: 집 앞에 선 강아지의 왼쪽 위
 export type World = { width: number; height: number; dogWidth: number; dogHeight: number; houseX: number; houseY: number; walkSpeed: number; runSpeed: number };
 // 창: 위치·크기와 사용 중인지만 안다 (제목·내용은 모른다). 좌표는 다닐 수 있는 영역 기준
-export type Win = { id: number; left: number; top: number; width: number; height: number; active: boolean };
+// span: 윗변 중 다른 창에 가려지지 않고 보이는 가장 넓은 구간 (exposeTopEdges가 채운다. 없으면 윗변 전체)
+export type Win = { id: number; left: number; top: number; width: number; height: number; active: boolean; span?: { left: number; right: number } | null };
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
 export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; rand: () => number };
 export type Behavior = "approach" | "follow" | "hunt" | "perch" | "watch" | "idle" | "walk";
@@ -82,7 +83,11 @@ const cursorDistance = (d: Dog, w: World, s: Senses) => {
 };
 const findWin = (s: Senses, id: number | null) => s.windows.find((x) => x.id === id) ?? null;
 // 강아지가 올라앉거나 구경할 수 있는 창: 강아지보다 넓고, 윗변이 영역 안에 있는 창
-const eligibleWindows = (w: World, s: Senses) => s.windows.filter((x) => x.width > w.dogWidth * 1.5 && x.top >= w.dogHeight);
+const spanOf = (x: Win) => (x.span === undefined ? { left: x.left, right: x.left + x.width } : x.span);
+const eligibleWindows = (w: World, s: Senses) => s.windows.filter((x) => {
+  const sp = spanOf(x);
+  return sp !== null && sp.right - sp.left > w.dogWidth * 1.5 && x.top >= w.dogHeight;
+});
 
 function pickPose(r: number): DogAction {
   if (r < 0.5) return "idle_stand";
@@ -110,7 +115,11 @@ function pickWindow(w: World, s: Senses): Win {
 }
 
 // 창 윗변 위에 앉는 지점 (강아지 왼쪽 위)
-const perchPoint = (win: Win, fx: number, w: World) => ({ x: clampX(win.left + fx * win.width - w.dogWidth / 2, w), y: clampY(win.top - w.dogHeight, w) });
+// 윗변 중 보이는 구간 안에 앉는다
+const perchPoint = (win: Win, fx: number, w: World) => {
+  const sp = spanOf(win) ?? { left: win.left, right: win.left + win.width };
+  return { x: clampX(sp.left + fx * (sp.right - sp.left) - w.dogWidth / 2, w), y: clampY(win.top - w.dogHeight, w) };
+};
 // 창 옆 아래쪽에서 창을 구경하는 지점
 function watchPoint(d: Dog, win: Win, w: World) {
   const winCenter = win.left + win.width / 2;
@@ -226,7 +235,7 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
     case "perched": {
       const win = findWin(s, d.targetWin);
       // 창이 닫히거나 최소화되면 그 자리에서 화면 아래로 떨어진다
-      if (!win) return { ...d, mode: "thrown", vx: 0, vy: 0, targetWin: null };
+      if (!win || spanOf(win) === null) return { ...d, mode: "thrown", vx: 0, vy: 0, targetWin: null };
       const p = perchPoint(win, d.perchFx, w); // 창을 옮기면 같이 움직인다
       const n = { ...d, x: p.x, y: p.y };
       return now >= d.until ? idleFor(n, now, PAUSE_MIN_MS) : n;

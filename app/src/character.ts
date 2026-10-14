@@ -5,6 +5,7 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
 import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
+import { exposeTopEdges } from "./body/windows";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX } from "./body/house";
@@ -193,11 +194,11 @@ async function main() {
   type WinInfo = { id: number; left: number; top: number; right: number; bottom: number; active: boolean };
   setInterval(async () => {
     const list = await invoke<WinInfo[]>("windows_snapshot").catch(() => [] as WinInfo[]);
-    wins = list.map((x) => {
+    wins = exposeTopEdges(list.map((x) => {
       const tl = physToCss({ x: x.left, y: x.top }, origin, scale);
       const br = physToCss({ x: x.right, y: x.bottom }, origin, scale);
       return { id: x.id, left: tl.x - area.left, top: tl.y - area.top, width: br.x - tl.x, height: br.y - tl.y, active: x.active };
-    });
+    }));
   }, 200);
 
   // 사용자가 자리에 있는지: 말풍선 "봤다" 판정과 강아지 잠들기에 쓴다
