@@ -3,7 +3,8 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
-import { newDog, step, playAction, toggleHouse, currentAnimation, type Dog, type World } from "./body/dog";
+import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World } from "./body/dog";
+import { newPetting, feedPetting } from "./body/petting";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX } from "./body/house";
@@ -23,6 +24,9 @@ const BUBBLE_GAP = 10;               // 말풍선 아래 꼬리(7px)와 강아�
 const ACTION_MS = 2500;              // 잠정값: 한 동작을 보여 주는 시간
 const USER_ACTIVE_IDLE_MS = 60_000;  // 잠정값: 마지막 입력 후 1분이 지나면 자리를 비운 것으로 본다
 const WALK_SPEED = 70, RUN_SPEED = 180; // 잠정값: CSS px/초
+const PET_MS = 2000;                 // 잠정값: 쓰다듬으면 조르는 시간
+const DRAG_START_PX = 6;             // 이만큼 끌면 찌르기가 아니라 잡기
+const THROW_SAMPLE_MS = 80;          // 놓기 직전 이 시간 동안의 움직임으로 던지는 속도를 잰다
 
 async function main() {
   const manifest: Manifest = await (await fetch("/sprites/dog/manifest.json")).json();
@@ -88,6 +92,8 @@ async function main() {
   let inputOpen = false;
   let userActive = true, userIdleMs = 0;
   let cursorCss: { x: number; y: number } | null = null;
+  let petting = newPetting();
+  let press: { x: number; y: number; offX: number; offY: number; samples: { x: number; y: number; t: number }[] } | null = null;
   let last = performance.now();
   let animStart = last;
   let lastAnim = currentAnimation(dog);
@@ -99,10 +105,15 @@ async function main() {
     const before = dog.mode;
     dog = toggleHouse(dog, Date.now());
     if (before === "in_house") emit("signal", { kind: "house", inside: false, awayMs: Date.now() - (dogHouseSince ?? Date.now()) });
-    if (dog.mode === "to_house") { bubble = null; bubbleEl.hidden = true; }
+    // 집으로 가면 말풍선을 치우고 열려 있던 입력창도 닫는다 (vision)
+    if (dog.mode === "to_house") { bubble = null; bubbleEl.hidden = true; emit("close-input"); }
   };
   // 입력창은 강아지 위치와 상관없이 집 위에 뜬다 (vision)
-  const toggleInput = () => emit("toggle-input", cssBoxToPhys(houseBox, origin, scale));
+  // 집에 있는 동안에는 입력창을 열지 않는다 (vision)
+  const toggleInput = () => {
+    if (dog.mode === "in_house" || dog.mode === "to_house") return;
+    emit("toggle-input", cssBoxToPhys(houseBox, origin, scale));
+  };
 
   listen<Reaction>("reaction", (e) => {
     if (dog.mode === "in_house" || dog.mode === "to_house") return; // 집에서는 완전히 조용 (vision)
@@ -124,11 +135,52 @@ async function main() {
     const [px, py] = await invoke<[number, number]>("cursor_pos");
     const p = physToCss({ x: px, y: py }, origin, scale);
     cursorCss = { x: p.x - area.left, y: p.y - area.top };
+    const overDog = dog.mode !== "in_house" && boxContains(dogBox(), p);
+    // 쓰다듬기: 누르지 않은 채 강아지 위에서 커서를 좌우로 문지르면
+    const pr = feedPetting(petting, p.x, Date.now(), overDog && !press);
+    petting = pr.state;
+    if (pr.petted && (dog.mode === "idle" || dog.mode === "walk_to" || dog.mode === "action")) {
+      dog = playAction(dog, "beg", Date.now(), PET_MS);
+      emit("signal", { kind: "interaction", type: "pet" });
+    }
     const over =
+      dog.mode === "held" || // 잡고 끄는 동안은 커서가 빨라도 놓치지 않게
       (houseVisible() && (boxContains(houseBox, p) || boxContains(chatBox, p))) ||
-      (dog.mode !== "in_house" && boxContains(dogBox(), p));
+      overDog;
     if (over === through) { through = !over; await win.setIgnoreCursorEvents(through); }
   }, 50);
+
+  // 몸 상호작용: 짧게 누르면 찌르기, 누른 채 끌면 잡기, 놓으면 던지기 (mochi 참고)
+  canvas.addEventListener("pointerdown", (ev) => {
+    if (dog.mode === "in_house" || !boxContains(dogBox(), { x: ev.clientX, y: ev.clientY })) return;
+    const b = dogBox();
+    press = { x: ev.clientX, y: ev.clientY, offX: ev.clientX - b.left, offY: ev.clientY - b.top, samples: [{ x: ev.clientX, y: ev.clientY, t: performance.now() }] };
+    canvas.setPointerCapture(ev.pointerId);
+  });
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!press) return;
+    const now = performance.now();
+    press.samples = [...press.samples.filter((q) => now - q.t < THROW_SAMPLE_MS), { x: ev.clientX, y: ev.clientY, t: now }];
+    if (dog.mode !== "held" && Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > DRAG_START_PX) {
+      dog = grab(dog);
+      bubble = null;
+    }
+    if (dog.mode === "held") dog = holdAt(dog, ev.clientX - area.left - press.offX, ev.clientY - area.top - press.offY, world);
+  });
+  canvas.addEventListener("pointerup", (ev) => {
+    if (!press) return;
+    canvas.releasePointerCapture(ev.pointerId);
+    if (dog.mode === "held") {
+      const first = press.samples[0], lastS = press.samples[press.samples.length - 1];
+      const dtS = Math.max((lastS.t - first.t) / 1000, 0.016);
+      dog = release(dog, (lastS.x - first.x) / dtS, (lastS.y - first.y) / dtS);
+      emit("signal", { kind: "interaction", type: "throw" });
+    } else {
+      dog = poke(dog, Date.now());
+      emit("signal", { kind: "interaction", type: "poke" });
+    }
+    press = null;
+  });
 
   canvas.addEventListener("click", (ev) => {
     const p = { x: ev.clientX, y: ev.clientY };

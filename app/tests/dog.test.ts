@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import {
-  newDog, step, playAction, toggleHouse, currentAnimation, decide,
+  newDog, step, playAction, toggleHouse, currentAnimation, decide, grab, holdAt, release, poke,
   SLEEP_IDLE_MS, type World, type Senses, type Dog,
 } from "../src/body/dog";
 
@@ -146,5 +146,43 @@ describe("house", () => {
   test("집에 있을 때는 사용자가 자리를 비워도 그대로", () => {
     const d = step(at(800, 520, { mode: "in_house" }), w, 0, 16, senses({ userIdleMs: SLEEP_IDLE_MS }));
     expect(d.mode).toBe("in_house");
+  });
+});
+
+describe("몸 상호작용", () => {
+  test("찌르면 짧게 짖는다", () => {
+    const d = poke(at(300, 200), 1000);
+    expect(currentAnimation(d)).toBe("bark");
+    expect(step(d, w, 1000 + 2000, 16, senses()).mode).toBe("idle");
+  });
+  test("집에 있을 때는 찔러도 반응하지 않는다", () =>
+    expect(poke(at(800, 520, { mode: "in_house" }), 0).mode).toBe("in_house"));
+  test("잡으면 스스로 움직이지 않고 커서를 따라간다 (화면 안으로 제한)", () => {
+    let d = grab(at(300, 200));
+    d = step(d, w, 99999, 1000, senses({ userIdleMs: SLEEP_IDLE_MS }));
+    expect(d.mode).toBe("held");
+    d = holdAt(d, -50, 1000, w);
+    expect([d.x, d.y]).toEqual([0, 520]);
+  });
+  test("던지면 날아가다 중력으로 떨어져 바닥에 착지한다", () => {
+    let d = release(grab(at(300, 100)), 200, -300);
+    expect(d.mode).toBe("thrown");
+    expect(currentAnimation(d)).toBe("run");
+    d = step(d, w, 0, 100, senses());
+    expect(d.x).toBeGreaterThan(300);
+    expect(d.y).toBeLessThan(100); // 처음엔 위로
+    for (let i = 0; i < 100 && d.mode === "thrown"; i++) d = step(d, w, i * 16, 16, senses());
+    expect(d.mode).toBe("idle");
+    expect(d.y).toBe(w.height - w.dogHeight);
+  });
+  test("화면 좌우 끝에 부딪히면 튕겨 나온다", () => {
+    let d = release(grab(at(880, 100)), 2000, 0);
+    d = step(d, w, 0, 50, senses());
+    expect(d.x).toBeLessThanOrEqual(w.width - w.dogWidth);
+    expect(d.vx).toBeLessThan(0);
+  });
+  test("잡고 있거나 날아가는 동안에는 집 버튼을 무시한다", () => {
+    expect(toggleHouse(grab(at(300, 200)), 0).mode).toBe("held");
+    expect(toggleHouse(release(grab(at(300, 200)), 0, 0), 0).mode).toBe("thrown");
   });
 });

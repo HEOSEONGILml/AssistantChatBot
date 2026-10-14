@@ -28,6 +28,9 @@ listen<{ left: number; top: number; right: number; bottom: number }>("toggle-inp
   else await show(e.payload);
 });
 
+// 강아지가 집에 들어가면 입력창을 닫는다
+listen("close-input", async () => { if (await win.isVisible()) await hide(); });
+
 box.addEventListener("input", () => emit("signal", { kind: "typing", text: box.value }));
 box.addEventListener("keydown", async (ev) => {
   if (ev.key === "Escape") { await hide(); return; }

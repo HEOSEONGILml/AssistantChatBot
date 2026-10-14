@@ -8,4 +8,5 @@ export type Signal =
   | { kind: "house"; inside: boolean; awayMs: number }
   | { kind: "bubble_seen" }
   | { kind: "user_return" }
-  | { kind: "user_away" };
+  | { kind: "user_away" }
+  | { kind: "interaction"; type: "poke" | "pet" | "throw" };
