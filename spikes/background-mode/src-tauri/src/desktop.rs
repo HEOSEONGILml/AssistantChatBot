@@ -70,3 +70,14 @@ pub fn foreground_class() -> String {
         String::from_utf16_lossy(&buf[..n as usize])
     }
 }
+
+use windows::Win32::System::SystemInformation::GetTickCount;
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+
+pub fn idle_ms() -> u32 {
+    unsafe {
+        let mut li = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
+        let _ = GetLastInputInfo(&mut li);
+        GetTickCount().wrapping_sub(li.dwTime)
+    }
+}

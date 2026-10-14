@@ -11,13 +11,14 @@ export function log(msg: string) {
 let x = 600;
 let dir = 1;
 let frozen = false;
+let lowBubble = false;
 function tick() {
   if (!frozen) x += dir * 2;
   if (x < 0 || x > window.innerWidth - 80) dir *= -1;
   dog.style.left = `${x}px`;
   const r = dog.getBoundingClientRect();
   bubble.style.left = `${r.left}px`;
-  bubble.style.top = `${r.top - 40}px`;
+  bubble.style.top = lowBubble ? `${window.innerHeight - 30}px` : `${r.top - 40}px`;
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
@@ -47,6 +48,7 @@ document.getElementById("btn-attach-wp")!.addEventListener("click", async () => 
 // 스파이크 자동 실행: SPIKE_MODE 환경 변수로 버튼 클릭을 대신한다
 invoke<string>("spike_mode").then((mode) => {
   if (mode) log(`auto mode=${mode}`);
+  if (mode.endsWith("-low")) { lowBubble = true; mode = mode.replace("-low", ""); }
   if (mode.endsWith("-freeze")) { frozen = true; mode = mode.replace("-freeze", ""); }
   const btn = { attach: "btn-attach", wp: "btn-attach-wp", key: "btn-attach-key" }[mode as "attach" | "wp" | "key"];
   if (btn) setTimeout(() => document.getElementById(btn)!.click(), 1500);
@@ -61,3 +63,15 @@ listen<Click>("desktop-click", (e) => {
   const onDog = cx >= r.left && cx < r.right && cy >= r.top && cy < r.bottom;
   log(`click phys=(${e.payload.x},${e.payload.y}) css=(${cx.toFixed(0)},${cy.toFixed(0)}) fg=${e.payload.foreground} onDog=${onDog}`);
 });
+
+async function probe() {
+  const dpr = window.devicePixelRatio;
+  const b = bubble.getBoundingClientRect();
+  const region = { left: Math.round(b.left * dpr), top: Math.round(b.top * dpr), right: Math.round(b.right * dpr), bottom: Math.round(b.bottom * dpr) };
+  try {
+    const covered = await invoke<string[]>("region_covered_by", { region });
+    const s = await invoke<{ foreground: string; desktop_exposed: boolean; idle_ms: number }>("desktop_status");
+    log(`bubble covered=${covered.length > 0} by=[${covered.join(",")}] fg=${s.foreground} exposed=${s.desktop_exposed} idle=${s.idle_ms}ms`);
+  } catch (e) { log(`probe error: ${e}`); }
+}
+setInterval(probe, 3000);
