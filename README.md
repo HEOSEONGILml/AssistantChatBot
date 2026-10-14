@@ -4,7 +4,7 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 사용자가 타이핑으로 말을 걸고, 캐릭터도 스스로 말을 건다.
 **TypeSafe Jev**가 타이핑 도중의 반응, 끼어들기, 먼저 말 걸 시점을 실시간으로 결정한다.
 
-> 상태: 설계 단계. 아직 코드가 없다.
+> 상태: 몸체(서브 프로젝트 1) 완료 — 강아지가 화면 위를 돌아다니고 입력창·말풍선·강아지 집이 동작한다. 두뇌(Jev·Gemini)는 다음 단계.
 
 ## 문서 지도
 
@@ -20,6 +20,7 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
 | [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md) |
+| [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32 동작 수동 확인 체크리스트 |
 
 ## 결정 기록
 
