@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-import { frameAt, type Manifest } from "./body/sprite";
+import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
 import { newDog, step, playAction, toggleHouse, currentAnimation, type Dog, type World } from "./body/dog";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
@@ -26,10 +26,29 @@ const WALK_SPEED = 70, RUN_SPEED = 180; // 잠정값: CSS px/초
 
 async function main() {
   const manifest: Manifest = await (await fetch("/sprites/dog/manifest.json")).json();
+  // 프레임을 한 칸씩 잘라 따로 보관한다. 시트에서 바로 늘려 그리면 1.5배 같은 배율에서
+  // 바로 위 칸의 픽셀이 섞여 칸 위쪽에 희미한 줄이 생긴다. 칸마다 그림이 시작되는 높이도 함께 잰다.
+  type Frame = { canvas: HTMLCanvasElement; top: number };
+  const frames = new Map<string, Frame>();
   const sheet = new Image();
-  let sheetOk = false;
-  sheet.onload = () => (sheetOk = true);
+  sheet.onload = () => {
+    const full = document.createElement("canvas");
+    full.width = sheet.width; full.height = sheet.height;
+    const fctx = full.getContext("2d")!;
+    fctx.drawImage(sheet, 0, 0);
+    const alpha = fctx.getImageData(0, 0, sheet.width, sheet.height).data;
+    for (const a of Object.values(manifest.animations)) {
+      for (let i = 0; i < a.frames; i++) {
+        const r = { sx: ((a.col ?? 0) + i) * manifest.frameWidth, sy: a.row * manifest.frameHeight, sw: manifest.frameWidth, sh: manifest.frameHeight };
+        const c = document.createElement("canvas");
+        c.width = r.sw; c.height = r.sh;
+        c.getContext("2d")!.drawImage(full, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
+        frames.set(`${r.sx},${r.sy}`, { canvas: c, top: opaqueTop(alpha, sheet.width, r) });
+      }
+    }
+  };
   sheet.src = manifest.image;
+  let headTop = 0; // 지금 그린 프레임에서 그림이 시작되는 높이 (CSS px, 강아지 칸 위쪽 기준)
 
   const mon = await primaryMonitor();
   const scale = mon?.scaleFactor ?? window.devicePixelRatio;
@@ -145,13 +164,16 @@ async function main() {
     }
     if (dog.mode !== "in_house") {
       const f = frameAt(manifest, anim, now - animStart);
+      const fr = frames.get(`${f.sx},${f.sy}`);
       const b = dogBox();
+      const left = Math.round(b.left), top = Math.round(b.top); // 픽셀아트가 번지지 않게 정수 좌표에 그린다
       const flip = facingLeft ? dog.dir === 1 : dog.dir === -1;
       ctx.save();
-      if (flip) { ctx.translate(b.left + dogW, 0); ctx.scale(-1, 1); ctx.translate(-b.left, 0); }
-      if (sheetOk) ctx.drawImage(sheet, f.sx, f.sy, f.sw, f.sh, b.left, b.top, dogW, dogH);
-      else { ctx.fillStyle = "#c8843a"; ctx.fillRect(b.left, b.top, dogW, dogH); }
+      if (flip) { ctx.translate(left + dogW, 0); ctx.scale(-1, 1); ctx.translate(-left, 0); }
+      if (fr) ctx.drawImage(fr.canvas, left, top, dogW, dogH);
+      else { ctx.fillStyle = "#c8843a"; ctx.fillRect(left, top, dogW, dogH); }
       ctx.restore();
+      headTop = fr ? fr.top * manifest.scale : 0;
     }
 
     const t = tickBubble(bubble, Date.now(), dt, userActive);
@@ -163,7 +185,7 @@ async function main() {
       // 강아지 머리 위 가운데에 맞추고(꼬리가 강아지를 가리킴) 화면 밖으로 나가지 않게 한다
       const bw = bubbleEl.offsetWidth, bh = bubbleEl.offsetHeight;
       bubbleEl.style.left = `${Math.max(0, Math.min(b.left + dogW / 2 - bw / 2, window.innerWidth - bw))}px`;
-      bubbleEl.style.top = `${Math.max(0, b.top - bh - BUBBLE_GAP)}px`;
+      bubbleEl.style.top = `${Math.max(0, b.top + headTop - bh - BUBBLE_GAP)}px`;
     }
     requestAnimationFrame(frame);
   };

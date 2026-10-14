@@ -20,3 +20,22 @@ test("시작 칸(col)부터 센다", () => {
   expect(frameAt(m, "yap", 150).sx).toBe(7 * 64);
   expect(frameAt(m, "yap", 250).sx).toBe(6 * 64);
 });
+
+import { opaqueTop } from "../src/body/sprite";
+
+// 4×4 시트 RGBA. 프레임은 2×2 네 칸. 알파만 의미 있다
+function sheetAlpha(opaque: [number, number][]) {
+  const a = new Uint8ClampedArray(4 * 4 * 4);
+  for (const [x, y] of opaque) a[(y * 4 + x) * 4 + 3] = 255;
+  return a;
+}
+
+test("프레임 안에서 처음으로 그림이 있는 줄을 찾는다", () => {
+  const a = sheetAlpha([[3, 1], [2, 3]]); // 오른쪽 위 칸의 둘째 줄, 오른쪽 아래 칸의 둘째 줄
+  expect(opaqueTop(a, 4, { sx: 2, sy: 0, sw: 2, sh: 2 })).toBe(1);
+  expect(opaqueTop(a, 4, { sx: 2, sy: 2, sw: 2, sh: 2 })).toBe(1);
+});
+test("다른 칸의 픽셀은 보지 않는다", () => {
+  const a = sheetAlpha([[0, 1]]); // 왼쪽 위 칸에만 그림
+  expect(opaqueTop(a, 4, { sx: 2, sy: 0, sw: 2, sh: 2 })).toBe(2); // 빈 칸이면 높이(sh)
+});
