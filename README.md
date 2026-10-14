@@ -16,9 +16,10 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [`docs/glossary.md`](docs/glossary.md) | 용어 정의 (Jev, state, 끼어들기, 선발화 등) |
 | [`docs/decisions/`](docs/decisions/) | 결정 기록(ADR). 결정 하나에 파일 하나 |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
+| [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
-| [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과 |
+| [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md) |
 
 ## 결정 기록
 
