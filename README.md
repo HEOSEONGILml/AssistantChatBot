@@ -25,3 +25,4 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 |---|---|---|
 | [0001](docs/decisions/0001-jev-as-decision-engine.md) | 실시간 반응 결정에 Jev를 쓴다 | 채택 |
 | [0002](docs/decisions/0002-platform-order.md) | Windows PC 먼저, Android는 그다음 | 채택 |
+| [0003](docs/decisions/0003-windows-display-modes.md) | Windows 배경·오버레이 모드 모두 지원, 설정으로 고정 | 채택 |
