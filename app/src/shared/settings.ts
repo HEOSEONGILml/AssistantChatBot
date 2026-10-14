@@ -1,8 +1,10 @@
 import { Store } from "@tauri-apps/plugin-store";
+import type { Activity } from "../body/dog";
 
-export type Settings = { inputAlwaysVisible: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
+export type Settings = { activity: Activity; inputAlwaysVisible: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
 
 export const DEFAULT_SETTINGS: Settings = {
+  activity: "normal",
   inputAlwaysVisible: false,
   hideHouseWhenInside: false,
   inputShortcut: "CommandOrControl+Shift+Space",

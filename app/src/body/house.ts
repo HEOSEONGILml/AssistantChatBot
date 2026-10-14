@@ -57,3 +57,32 @@ export function drawChatIcon(ctx: CanvasRenderingContext2D, x: number, y: number
     }),
   );
 }
+
+// 톱니바퀴 아이콘 (12×12). 누르면 설정 창을 연다.
+const GEAR_PIXELS = [
+  ".....KK.....",
+  "..K.KGGK.K..",
+  ".KGKGGGGKGK.",
+  "..KGGGGGGK..",
+  ".KGGGKKGGGK.",
+  "KGGGK..KGGGK",
+  "KGGGK..KGGGK",
+  ".KGGGKKGGGK.",
+  "..KGGGGGGK..",
+  ".KGKGGGGKGK.",
+  "..K.KGGK.K..",
+  ".....KK.....",
+];
+const GEAR_COLORS: Record<string, string> = { K: "#222222", G: "#c9c9c9" };
+
+export const GEAR_PX = { width: 12, height: 12 };
+
+export function drawGearIcon(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  GEAR_PIXELS.forEach((row, r) =>
+    [...row].forEach((ch, c) => {
+      if (ch === ".") return;
+      ctx.fillStyle = GEAR_COLORS[ch];
+      ctx.fillRect(x + c * scale, y + r * scale, scale, scale);
+    }),
+  );
+}

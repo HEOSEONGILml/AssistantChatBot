@@ -15,6 +15,7 @@ async function refreshKeyState() {
 
 async function init() {
   const s = await loadSettings();
+  ($("activity") as HTMLSelectElement).value = s.activity;
   ($("inputAlwaysVisible") as HTMLInputElement).checked = s.inputAlwaysVisible;
   ($("hideHouseWhenInside") as HTMLInputElement).checked = s.hideHouseWhenInside;
   ($("inputShortcut") as HTMLInputElement).value = s.inputShortcut;
@@ -25,6 +26,7 @@ async function init() {
 $("save").addEventListener("click", async () => {
   msg.textContent = "";
   const s: Settings = {
+    activity: ($("activity") as HTMLSelectElement).value as Settings["activity"],
     inputAlwaysVisible: ($("inputAlwaysVisible") as HTMLInputElement).checked,
     hideHouseWhenInside: ($("hideHouseWhenInside") as HTMLInputElement).checked,
     inputShortcut: ($("inputShortcut") as HTMLInputElement).value.trim(),

@@ -7,7 +7,7 @@ import {
 // 강아지 크기 100×80, 움직일 수 있는 영역은 강아지 왼쪽 위 기준 x 0~900, y 0~520
 const w: World = { width: 1000, height: 600, dogWidth: 100, dogHeight: 80, houseX: 800, houseY: 520, walkSpeed: 100, runSpeed: 250 };
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
-const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], rand: seq(0.99), ...o });
+const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], activity: "normal", rand: seq(0.99), ...o });
 const at = (x: number, y: number, o: Partial<Dog> = {}): Dog => ({ ...newDog(x, y), ...o });
 
 describe("idle", () => {
@@ -285,4 +285,27 @@ describe("주변 관찰", () => {
   });
   test("창이 사라지면 그만둔다", () =>
     expect(step(at(100, 400, { mode: "watching", targetWin: 1, until: 99999 }), w, 0, 16, senses()).mode).toBe("idle"));
+});
+
+describe("움직임 정도", () => {
+  const busy = senses({ cursor: cursorNear, windows: [win()] });
+  const count = (activity: Senses["activity"], b: string) => {
+    let n = 0;
+    for (let i = 0; i < 100; i++) if (pickBehavior(at(300, 200), w, { ...busy, activity }, i / 100) === b) n++;
+    return n;
+  };
+  test("쉬기는 커서·창이 있어도 대기만 고른다", () => expect(count("rest", "idle")).toBe(100));
+  test("차분 < 보통 < 활발 순서로 걷기가 잦다", () => {
+    expect(count("calm", "walk")).toBeLessThan(count("normal", "walk"));
+    expect(count("normal", "walk")).toBeLessThan(count("lively", "walk"));
+  });
+  test("쉬기는 대기 시간이 더 길다", () => {
+    const rest = decide(at(300, 200), w, 0, senses({ activity: "rest", rand: seq(0.1, 0.0, 0) }));
+    const normal = decide(at(300, 200), w, 0, senses({ activity: "normal", rand: seq(0.1, 0.0, 0) }));
+    expect(rest.until).toBeGreaterThan(normal.until);
+  });
+  test("쉬기에서는 던져진 뒤에도 걸어 다니지 않는다", () => {
+    const d = step(at(300, 200, { until: 0 }), w, 1000, 16, senses({ activity: "rest", rand: seq(0.99) }));
+    expect(d.mode).toBe("idle");
+  });
 });

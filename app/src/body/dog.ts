@@ -31,20 +31,28 @@ export type World = { width: number; height: number; dogWidth: number; dogHeight
 // span: 윗변 중 다른 창에 가려지지 않고 보이는 가장 넓은 구간 (exposeTopEdges가 채운다. 없으면 윗변 전체)
 export type Win = { id: number; left: number; top: number; width: number; height: number; active: boolean; span?: { left: number; right: number } | null };
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
-export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; rand: () => number };
+// activity: 설정의 움직임 정도. 성격과 무관하게 사용자가 고정한 값이다 (vision)
+export type Activity = "rest" | "calm" | "normal" | "lively";
+export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; activity: Activity; rand: () => number };
 export type Behavior = "approach" | "follow" | "hunt" | "perch" | "watch" | "idle" | "walk";
 
 // 잠정값들 (사용자 체감으로 조정)
 export const SLEEP_IDLE_MS = 3 * 60 * 1000;   // mochi와 같이 3분 무입력이면 잔다
-const IDLE_MIN_MS = 3000, IDLE_MAX_MS = 10000;
+const IDLE_MAX_MS = 10000;                     // 잠든 뒤 다시 확인하는 간격
 const PAUSE_MIN_MS = 1500, PAUSE_MAX_MS = 4000; // 걸어간 뒤 잠깐 멈추는 시간
 const WALK_MIN_PX = 80, WALK_MAX_PX = 400;
-const RUN_CHANCE = 0.2;
 const LOOK_RADIUS = 300;                      // 이 안에 커서가 있으면 바라본다
 const CURSOR_RADIUS = 450;                    // 이 안에 커서가 있으면 커서 관련 행동이 후보가 된다
 const APPROACH_STOP_PX = 60;                  // 커서 바로 앞이 아니라 조금 떨어져 멈춘다
-// 다음 행동 가중치. 조건이 맞지 않는 행동은 후보에서 빠진다
-const WEIGHTS: Record<Behavior, number> = { approach: 0.12, follow: 0.06, hunt: 0.06, perch: 0.1, watch: 0.1, idle: 0.6, walk: 0.4 };
+// 움직임 정도별 프로필: 다음 행동 가중치(조건이 맞지 않거나 0인 행동은 후보에서 빠진다), 대기 시간, 달리기 확률.
+// 쉬기는 이동하는 행동을 모두 뺀다 (집중하고 싶지만 강아지를 집에 넣고 싶지는 않을 때, vision)
+type Profile = { weights: Record<Behavior, number>; idleMin: number; idleMax: number; runChance: number };
+const PROFILES: Record<Activity, Profile> = {
+  rest:   { weights: { approach: 0,    follow: 0,    hunt: 0,    perch: 0,    watch: 0,    idle: 1,   walk: 0   }, idleMin: 8000, idleMax: 20000, runChance: 0 },
+  calm:   { weights: { approach: 0.05, follow: 0.02, hunt: 0.02, perch: 0.08, watch: 0.08, idle: 0.8, walk: 0.2 }, idleMin: 5000, idleMax: 15000, runChance: 0.1 },
+  normal: { weights: { approach: 0.12, follow: 0.06, hunt: 0.06, perch: 0.1,  watch: 0.1,  idle: 0.6, walk: 0.4 }, idleMin: 3000, idleMax: 10000, runChance: 0.2 },
+  lively: { weights: { approach: 0.15, follow: 0.12, hunt: 0.12, perch: 0.12, watch: 0.1,  idle: 0.4, walk: 0.6 }, idleMin: 1500, idleMax: 5000,  runChance: 0.35 },
+};
 const FOLLOW_MIN_MS = 5000, FOLLOW_MAX_MS = 10000;
 const FOLLOW_GAP_PX = 70;                     // 커서와 이만큼 떨어져 따라간다
 const HUNT_MS = 6000;                         // 이 시간 안에 못 잡으면 그만둔다
@@ -99,11 +107,12 @@ function pickPose(r: number): DogAction {
 export function pickBehavior(d: Dog, w: World, s: Senses, r: number): Behavior {
   const cursorNear = cursorDistance(d, w, s) < CURSOR_RADIUS;
   const hasWin = eligibleWindows(w, s).length > 0;
-  const options = (Object.keys(WEIGHTS) as Behavior[]).filter((b) =>
-    b === "approach" || b === "follow" || b === "hunt" ? cursorNear : b === "perch" || b === "watch" ? hasWin : true);
-  const total = options.reduce((sum, b) => sum + WEIGHTS[b], 0);
+  const weights = PROFILES[s.activity].weights;
+  const options = (Object.keys(weights) as Behavior[]).filter((b) => weights[b] > 0 &&
+    (b === "approach" || b === "follow" || b === "hunt" ? cursorNear : b === "perch" || b === "watch" ? hasWin : true));
+  const total = options.reduce((sum, b) => sum + weights[b], 0);
   let acc = 0;
-  for (const b of options) { acc += WEIGHTS[b]; if (r * total < acc) return b; }
+  for (const b of options) { acc += weights[b]; if (r * total < acc) return b; }
   return options[options.length - 1];
 }
 
@@ -153,7 +162,7 @@ export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
     case "watch":
       return { ...d, mode: "watch_to", targetWin: pickWindow(w, s).id };
     case "idle":
-      return { ...d, mode: "idle", pose: pickPose(s.rand()), until: now + between(s.rand(), IDLE_MIN_MS, IDLE_MAX_MS) };
+      return { ...d, mode: "idle", pose: pickPose(s.rand()), until: now + between(s.rand(), PROFILES[s.activity].idleMin, PROFILES[s.activity].idleMax) };
     case "walk": {
       const angle = s.rand() * 2 * Math.PI; // 화면 좌표: 0=오른쪽, π/2=아래
       const dist = between(s.rand(), WALK_MIN_PX, WALK_MAX_PX);
@@ -161,7 +170,7 @@ export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
         ...d, mode: "walk_to",
         targetX: clampX(d.x + Math.cos(angle) * dist, w),
         targetY: clampY(d.y + Math.sin(angle) * dist, w),
-        running: s.rand() < RUN_CHANCE,
+        running: s.rand() < PROFILES[s.activity].runChance,
       };
     }
   }

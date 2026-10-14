@@ -3,12 +3,13 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
-import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win } from "./body/dog";
+import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, type Activity } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
 import { exposeTopEdges } from "./body/windows";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
-import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX } from "./body/house";
+import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX, drawGearIcon, GEAR_PX } from "./body/house";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { stubReact } from "./body/stub-brain";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
 import type { Reaction, Signal } from "./shared/types";
@@ -79,6 +80,8 @@ async function main() {
   // 집과 말풍선 아이콘: 작업 영역 오른쪽 아래 (CSS 좌표)
   const houseBox: Box = { left: area.left + area.width - houseW - 40, top: area.top + area.height - houseH, width: houseW, height: houseH };
   const chatBox: Box = { left: houseBox.left - chatW - ICON_GAP, top: area.top + area.height - chatH - 4, width: chatW, height: chatH };
+  const gearW = GEAR_PX.width * HOUSE_SCALE, gearH = GEAR_PX.height * HOUSE_SCALE;
+  const gearBox: Box = { left: chatBox.left - gearW - ICON_GAP, top: area.top + area.height - gearH - 4, width: gearW, height: gearH };
   // 강아지 좌표는 작업 영역 기준(dog.ts). 집 앞에 선 위치도 같은 기준으로
   const world: World = {
     width: area.width, height: area.height, dogWidth: dogW, dogHeight: dogH,
@@ -89,6 +92,7 @@ async function main() {
   let dog: Dog = newDog(area.width / 3, area.height - dogH);
   let bubble: Bubble = null;
   let hideHouseWhenInside = false;
+  let activity: Activity = "normal";
   let dogHouseSince: number | null = null;
   let inputOpen = false;
   let userActive = true, userIdleMs = 0;
@@ -127,6 +131,11 @@ async function main() {
     if (r) emit("reaction", r);
   });
   listen("toggle-house", doToggleHouse);
+  // 톱니바퀴 아이콘: 설정 창 열기
+  const openSettings = async () => {
+    const s = await WebviewWindow.getByLabel("settings");
+    if (s) { await s.show(); await s.setFocus(); }
+  };
   listen<boolean>("input-visibility", (e) => (inputOpen = e.payload));
 
   // 클릭 통과: 커서가 집·말풍선 아이콘·강아지 위에 있을 때만 클릭을 받는다.
@@ -147,7 +156,7 @@ async function main() {
     }
     const over =
       dog.mode === "held" || // 잡고 끄는 동안은 커서가 빨라도 놓치지 않게
-      (houseVisible() && (boxContains(houseBox, p) || boxContains(chatBox, p))) ||
+      (houseVisible() && (boxContains(houseBox, p) || boxContains(chatBox, p) || boxContains(gearBox, p))) ||
       overDog;
     if (over === through) { through = !over; await win.setIgnoreCursorEvents(through); }
   }, 50);
@@ -188,6 +197,7 @@ async function main() {
     const p = { x: ev.clientX, y: ev.clientY };
     if (houseVisible() && boxContains(houseBox, p)) return doToggleHouse();
     if (houseVisible() && boxContains(chatBox, p)) return toggleInput();
+    if (houseVisible() && boxContains(gearBox, p)) return openSettings();
   });
 
   // 주변 창: 강아지가 올라앉거나 구경할 창. 위치·크기와 사용 중인지만 받는다(제목·내용은 읽지 않는다)
@@ -216,7 +226,7 @@ async function main() {
     const dt = Math.min(now - last, 250); // 절전 복귀 등으로 dt가 튀어도 순간이동하지 않게
     last = now;
     const wasInside = dog.mode === "in_house";
-    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, rand: Math.random });
+    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, activity, rand: Math.random });
     if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; emit("signal", { kind: "house", inside: true, awayMs: 0 }); }
 
     const anim = currentAnimation(dog);
@@ -226,6 +236,7 @@ async function main() {
     if (houseVisible()) {
       drawHouse(ctx, houseBox.left, houseBox.top, HOUSE_SCALE);
       drawChatIcon(ctx, chatBox.left, chatBox.top, HOUSE_SCALE, inputOpen);
+      drawGearIcon(ctx, gearBox.left, gearBox.top, HOUSE_SCALE);
     }
     if (dog.mode !== "in_house") {
       const f = frameAt(manifest, anim, now - animStart);
@@ -288,9 +299,11 @@ async function main() {
 
   const s0 = await loadSettings();
   hideHouseWhenInside = s0.hideHouseWhenInside;
+  activity = s0.activity;
   await enqueue(s0);
   listen<Settings>("settings-changed", (e) => {
     hideHouseWhenInside = e.payload.hideHouseWhenInside;
+    activity = e.payload.activity;
     enqueue(e.payload);
   });
 
