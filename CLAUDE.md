@@ -28,7 +28,15 @@
 - **외부 호출 격리**: Jev, LLM 등 외부 AI 호출은 클라이언트 계층을 거친다. 실패 시 fallback 동작을 정하고 실패를 기록한다.
 - **행동의 지역성**: 함수 하나만 감싸는 얇은 래퍼 모듈을 만들지 않는다.
 
-스택은 Tauri(Rust + TypeScript)다 ([0008](docs/decisions/0008-tech-stack-tauri.md)). 디렉터리 구조와 테스트 명령은 스펙이 확정되면 이 절에 추가한다.
+스택은 Tauri(Rust + TypeScript)다 ([0008](docs/decisions/0008-tech-stack-tauri.md)). 앱은 `app/`에 있다.
+
+| 작업 | 명령 (`app/`에서) |
+|---|---|
+| 개발 실행 | `npm run tauri dev` |
+| 프론트엔드 테스트 | `npm test` |
+| Rust 테스트 | `cd src-tauri && cargo test` |
+
+화면과 분리된 순수 로직(`src/body/*.ts`, `src-tauri/src/geom.rs`)은 단위 테스트한다. 창·Win32에 의존하는 동작은 `docs/manual-checks/`의 체크리스트로 확인한다.
 
 ## 4. Jev 사용 규칙
 

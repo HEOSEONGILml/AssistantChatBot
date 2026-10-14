@@ -222,3 +222,8 @@ __marimo__/
 # Claude Code local settings
 CLAUDE.local.md
 .claude/settings.local.json
+
+# app build outputs
+app/node_modules/
+app/dist/
+app/src-tauri/target/
