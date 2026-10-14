@@ -42,6 +42,7 @@ pub fn run() {
                 win.set_position(*mon.position())?;
                 win.set_size(*mon.size())?;
             }
+            hook::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![attach_to_desktop, attach_color_key, wallpaper_bytes, spike_mode])

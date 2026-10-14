@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 const dog = document.getElementById("dog")!;
 const bubble = document.getElementById("bubble")!;
@@ -7,10 +8,11 @@ export function log(msg: string) {
   logEl.textContent = `${new Date().toLocaleTimeString()} ${msg}\n` + logEl.textContent;
 }
 
-let x = 0;
+let x = 600;
 let dir = 1;
+let frozen = false;
 function tick() {
-  x += dir * 2;
+  if (!frozen) x += dir * 2;
   if (x < 0 || x > window.innerWidth - 80) dir *= -1;
   dog.style.left = `${x}px`;
   const r = dog.getBoundingClientRect();
@@ -45,6 +47,17 @@ document.getElementById("btn-attach-wp")!.addEventListener("click", async () => 
 // 스파이크 자동 실행: SPIKE_MODE 환경 변수로 버튼 클릭을 대신한다
 invoke<string>("spike_mode").then((mode) => {
   if (mode) log(`auto mode=${mode}`);
+  if (mode.endsWith("-freeze")) { frozen = true; mode = mode.replace("-freeze", ""); }
   const btn = { attach: "btn-attach", wp: "btn-attach-wp", key: "btn-attach-key" }[mode as "attach" | "wp" | "key"];
   if (btn) setTimeout(() => document.getElementById(btn)!.click(), 1500);
+});
+
+type Click = { x: number; y: number; foreground: string };
+listen<Click>("desktop-click", (e) => {
+  const dpr = window.devicePixelRatio;
+  const cx = e.payload.x / dpr;
+  const cy = e.payload.y / dpr;
+  const r = dog.getBoundingClientRect();
+  const onDog = cx >= r.left && cx < r.right && cy >= r.top && cy < r.bottom;
+  log(`click phys=(${e.payload.x},${e.payload.y}) css=(${cx.toFixed(0)},${cy.toFixed(0)}) fg=${e.payload.foreground} onDog=${onDog}`);
 });

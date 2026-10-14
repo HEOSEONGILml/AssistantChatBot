@@ -60,3 +60,13 @@ pub fn wallpaper_path() -> Option<String> {
     let n = buf.iter().position(|&c| c == 0).unwrap_or(0);
     if n == 0 { None } else { Some(String::from_utf16_lossy(&buf[..n])) }
 }
+
+use windows::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetForegroundWindow};
+
+pub fn foreground_class() -> String {
+    unsafe {
+        let mut buf = [0u16; 256];
+        let n = GetClassNameW(GetForegroundWindow(), &mut buf);
+        String::from_utf16_lossy(&buf[..n as usize])
+    }
+}
