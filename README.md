@@ -27,4 +27,4 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [0002](docs/decisions/0002-platform-order.md) | Windows PC 먼저, Android는 그다음 | 채택 |
 | [0003](docs/decisions/0003-windows-display-modes.md) | Windows 배경·오버레이 모드 모두 지원, 설정으로 고정 | 채택 |
 | [0004](docs/decisions/0004-input-box-trigger.md) | 캐릭터 클릭·전역 단축키로 입력창, 상시 표시는 설정 | 채택 |
-| [0005](docs/decisions/0005-local-history-storage.md) | 대화 기록은 PC에만 저장, 서버 없음 | 채택 |
+| [0005](docs/decisions/0005-local-history-storage.md) | 대화 기록은 PC에 저장, Jev·LLM 호출은 서버 중계 | 채택 |
