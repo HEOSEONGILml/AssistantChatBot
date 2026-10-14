@@ -4,8 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>talk</title>
-    <script type="module" src="/src/input.ts" defer></script>
+    <style>
+      html, body { margin: 0; background: transparent; }
+      #talk { box-sizing: border-box; width: 100%; height: 56px; padding: 0 14px; border: 3px solid #222;
+        background: #fffdf5; font: 16px "Malgun Gothic", sans-serif; outline: none; }
+    </style>
   </head>
   <body>
+    <input id="talk" placeholder="강아지에게 말 걸기… (Enter 보내기, Esc 닫기)" autocomplete="off" />
+    <script type="module" src="/src/input.ts"></script>
   </body>
 </html>

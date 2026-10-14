@@ -6,7 +6,8 @@ import { newDog, step, playAction, toggleHouse, currentAnimation, type Dog, type
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX } from "./body/house";
-import type { Reaction } from "./shared/types";
+import type { Reaction, Signal } from "./shared/types";
+import { stubReact } from "./body/stub-brain";
 import "./styles.css";
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -62,6 +63,10 @@ async function main() {
     if (dog.mode === "in_house" || dog.mode === "to_house") return; // 집에서는 완전히 조용 (vision)
     if (e.payload.action) dog = playAction(dog, e.payload.action, Date.now(), ACTION_MS);
     if (e.payload.utterance) { bubble = showBubble(e.payload.utterance); bubbleEl.textContent = e.payload.utterance; }
+  });
+  listen<Signal>("signal", (e) => {
+    const r = stubReact(e.payload);
+    if (r) emit("reaction", r);
   });
   listen("toggle-house", doToggleHouse);
   listen<boolean>("setting-hide-house", (e) => (hideHouseWhenInside = e.payload));
