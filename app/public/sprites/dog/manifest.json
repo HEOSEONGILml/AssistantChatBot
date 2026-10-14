@@ -2,7 +2,7 @@
   "image": "/sprites/dog/dog-02.png",
   "frameWidth": 64,
   "frameHeight": 48,
-  "scale": 2,
+  "scale": 1.5,
   "facing": "left",
   "animations": {
     "idle_stand": { "row": 0, "frames": 6, "fps": 6, "loop": true },

@@ -36,7 +36,7 @@
 | 프론트엔드 테스트 | `npm test` |
 | Rust 테스트 | `cd src-tauri && cargo test` |
 
-화면과 분리된 순수 로직(`src/body/*.ts`, `src-tauri/src/geom.rs`)은 단위 테스트한다. 창·Win32에 의존하는 동작은 `docs/manual-checks/`의 체크리스트로 확인한다.
+화면과 분리된 순수 로직(`src/body/*.ts`, `src/shared/*.ts`)은 단위 테스트한다. 창·Win32에 의존하는 동작은 `docs/manual-checks/`의 체크리스트로 확인한다.
 
 ## 4. Jev 사용 규칙
 

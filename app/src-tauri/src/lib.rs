@@ -1,15 +1,7 @@
 use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
-mod geom;
 mod keys;
 mod signals;
-
-#[tauri::command]
-fn region_covered(window: tauri::WebviewWindow, region: geom::Rect) -> Result<bool, String> {
-    let raw = window.hwnd().map_err(|e| e.to_string())?;
-    let above = signals::windows_above(windows::Win32::Foundation::HWND(raw.0 as _));
-    Ok(geom::covered(&region, &above))
-}
 
 #[tauri::command]
 fn cursor_pos() -> (i32, i32) { signals::cursor() }
@@ -60,7 +52,7 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![region_covered, cursor_pos, idle_ms, key_set, key_has, key_delete])
+        .invoke_handler(tauri::generate_handler![cursor_pos, idle_ms, key_set, key_has, key_delete])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

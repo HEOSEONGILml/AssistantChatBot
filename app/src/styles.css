@@ -1,4 +1,4 @@
 html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
 #stage { position: absolute; inset: 0; image-rendering: pixelated; }
-#bubble { position: absolute; max-width: 260px; padding: 6px 10px; background: #fff; border: 3px solid #222;
-  font: 14px/1.4 "Malgun Gothic", sans-serif; image-rendering: pixelated; white-space: pre-wrap; }
+#bubble { position: absolute; max-width: 220px; padding: 4px 8px; background: #fff; border: 2px solid #222;
+  font: 12px/1.4 "Malgun Gothic", sans-serif; image-rendering: pixelated; white-space: pre-wrap; }

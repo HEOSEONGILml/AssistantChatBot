@@ -17,8 +17,9 @@ const ctx = canvas.getContext("2d")!;
 const bubbleEl = document.getElementById("bubble")!;
 const win = getCurrentWindow();
 
-const HOUSE_SCALE = 4;
+const HOUSE_SCALE = 3;
 const ACTION_MS = 2500; // 잠정값: 한 동작을 보여 주는 시간
+const USER_ACTIVE_IDLE_MS = 60_000; // 잠정값: 마지막 입력 후 1분이 지나면 자리를 비운 것으로 본다
 
 async function main() {
   const manifest: Manifest = await (await fetch("/sprites/dog/manifest.json")).json();
@@ -88,20 +89,18 @@ async function main() {
     const p = { x: ev.clientX, y: ev.clientY };
     if (boxContains(houseBox, p)) return doToggleHouse();
     if (boxContains(dogBox(), p)) {
-      const b = cssBoxToPhys(dogBox(), origin, scale);
-      emit("open-input", { x: b.left, y: b.top });
+      emit("open-input", cssBoxToPhys(houseBox, origin, scale));
     }
   });
 
-  // 말풍선 가림 판정은 200ms마다 (Rust 호출 비용 절감)
-  let unobstructed = true;
+  // 사용자가 자리에 있는지: 마지막 입력 후 USER_ACTIVE_IDLE_MS 이내면 자리에 있다고 본다.
+  // 오버레이는 항상 보이므로 가림 판정 대신 이것으로 말풍선 "봤다" 시간을 센다 (vision 2026-10-14 개정).
+  let userActive = true;
   setInterval(async () => {
-    if (!bubble || bubbleEl.hidden) return;
-    const r = bubbleEl.getBoundingClientRect();
-    unobstructed = !(await invoke<boolean>("region_covered", {
-      region: cssBoxToPhys({ left: r.left, top: r.top, width: r.width, height: r.height }, origin, scale),
-    }));
-  }, 200);
+    const active = (await invoke<number>("idle_ms")) < USER_ACTIVE_IDLE_MS;
+    if (active !== userActive) emit("signal", { kind: active ? "user_return" : "user_away" });
+    userActive = active;
+  }, 1000);
 
   // 시트의 강아지가 바라보는 방향과 걷는 방향이 다르면 좌우를 뒤집는다
   const facingLeft = manifest.facing === "left";
@@ -129,13 +128,13 @@ async function main() {
       ctx.restore();
     }
 
-    const t = tickBubble(bubble, Date.now(), dt, unobstructed);
+    const t = tickBubble(bubble, Date.now(), dt, userActive);
     bubble = t.bubble;
     if (t.justSeen) emit("signal", { kind: "bubble_seen" });
     bubbleEl.hidden = !bubble || dog.mode === "in_house";
     if (bubble) {
       const b = dogBox();
-      bubbleEl.style.left = `${Math.min(b.left, window.innerWidth - 280)}px`;
+      bubbleEl.style.left = `${Math.min(b.left, window.innerWidth - 240)}px`;
       bubbleEl.style.top = `${b.top - bubbleEl.offsetHeight - 8}px`;
     }
     requestAnimationFrame(frame);
@@ -151,8 +150,7 @@ async function main() {
     try {
       await register(s.inputShortcut, (e) => {
         if (e.state !== "Pressed" || dog.mode === "in_house") return;
-        const b = cssBoxToPhys(dogBox(), origin, scale);
-        emit("open-input", { x: b.left, y: b.top });
+        emit("open-input", cssBoxToPhys(houseBox, origin, scale));
       });
       await register(s.houseShortcut, (e) => { if (e.state === "Pressed") doToggleHouse(); });
       active = s;

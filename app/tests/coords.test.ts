@@ -19,3 +19,14 @@ describe("boxContains", () => {
   test("안쪽과 왼쪽 위 경계", () => { expect(boxContains(b, { x: 10, y: 10 })).toBe(true); expect(boxContains(b, { x: 19.9, y: 19.9 })).toBe(true); });
   test("오른쪽 아래 경계는 밖", () => expect(boxContains(b, { x: 20, y: 15 })).toBe(false));
 });
+
+import { placeAbove } from "../src/body/coords";
+
+describe("placeAbove", () => {
+  test("기준 영역 오른쪽 끝에 맞추고 위로 gap만큼 띄운다", () =>
+    expect(placeAbove({ left: 1800, top: 1000, right: 1872, bottom: 1042 }, { width: 380, height: 56 }, 8))
+      .toEqual({ x: 1492, y: 936 }));
+  test("화면 왼쪽·위쪽 밖으로 나가지 않는다", () =>
+    expect(placeAbove({ left: 10, top: 20, right: 100, bottom: 60 }, { width: 380, height: 56 }, 8))
+      .toEqual({ x: 0, y: 0 }));
+});
