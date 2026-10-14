@@ -68,3 +68,13 @@
 - [VKTR](https://www.vktr.com/ai-platforms/chatgpt-cocreator-launches-typesafe-ai-with-jev/)
 - [The Register](https://www.theregister.com/a/5296711)
 - [NeuralTrust 보안 리뷰](https://neuraltrust.ai/blog/jev-typesafe-ai-security)
+
+## TypeScript SDK 메모 (Context7, 2026-10-14)
+
+- `new TypeSafeClient({ apiKey, fetch, dangerouslyAllowBrowser, timeout, retry, defaultModel })`
+  - `fetch`: 커스텀 HTTP 구현. Tauri에서는 `@tauri-apps/plugin-http`의 `fetch`를 넘긴다.
+  - `dangerouslyAllowBrowser`: 브라우저(웹뷰)에서 쓰려면 `true`. 키가 페이지에 노출되므로 사용자 본인 키일 때만 쓴다.
+  - `timeout`: 시도당 ms, 기본 10000. `defaultModel` 기본 `jev-latest`.
+- `client.systemOne({ state, questions }, options?)` → `answers`가 질문 이름과 criteria로 타입 추론된다. `options`로 호출별 timeout·retry·취소를 준다.
+- 질문 헬퍼 예: `noul("...")`.
+- 문서: https://docs.typesafe.ai/sdk/javascript/api/classes/TypeSafeClient
