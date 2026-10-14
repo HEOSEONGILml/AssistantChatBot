@@ -99,6 +99,8 @@ async function main() {
   let cursorCss: { x: number; y: number } | null = null;
   let petting = newPetting();
   let wins: Win[] = [];
+  let lastClick: { x: number; y: number; t: number } | null = null;
+  let wasDown = false;
   let press: { x: number; y: number; offX: number; offY: number; samples: { x: number; y: number; t: number }[] } | null = null;
   let last = performance.now();
   let animStart = last;
@@ -143,9 +145,13 @@ async function main() {
   let through = true;
   await win.setIgnoreCursorEvents(true);
   setInterval(async () => {
-    const [px, py] = await invoke<[number, number]>("cursor_pos");
+    const [px, py, down] = await invoke<[number, number, boolean]>("mouse_state");
     const p = physToCss({ x: px, y: py }, origin, scale);
     cursorCss = { x: p.x - area.left, y: p.y - area.top };
+    const overOurs = boxContains(dogBox(), p) || (houseVisible() && (boxContains(houseBox, p) || boxContains(chatBox, p) || boxContains(gearBox, p)));
+    // 새로 눌린 클릭만 기록한다. 강아지·아이콘 클릭은 근처 클릭으로 치지 않는다
+    if (down && !wasDown && !overOurs) lastClick = { x: cursorCss.x, y: cursorCss.y, t: Date.now() };
+    wasDown = down;
     const overDog = dog.mode !== "in_house" && boxContains(dogBox(), p);
     // 쓰다듬기: 누르지 않은 채 강아지 위에서 커서를 좌우로 문지르면
     const pr = feedPetting(petting, p.x, Date.now(), overDog && !press);
@@ -226,7 +232,8 @@ async function main() {
     const dt = Math.min(now - last, 250); // 절전 복귀 등으로 dt가 튀어도 순간이동하지 않게
     last = now;
     const wasInside = dog.mode === "in_house";
-    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, activity, rand: Math.random });
+    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, activity,
+      click: lastClick ? { x: lastClick.x, y: lastClick.y, ageMs: Date.now() - lastClick.t } : null, rand: Math.random });
     if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; emit("signal", { kind: "house", inside: true, awayMs: 0 }); }
 
     const anim = currentAnimation(dog);

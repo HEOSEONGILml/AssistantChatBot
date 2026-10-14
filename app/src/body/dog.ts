@@ -23,6 +23,7 @@ export type Dog = {
   targetWin: number | null; perchFx: number;               // perch·watch: 대상 창과 윗변 위치 비율
   pounceStart: number; fromX: number; fromY: number;       // pounce: 점프 시작 시각과 출발점
   hop: number;                                             // 점프 높이 (그림만 위로 띄운다)
+  clickSeenAt: number;                                     // 마지막으로 반응을 검토한 클릭 시각 (같은 클릭에 두 번 반응하지 않게)
 };
 
 // width·height: 다닐 수 있는 영역(작업 영역) 크기. houseX·houseY: 집 앞에 선 강아지의 왼쪽 위
@@ -33,7 +34,8 @@ export type Win = { id: number; left: number; top: number; width: number; height
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
 // activity: 설정의 움직임 정도. 성격과 무관하게 사용자가 고정한 값이다 (vision)
 export type Activity = "rest" | "calm" | "normal" | "lively";
-export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; activity: Activity; rand: () => number };
+// click: 가장 최근 마우스 클릭 위치와 지난 시간 (다른 창에서 난 클릭 포함)
+export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; activity: Activity; click: { x: number; y: number; ageMs: number } | null; rand: () => number };
 export type Behavior = "approach" | "follow" | "hunt" | "perch" | "watch" | "idle" | "walk";
 
 // 잠정값들 (사용자 체감으로 조정)
@@ -53,6 +55,8 @@ const PROFILES: Record<Activity, Profile> = {
   normal: { weights: { approach: 0.12, follow: 0.06, hunt: 0.06, perch: 0.1,  watch: 0.1,  idle: 0.6, walk: 0.4 }, idleMin: 3000, idleMax: 10000, runChance: 0.2 },
   lively: { weights: { approach: 0.15, follow: 0.12, hunt: 0.12, perch: 0.12, watch: 0.1,  idle: 0.4, walk: 0.6 }, idleMin: 1500, idleMax: 5000,  runChance: 0.35 },
 };
+// 근처 클릭: 최근 이 거리·시간 안에 클릭이 있으면 커서 관련 행동 가중치를 높이고, 대기 중이면 바로 반응할 수 있다 (사용자 제안)
+const CLICK_RADIUS = 450, CLICK_RECENT_MS = 3000, CLICK_BOOST = 4, CLICK_REACT_CHANCE = 0.5;
 const FOLLOW_MIN_MS = 5000, FOLLOW_MAX_MS = 10000;
 const FOLLOW_GAP_PX = 70;                     // 커서와 이만큼 떨어져 따라간다
 const HUNT_MS = 6000;                         // 이 시간 안에 못 잡으면 그만둔다
@@ -75,7 +79,7 @@ export function newDog(x: number, y: number): Dog {
   return {
     x, y, dir: 1, mode: "idle", pose: "idle_stand", until: 0, targetX: x, targetY: y, running: false,
     action: "idle_stand", actionEnd: 0, houseSince: null, vx: 0, vy: 0,
-    targetWin: null, perchFx: 0.5, pounceStart: 0, fromX: x, fromY: y, hop: 0,
+    targetWin: null, perchFx: 0.5, pounceStart: 0, fromX: x, fromY: y, hop: 0, clickSeenAt: -1,
   };
 }
 
@@ -88,6 +92,11 @@ const cursorDistance = (d: Dog, w: World, s: Senses) => {
   if (!s.cursor) return Infinity;
   const c = center(d, w);
   return Math.hypot(s.cursor.x - c.x, s.cursor.y - c.y);
+};
+const clickNear = (d: Dog, w: World, s: Senses) => {
+  if (!s.click || s.click.ageMs > CLICK_RECENT_MS) return false;
+  const c = center(d, w);
+  return Math.hypot(s.click.x - c.x, s.click.y - c.y) < CLICK_RADIUS;
 };
 const findWin = (s: Senses, id: number | null) => s.windows.find((x) => x.id === id) ?? null;
 // 강아지가 올라앉거나 구경할 수 있는 창: 강아지보다 넓고, 윗변이 영역 안에 있는 창
@@ -107,7 +116,9 @@ function pickPose(r: number): DogAction {
 export function pickBehavior(d: Dog, w: World, s: Senses, r: number): Behavior {
   const cursorNear = cursorDistance(d, w, s) < CURSOR_RADIUS;
   const hasWin = eligibleWindows(w, s).length > 0;
-  const weights = PROFILES[s.activity].weights;
+  const base = PROFILES[s.activity].weights;
+  const boost = clickNear(d, w, s) ? CLICK_BOOST : 1;
+  const weights = { ...base, approach: base.approach * boost, follow: base.follow * boost, hunt: base.hunt * boost };
   const options = (Object.keys(weights) as Behavior[]).filter((b) => weights[b] > 0 &&
     (b === "approach" || b === "follow" || b === "hunt" ? cursorNear : b === "perch" || b === "watch" ? hasWin : true));
   const total = options.reduce((sum, b) => sum + weights[b], 0);
@@ -202,6 +213,12 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
       if (d.pose === "sleep" && s.activity !== "rest") return decide(d, w, now, s);
       let n = d;
       if (cursorDistance(d, w, s) < LOOK_RADIUS) n = { ...n, dir: s.cursor!.x >= center(d, w).x ? 1 : -1 };
+      // 근처에서 새 클릭이 나면 대기를 끊고 바로 다음 행동을 고를 수 있다 (쉬기 제외)
+      const clickAt = s.click ? now - s.click.ageMs : -1;
+      if (s.activity !== "rest" && clickNear(d, w, s) && clickAt > n.clickSeenAt) {
+        n = { ...n, clickSeenAt: clickAt };
+        if (s.rand() < CLICK_REACT_CHANCE) return decide(n, w, now, s);
+      }
       return now >= n.until ? decide(n, w, now, s) : n;
     }
     case "walk_to": {

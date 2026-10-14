@@ -1,12 +1,17 @@
 use windows::Win32::Foundation::POINT;
 use windows::Win32::System::SystemInformation::GetTickCount;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, GetLastInputInfo, LASTINPUTINFO, VK_LBUTTON};
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
 pub fn cursor() -> (i32, i32) {
     let mut p = POINT::default();
     unsafe { let _ = GetCursorPos(&mut p); }
     (p.x, p.y)
+}
+
+/// 마우스 왼쪽 버튼이 지금 눌려 있는지 (다른 창 위에서의 클릭도 감지된다)
+pub fn left_down() -> bool {
+    unsafe { (GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000) != 0 }
 }
 
 pub fn idle_ms() -> u32 {

@@ -3,8 +3,9 @@ use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 mod keys;
 mod signals;
 
+/// 커서 위치와 왼쪽 버튼 눌림 (강아지 근처 클릭 감지용)
 #[tauri::command]
-fn cursor_pos() -> (i32, i32) { signals::cursor() }
+fn mouse_state() -> (i32, i32, bool) { let (x, y) = signals::cursor(); (x, y, signals::left_down()) }
 
 #[tauri::command]
 fn idle_ms() -> u32 { signals::idle_ms() }
@@ -55,7 +56,7 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![cursor_pos, idle_ms, windows_snapshot, key_set, key_has, key_delete])
+        .invoke_handler(tauri::generate_handler![mouse_state, idle_ms, windows_snapshot, key_set, key_has, key_delete])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

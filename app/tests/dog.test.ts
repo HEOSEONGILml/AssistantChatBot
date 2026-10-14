@@ -7,7 +7,7 @@ import {
 // 강아지 크기 100×80, 움직일 수 있는 영역은 강아지 왼쪽 위 기준 x 0~900, y 0~520
 const w: World = { width: 1000, height: 600, dogWidth: 100, dogHeight: 80, houseX: 800, houseY: 520, walkSpeed: 100, runSpeed: 250 };
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
-const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], activity: "normal", rand: seq(0.99), ...o });
+const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], activity: "normal", click: null, rand: seq(0.99), ...o });
 const at = (x: number, y: number, o: Partial<Dog> = {}): Dog => ({ ...newDog(x, y), ...o });
 
 describe("idle", () => {
@@ -315,5 +315,37 @@ describe("움직임 정도", () => {
   test("쉬기에서는 던져진 뒤에도 걸어 다니지 않는다", () => {
     const d = step(at(300, 200, { until: 0 }), w, 1000, 16, senses({ activity: "rest", rand: seq(0.99) }));
     expect(d.mode).toBe("idle");
+  });
+});
+
+describe("근처 클릭", () => {
+  const cursorBehaviors = (s: Senses) => {
+    let n = 0;
+    for (let i = 0; i < 100; i++) if (["approach", "follow", "hunt"].includes(pickBehavior(at(300, 200), w, s, i / 100))) n++;
+    return n;
+  };
+  test("최근 근처에서 클릭이 있으면 다가가기·따라가기·사냥이 더 자주 나온다", () => {
+    const base = senses({ cursor: cursorNear });
+    const clicked = senses({ cursor: cursorNear, click: { x: 360, y: 250, ageMs: 500 } });
+    expect(cursorBehaviors(clicked)).toBeGreaterThan(cursorBehaviors(base) * 2);
+  });
+  test("멀리서 난 클릭이나 오래된 클릭은 영향이 없다", () => {
+    const base = cursorBehaviors(senses({ cursor: cursorNear }));
+    expect(cursorBehaviors(senses({ cursor: cursorNear, click: { x: 950, y: 590, ageMs: 500 } }))).toBe(base);
+    expect(cursorBehaviors(senses({ cursor: cursorNear, click: { x: 360, y: 250, ageMs: 9000 } }))).toBe(base);
+  });
+  test("가만히 있다가도 근처 클릭에 바로 반응할 수 있다", () => {
+    const d = step(at(300, 200, { until: 99999 }), w, 1000, 16, senses({ cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.1, 0.01) }));
+    expect(d.mode).not.toBe("idle");
+  });
+  test("같은 클릭에는 한 번만 반응을 검토한다", () => {
+    const s = senses({ cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.9) });
+    let d = step(at(300, 200, { until: 99999 }), w, 1000, 16, s); // 0.9 → 이번엔 반응 안 함
+    d = step(d, w, 1016, 16, { ...s, click: { x: 360, y: 250, ageMs: 16 }, rand: seq(0.1, 0.01) });
+    expect(d.mode).toBe("idle");
+  });
+  test("쉬기에서는 클릭에 반응하지 않는다", () => {
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "rest", cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.1, 0.01) }));
+    expect(currentAnimation(d)).toBe("sleep");
   });
 });
