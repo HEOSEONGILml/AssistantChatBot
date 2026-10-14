@@ -52,5 +52,6 @@ document.querySelectorAll<HTMLButtonElement>("[data-del]").forEach((b) =>
   }),
 );
 
-listen<string>("shortcut-error", (e) => (msg.textContent = e.payload));
+// 단축키 등록이 실패하면 강아지 화면이 이전 값으로 되돌려 저장한다. 화면의 값도 다시 읽는다
+listen<string>("shortcut-error", async (e) => { await init(); msg.textContent = e.payload; });
 init();

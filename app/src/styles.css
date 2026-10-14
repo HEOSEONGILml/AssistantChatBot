@@ -1,4 +1,17 @@
 html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
 #stage { position: absolute; inset: 0; image-rendering: pixelated; }
-#bubble { position: absolute; max-width: 220px; padding: 4px 8px; background: #fff; border: 2px solid #222;
-  font: 12px/1.4 "Malgun Gothic", sans-serif; image-rendering: pixelated; white-space: pre-wrap; }
+
+/* 말풍선: mochi-llm-pet의 모양을 참고 (둥근 상자, 얇은 테두리, 살짝 비치는 흰 배경, 강아지를 가리키는 꼬리) */
+#bubble {
+  position: absolute; box-sizing: border-box; max-width: 272px; padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.93); border: 1px solid rgba(40, 40, 40, 0.86); border-radius: 9px;
+  color: #1e1e1e; font: 13px/1.45 "Segoe UI", "Malgun Gothic", sans-serif; text-align: center;
+  white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;
+}
+/* 꼬리: 테두리색 삼각형(::before) 위에 배경색 삼각형(::after)을 1px 올려 그린다 */
+#bubble::before, #bubble::after {
+  content: ""; position: absolute; left: calc(50% - 6px); width: 0; height: 0;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+}
+#bubble::before { bottom: -7px; border-top: 7px solid rgba(40, 40, 40, 0.86); }
+#bubble::after { bottom: -5.5px; border-top: 6px solid rgba(255, 255, 255, 0.98); }
