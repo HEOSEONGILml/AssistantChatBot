@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 mod geom;
+mod keys;
 mod signals;
 
 #[tauri::command]
@@ -16,10 +17,15 @@ fn cursor_pos() -> (i32, i32) { signals::cursor() }
 #[tauri::command]
 fn idle_ms() -> u32 { signals::idle_ms() }
 
+#[tauri::command] fn key_set(name: String, value: String) -> Result<(), String> { keys::set(&name, &value) }
+#[tauri::command] fn key_has(name: String) -> Result<bool, String> { keys::has(&name) }
+#[tauri::command] fn key_delete(name: String) -> Result<(), String> { keys::delete(&name) }
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             let win = app.get_webview_window("character").expect("character window");
             if let Some(mon) = win.primary_monitor()? {
@@ -28,7 +34,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![region_covered, cursor_pos, idle_ms])
+        .invoke_handler(tauri::generate_handler![region_covered, cursor_pos, idle_ms, key_set, key_has, key_delete])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
