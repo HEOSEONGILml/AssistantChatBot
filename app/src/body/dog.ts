@@ -93,6 +93,9 @@ const cursorDistance = (d: Dog, w: World, s: Senses) => {
   const c = center(d, w);
   return Math.hypot(s.cursor.x - c.x, s.cursor.y - c.y);
 };
+// 커서가 강아지 몸 위에 있다: 쓰다듬는 중일 수 있으니 커서에 반응하는 움직임(고개 돌리기·따라가기·사냥)을 하지 않는다
+const cursorOver = (d: Dog, w: World, s: Senses) =>
+  !!s.cursor && s.cursor.x >= d.x && s.cursor.x <= d.x + w.dogWidth && s.cursor.y >= d.y && s.cursor.y <= d.y + w.dogHeight;
 const clickNear = (d: Dog, w: World, s: Senses) => {
   if (!s.click || s.click.ageMs > CLICK_RECENT_MS) return false;
   const c = center(d, w);
@@ -114,7 +117,7 @@ function pickPose(r: number): DogAction {
 
 // 다음 행동 고르기 (가중치 표). r은 0~1 난수
 export function pickBehavior(d: Dog, w: World, s: Senses, r: number): Behavior {
-  const cursorNear = cursorDistance(d, w, s) < CURSOR_RADIUS;
+  const cursorNear = cursorDistance(d, w, s) < CURSOR_RADIUS && !cursorOver(d, w, s);
   const hasWin = eligibleWindows(w, s).length > 0;
   const base = PROFILES[s.activity].weights;
   const boost = clickNear(d, w, s) ? CLICK_BOOST : 1;
@@ -212,7 +215,7 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
       // 자리 비움으로 잠들었다가 사용자가 돌아왔으면 깬다. 쉬기에서는 깨지 않는다
       if (d.pose === "sleep" && s.activity !== "rest") return decide(d, w, now, s);
       let n = d;
-      if (cursorDistance(d, w, s) < LOOK_RADIUS) n = { ...n, dir: s.cursor!.x >= center(d, w).x ? 1 : -1 };
+      if (cursorDistance(d, w, s) < LOOK_RADIUS && !cursorOver(d, w, s)) n = { ...n, dir: s.cursor!.x >= center(d, w).x ? 1 : -1 };
       // 근처에서 새 클릭이 나면 대기를 끊고 바로 다음 행동을 고를 수 있다 (쉬기 제외)
       const clickAt = s.click ? now - s.click.ageMs : -1;
       if (s.activity !== "rest" && clickNear(d, w, s) && clickAt > n.clickSeenAt) {
@@ -229,7 +232,7 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
       return now >= d.actionEnd ? idleFor(d, now, PAUSE_MIN_MS) : d;
 
     case "follow": {
-      if (!s.cursor || now >= d.until) return idleFor(d, now, PAUSE_MIN_MS);
+      if (!s.cursor || now >= d.until || cursorOver(d, w, s)) return idleFor(d, now, PAUSE_MIN_MS);
       const c = center(d, w);
       const dx = s.cursor.x - c.x, dy = s.cursor.y - c.y;
       const dist = Math.hypot(dx, dy);

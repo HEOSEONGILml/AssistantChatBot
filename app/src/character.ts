@@ -176,7 +176,8 @@ async function main() {
     // 쓰다듬기: 누르지 않은 채 강아지 위에서 커서를 좌우로 문지르면
     const pr = feedPetting(petting, p.x, Date.now(), overDog && !press);
     petting = pr.state;
-    if (pr.petted && (dog.mode === "idle" || dog.mode === "walk_to" || dog.mode === "action")) {
+    // 평소 움직임 중이면 무엇을 하든 쓰다듬기를 받는다 (집·잡힘·던져짐·덮치기 중 제외. playAction이 막는다)
+    if (pr.petted && dog.mode !== "pounce" && dog.mode !== "to_house" && dog.mode !== "in_house" && dog.mode !== "from_house" && dog.mode !== "held" && dog.mode !== "thrown") {
       dog = playAction(dog, "beg", Date.now(), PET_MS);
       emit("signal", { kind: "interaction", type: "pet" });
     }

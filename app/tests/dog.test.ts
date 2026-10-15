@@ -201,7 +201,7 @@ describe("몸 상호작용", () => {
 
 // ---- 강아지가 먼저 하는 인터랙션 ----
 const win = (o: Partial<Win> = {}): Win => ({ id: 1, left: 400, top: 300, width: 400, height: 200, active: true, ...o });
-const cursorNear = { x: 350, y: 240 };
+const cursorNear = { x: 420, y: 240 }; // 강아지(300,200, 100×80) 몸 바로 바깥, 가까운 거리 (몸 위는 쓰다듬기 자리)
 
 describe("행동 고르기", () => {
   test("커서도 창도 없으면 대기 아니면 걷기만 나온다", () => {
@@ -347,5 +347,24 @@ describe("근처 클릭", () => {
   test("쉬기에서는 클릭에 반응하지 않는다", () => {
     const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "rest", cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.1, 0.01) }));
     expect(currentAnimation(d)).toBe("sleep");
+  });
+});
+
+describe("쓰다듬기와 겹치지 않기", () => {
+  // 커서가 강아지 몸 위에 있으면 쓰다듬는 중일 수 있다: 고개를 돌리거나 따라가거나 사냥하지 않는다 (2026-10-15 사용자 보고)
+  const over = { x: 350, y: 240 }; // 강아지(300,200, 100×80) 몸 위
+  test("idle: 커서가 몸 위에 있으면 고개를 돌리지 않는다", () => {
+    const d = step(at(300, 200, { dir: 1, until: 5000 }), w, 1000, 16, senses({ cursor: { x: 320, y: 240 } }));
+    expect(d.dir).toBe(1);
+  });
+  test("행동 고르기: 커서가 몸 위에 있으면 다가가기·따라가기·사냥을 고르지 않는다", () => {
+    for (let r = 0; r < 1; r += 0.01) {
+      const b = pickBehavior(at(300, 200), w, senses({ cursor: over }), r);
+      expect(["approach", "follow", "hunt"]).not.toContain(b);
+    }
+  });
+  test("따라가기 중 커서가 몸 위로 오면 멈춘다", () => {
+    const d = step(at(300, 200, { mode: "follow", until: 99999 }), w, 1000, 16, senses({ cursor: over }));
+    expect(d.mode).toBe("idle");
   });
 });
