@@ -1,43 +1,114 @@
 # TamagotchiChatBot
 
-PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 서비스.
-사용자가 타이핑으로 말을 걸고, 캐릭터도 스스로 말을 건다.
-**TypeSafe Jev**가 타이핑 도중의 반응, 끼어들기, 먼저 말 걸 시점을 실시간으로 결정한다.
+Windows 화면 위를 돌아다니는 강아지와 타이핑으로 대화하는 데스크톱 펫이다. 강아지는 타이핑 도중 반응하고, 끼어들고, 먼저 말을 건다. 판단은 TypeSafe **Jev**의 분포와 우리 확률 모델이, 대사는 **Gemini**가 맡는다.
 
-> 상태: 몸체(서브 프로젝트 1) 완료 — 강아지가 화면 위를 돌아다니고 입력창·말풍선·강아지 집이 동작한다. 두뇌(서브 프로젝트 2) 구현 — Jev 판단·Gemini 대사·대화 기록을 맡는 파이썬 서비스(`brain/`). 실제 키로 하는 수동 확인은 [체크리스트](docs/manual-checks/brain.md).
+- 구조와 동작 원리: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- 작업 규칙: [`CLAUDE.md`](CLAUDE.md)
+- 상태: 몸체 완료, 두뇌 v1 동작. 두뇌 v2(이벤트 단위 판단 + 확률 모델) 구현 중. 대상은 개발자 본인과 팀 내부다(외부 배포 전).
 
-## 문서 지도
+## 구성
 
-모든 작업은 문서가 먼저다. 작업 규칙은 [`CLAUDE.md`](CLAUDE.md)를 본다.
-
-| 문서 | 내용 |
-|---|---|
-| [`docs/vision.md`](docs/vision.md) | 제품 컨셉. 확정된 것과 미정인 것을 구분해 누적한다 |
-| [`docs/glossary.md`](docs/glossary.md) | 용어 정의 (Jev, state, 끼어들기, 선발화 등) |
-| [`docs/decisions/`](docs/decisions/) | 결정 기록(ADR). 결정 하나에 파일 하나 |
-| [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
-| [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md) |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
-| [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md), [Jev speak_now 실측](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정 실측](docs/spikes/2026-10-15-brain-v2-assumptions.md), [성격 유형 실측](docs/spikes/2026-10-15-personality-types.md) |
-| [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
-| [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32 동작 수동 확인 체크리스트 |
-
-## 결정 기록
-
-| 번호 | 제목 | 상태 |
+| 폴더 | 내용 | 스택 |
 |---|---|---|
-| [0001](docs/decisions/0001-jev-as-decision-engine.md) | 실시간 반응 결정에 Jev를 쓴다 | 채택 (일부 개정: 0014) |
-| [0002](docs/decisions/0002-platform-order.md) | Windows PC 먼저, Android는 그다음 | 채택 |
-| [0003](docs/decisions/0003-windows-display-modes.md) | Windows 배경·오버레이 모드 모두 지원, 설정으로 고정 | 대체됨(0010) |
-| [0004](docs/decisions/0004-input-box-trigger.md) | 캐릭터 클릭·전역 단축키로 입력창, 상시 표시는 설정 | 대체됨(말풍선 아이콘으로) |
-| [0005](docs/decisions/0005-local-history-storage.md) | 대화 기록은 PC에 저장 (서버 중계 부분은 0006으로 대체) | 일부 대체됨 |
-| [0006](docs/decisions/0006-user-provided-api-keys.md) | 서버 없이 사용자가 입력한 API 키로 직접 호출 | 채택 |
-| [0007](docs/decisions/0007-dialogue-llm.md) | 캐릭터 대사는 gemini-3.1-flash-lite로 생성 | 채택 |
-| [0008](docs/decisions/0008-tech-stack-tauri.md) | Windows 앱은 Tauri(Rust + TypeScript) | 채택 |
-| [0009](docs/decisions/0009-background-mode-wallpaper-replacement.md) | 배경 모드는 배경화면 대체 방식 | 대체됨(0010) |
-| [0010](docs/decisions/0010-overlay-only-with-doghouse.md) | 오버레이 모드만, 강아지 집(비활성 모드) 추가 | 채택 |
-| [0011](docs/decisions/0011-python-brain-local-sidecar.md) | 두뇌는 PC 안에서 도는 파이썬 프로세스 | 채택 (일부 개정: 0012) |
-| [0012](docs/decisions/0012-brain-as-frontend-independent-service.md) | 두뇌는 화면과 독립된 WebSocket 서비스, 키도 두뇌가 보관 | 채택 |
-| [0013](docs/decisions/0013-event-driven-brain-with-event-log.md) | 두뇌는 이벤트 단위로 판단, 이벤트 기록이 기억 | 채택 |
-| [0014](docs/decisions/0014-probabilistic-model-with-jev-distributions.md) | Jev는 분포를 주고 확률 모델이 뽑아서 결정 | 채택 |
+| `app/` | 화면: 강아지·집·말풍선·입력창·설정·트레이 | Tauri 2 (Rust + TypeScript, Vite) |
+| `brain/` | 두뇌: 판단·대사·기억을 맡는 로컬 서비스 | Python, uv, WebSocket |
+| `docs/` | 비전·스펙·결정 기록·프로토콜·체크리스트 | Markdown |
+
+## 필요한 것
+
+| 항목 | 확인한 버전 | 비고 |
+|---|---|---|
+| Windows | 10 Pro 19045 | 주 모니터만 지원 |
+| WebView2 런타임 | | Windows 10/11에 보통 설치되어 있음 |
+| Node.js / npm | 24.21 / 11.19 | 화면 빌드 |
+| Rust (stable) / cargo | 1.99 | Tauri 셸. [Tauri 사전 요구사항](https://tauri.app/start/prerequisites/)의 MSVC 빌드 도구 포함 |
+| [uv](https://docs.astral.sh/uv/) | 0.11 | 두뇌의 파이썬 버전과 의존성 관리 (Python 3.11 이상을 uv가 준비) |
+| API 키 | | TypeSafe(Jev) 키, Gemini 키 각 1개. 앱 설정에서 넣는다 |
+
+## 설치
+
+```bash
+git clone <이 저장소>
+cd TamagotchiChatBot
+
+# 두뇌 의존성 (brain/.venv 생성)
+cd brain && uv sync && cd ..
+
+# 화면 의존성
+cd app && npm install && cd ..
+```
+
+두뇌 의존성: `typesafe-sdk`, `google-genai`, `websockets`, `keyring` (개발: `pytest`, `pytest-asyncio`). 화면 의존성: `@tauri-apps/api`와 플러그인(global-shortcut, store, opener), Vite, Vitest. 정확한 버전은 `brain/uv.lock`, `app/package-lock.json`, `app/src-tauri/Cargo.lock`.
+
+## 실행
+
+```bash
+cd app
+npm run tauri dev
+```
+
+- 앱이 두뇌(`brain/.venv`의 파이썬)를 자동으로 띄우고 접속한다. 두뇌를 따로 띄울 필요는 없다.
+- **처음 실행하면** 강아지가 "설정에서 키를 넣어 주세요"라고 말한다. 트레이 아이콘 → 설정에서 TypeSafe 키와 Gemini 키를 넣고 저장한다. 키는 Windows 자격 증명 관리자에 저장된다.
+- 끌 때는 트레이 아이콘 → 종료. 함께 띄운 두뇌도 꺼진다.
+- 개발용 앱은 확인이 끝나면 바로 닫는다(개발 서버가 꺼지면 오류 창이 화면을 가릴 수 있다).
+
+두뇌만 따로 띄우기(디버깅):
+
+```bash
+cd brain
+uv run python -m brain
+```
+
+### 사용법
+
+| 하고 싶은 것 | 방법 |
+|---|---|
+| 말 걸기 | 집 옆 말풍선 아이콘 또는 `Ctrl+Shift+Space` → 입력 → Enter |
+| 강아지 집에 넣기/꺼내기 | 집 클릭, 트레이 메뉴, `Ctrl+Shift+H` |
+| 쓰다듬기 / 찌르기 / 던지기 | 강아지 위에서 커서를 좌우로 문지르기 / 짧게 클릭 / 누른 채 끌어서 놓기 |
+| 설정 | 집 옆 톱니바퀴 아이콘 또는 트레이 메뉴 |
+
+## 테스트
+
+```bash
+cd brain && uv run pytest              # 두뇌
+cd app && npm test                     # 화면 순수 로직 (Vitest)
+cd app && npx tsc --noEmit             # 타입 검사
+cd app/src-tauri && cargo test         # Rust 셸
+```
+
+창·Win32·실제 키가 필요한 동작은 [`docs/manual-checks/`](docs/manual-checks/)의 체크리스트로 확인한다.
+
+## 설치 파일 만들기
+
+```bash
+cd app
+npm run tauri build
+```
+
+결과: `app/src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi`. 지금은 두뇌를 저장소의 `brain/.venv`에서 띄우므로, 설치 파일만으로는 두뇌가 뜨지 않는다(두뇌 묶음 배포는 아직 범위 밖).
+
+## 데이터 위치
+
+| 무엇 | 위치 |
+|---|---|
+| 이벤트 기록·강아지 상태 | `%APPDATA%\TamagotchiChatBot\brain\brain.db` |
+| 두뇌 로그 | `%APPDATA%\TamagotchiChatBot\brain\logs\brain.log` |
+| 두뇌 접속 정보 | `%APPDATA%\TamagotchiChatBot\brain\brain.json` |
+| API 키 | Windows 자격 증명 관리자 (`TamagotchiChatBot.brain`) |
+| 화면 설정 | `%APPDATA%\com.tamagotchi.app\settings.json` |
+
+대화(이벤트) 기록은 설정의 "대화 기록 전체 삭제"로 지운다. Jev·Gemini 호출 때 타이핑 중인 글과 최근 기록이 각 업체로 전송된다([0006](docs/decisions/0006-user-provided-api-keys.md)).
+
+## 문제가 생기면
+
+| 증상 | 확인 |
+|---|---|
+| 설정의 AI 상태가 "두뇌에 연결되지 않음" | `brain/`에서 `uv sync`를 했는지, `brain.log`에 오류가 있는지 |
+| "키를 확인해 주세요" | 설정에서 키를 다시 넣는다 |
+| 강아지가 둘 보임 | 예전에 설치한 앱이 같이 켜져 있다. 트레이에서 하나를 끈다 |
+| 앱을 강제로 끈 뒤 python 프로세스가 남음 | 다음 실행 때 그대로 다시 쓴다. 필요하면 작업 관리자에서 끈다 |
+
+## 출처
+
+강아지 스프라이트: [Benvictus – Pixel Dogs](https://benvictus.itch.io/pixel-dogs) ([`app/public/sprites/dog/LICENSE.md`](app/public/sprites/dog/LICENSE.md)).
