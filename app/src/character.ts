@@ -12,7 +12,7 @@ import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX, drawGearIcon, GEAR_PX } fro
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { stubReact } from "./body/stub-brain";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
-import type { Reaction, Signal } from "./shared/types";
+import { ACTION_TO_DOG, type Reaction, type Signal } from "./shared/brain-protocol";
 import "./styles.css";
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -125,7 +125,7 @@ async function main() {
 
   listen<Reaction>("reaction", (e) => {
     if (dog.mode === "in_house" || dog.mode === "to_house") return; // 집에서는 완전히 조용 (vision)
-    if (e.payload.action) dog = playAction(dog, e.payload.action, Date.now(), ACTION_MS);
+    if (e.payload.action) dog = playAction(dog, ACTION_TO_DOG[e.payload.action], Date.now(), ACTION_MS);
     if (e.payload.utterance) { bubble = showBubble(e.payload.utterance); bubbleEl.textContent = e.payload.utterance; }
   });
   listen<Signal>("signal", (e) => {
