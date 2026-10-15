@@ -11,7 +11,8 @@ import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX, drawGearIcon, GEAR_PX } from "./body/house";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
-import { ACTION_TO_DOG, stateSignals, statusText, type AiStatus, type BrainMessage, type Signal } from "./shared/brain-protocol";
+import { ACTION_TO_DOG, statusText, type AiStatus, type BrainMessage, type EventContext, type EventKind } from "./shared/brain-protocol";
+import { newTyping, feedTyping, tickTyping, quietDue, impactOf } from "./body/events";
 import { connectBrain } from "./brain-link";
 import "./styles.css";
 
@@ -112,7 +113,7 @@ async function main() {
   const doToggleHouse = () => {
     const before = dog.mode;
     dog = toggleHouse(dog, Date.now());
-    if (before === "in_house") emit("signal", { kind: "house", inside: false, awayMs: Date.now() - (dogHouseSince ?? Date.now()) });
+    if (before === "in_house") sendEvent("house_out", { away_seconds: Math.round((Date.now() - (dogHouseSince ?? Date.now())) / 1000) });
     // 집으로 가면 말풍선을 치우고 열려 있던 입력창도 닫는다 (vision)
     if (dog.mode === "to_house") { bubble = null; bubbleEl.hidden = true; emit("close-input"); }
   };
@@ -123,11 +124,12 @@ async function main() {
     emit("toggle-input", cssBoxToPhys(houseBox, origin, scale));
   };
 
-  // 두뇌 연결. 두뇌가 없거나 끊겨도 강아지는 평소대로 움직인다 (두뇌 스펙 8절)
+  // 두뇌 연결 (프로토콜 v2). 두뇌가 없거나 끊겨도 강아지는 평소대로 움직인다 (두뇌 스펙 v2 8절)
   let aiStatus: AiStatus | null = null; // null: 두뇌에 연결되지 않음
   const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
   const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
   const onBrain = (m: BrainMessage) => {
+    if (m.type === "movement") return; // 평소 움직임 경향은 Task 11에서 반영한다
     const home = dog.mode === "in_house" || dog.mode === "to_house"; // 집에서는 완전히 조용 (vision)
     if (m.type === "status") {
       setStatus(m.ai);
@@ -137,18 +139,34 @@ async function main() {
     }
     if (home) return;
     if (m.action) dog = playAction(dog, ACTION_TO_DOG[m.action], Date.now(), ACTION_MS);
-    if (m.utterance) say(m.utterance);
-    // m.emotion: 감정별 그림은 다음 몸체 작업에서 붙인다 (vision)
+    if (m.utterance) { say(m.utterance); sendEvent("dog_spoke", { text: m.utterance }); }
+    // m.reaction: 반응별 그림은 다음 몸체 작업에서 붙인다 (vision)
   };
-  const brain = connectBrain({
-    onMessage: onBrain,
-    onOpen: () => {
-      const houseAwayMs = Date.now() - (dogHouseSince ?? Date.now());
-      for (const signal of stateSignals({ inHouse: dog.mode === "in_house", houseAwayMs, userActive })) brain.send({ type: "signal", signal });
-    },
-    onClose: () => setStatus(null),
+  const brain = connectBrain({ onMessage: onBrain, onOpen: () => {}, onClose: () => setStatus(null) });
+
+  // 두뇌로 보내는 이벤트. 집에 있는 동안은 집 들어감·나옴 외에는 내지 않는다 (vision, 프로토콜 v2)
+  let lastEventAt = Date.now();
+  const sendEvent = (kind: EventKind, context: EventContext = {}) => {
+    const home = dog.mode === "in_house" || dog.mode === "to_house";
+    if (home && kind !== "house_in" && kind !== "house_out") return;
+    lastEventAt = Date.now();
+    brain.send({ type: "event", kind, context });
+  };
+  let typing = newTyping();
+  listen<{ text: string }>("input-typing", (e) => {
+    const r = feedTyping(typing, e.payload.text, Date.now());
+    typing = r.state;
+    if (r.fire) sendEvent("typing", { text: typing.text });
   });
-  listen<Signal>("signal", (e) => { brain.send({ type: "signal", signal: e.payload }); });
+  listen<{ text: string }>("input-sent", (e) => { typing = newTyping(); sendEvent("message", { text: e.payload.text }); });
+  // 타이핑 멈춤과 조용함은 시간이 지나야 알 수 있어 주기적으로 본다
+  setInterval(() => {
+    const now = Date.now();
+    const r = tickTyping(typing, now);
+    typing = r.state;
+    if (r.fire) sendEvent("typing", { text: typing.text });
+    if (quietDue(lastEventAt, now, userActive)) sendEvent("quiet", { seconds: Math.round((now - lastEventAt) / 1000) });
+  }, 100);
   listen<{ name: "typesafe" | "gemini"; value: string }>("brain-set-key", (e) => { brain.send({ type: "set_key", ...e.payload }); });
   listen("brain-clear-history", () => { brain.send({ type: "clear_history" }); });
   listen("brain-status-request", () => { emit("brain-status", aiStatus); });
@@ -179,7 +197,7 @@ async function main() {
     // 평소 움직임 중이면 무엇을 하든 쓰다듬기를 받는다 (집·잡힘·던져짐·덮치기 중 제외. playAction이 막는다)
     if (pr.petted && dog.mode !== "pounce" && dog.mode !== "to_house" && dog.mode !== "in_house" && dog.mode !== "from_house" && dog.mode !== "held" && dog.mode !== "thrown") {
       dog = playAction(dog, "beg", Date.now(), PET_MS);
-      emit("signal", { kind: "interaction", type: "pet" });
+      sendEvent("pet", { seconds: Math.round(pr.seconds * 10) / 10 });
     }
     const over =
       dog.mode === "held" || // 잡고 끄는 동안은 커서가 빨라도 놓치지 않게
@@ -212,10 +230,9 @@ async function main() {
       const first = press.samples[0], lastS = press.samples[press.samples.length - 1];
       const dtS = Math.max((lastS.t - first.t) / 1000, 0.016);
       dog = release(dog, (lastS.x - first.x) / dtS, (lastS.y - first.y) / dtS, Date.now());
-      if (dog.mode === "thrown") emit("signal", { kind: "interaction", type: "throw" });
     } else {
       dog = poke(dog, Date.now());
-      emit("signal", { kind: "interaction", type: "poke" });
+      sendEvent("poke");
     }
     press = null;
   });
@@ -238,11 +255,13 @@ async function main() {
     }));
   }, 200);
 
+  let awayMs = 0;
   // 사용자가 자리에 있는지: 말풍선 "봤다" 판정과 강아지 잠들기에 쓴다
   setInterval(async () => {
     userIdleMs = await invoke<number>("idle_ms");
     const active = userIdleMs < USER_ACTIVE_IDLE_MS;
-    if (active !== userActive) emit("signal", { kind: active ? "user_return" : "user_away" });
+    if (!active) awayMs = userIdleMs; // 얼마나 비웠는지 기억했다가 돌아올 때 알린다
+    if (active && !userActive) sendEvent("returned", { away_seconds: Math.round(awayMs / 1000) });
     userActive = active;
   }, 1000);
 
@@ -253,9 +272,13 @@ async function main() {
     const dt = Math.min(now - last, 250); // 절전 복귀 등으로 dt가 튀어도 순간이동하지 않게
     last = now;
     const wasInside = dog.mode === "in_house";
+    const wasThrown = dog.mode === "thrown";
     dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, activity,
       click: lastClick ? { x: lastClick.x, y: lastClick.y, ageMs: Date.now() - lastClick.t } : null, rand: Math.random });
-    if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; emit("signal", { kind: "house", inside: true, awayMs: 0 }); }
+    if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; sendEvent("house_in"); }
+    if (wasThrown && dog.mode !== "thrown") {
+      sendEvent("throw", { impact: impactOf(dog.impact), bounces: dog.bounces, flight_seconds: Math.round((Date.now() - dog.thrownAt) / 100) / 10 });
+    }
 
     const anim = currentAnimation(dog);
     if (anim !== lastAnim) { animStart = now; lastAnim = anim; }
@@ -282,7 +305,6 @@ async function main() {
 
     const t = tickBubble(bubble, Date.now(), dt, userActive);
     bubble = t.bubble;
-    if (t.justSeen) emit("signal", { kind: "bubble_seen" });
     bubbleEl.hidden = !bubble || dog.mode === "in_house";
     if (bubble) {
       const b = dogBox();

@@ -31,11 +31,11 @@ listen<{ left: number; top: number; right: number; bottom: number }>("toggle-inp
 // 강아지가 집에 들어가면 입력창을 닫는다
 listen("close-input", async () => { if (await win.isVisible()) await hide(); });
 
-box.addEventListener("input", () => emit("signal", { kind: "typing", text: box.value }));
+box.addEventListener("input", () => emit("input-typing", { text: box.value }));
 box.addEventListener("keydown", async (ev) => {
   if (ev.key === "Escape") { await hide(); return; }
   if (ev.key !== "Enter" || ev.isComposing || !box.value.trim()) return;
-  emit("signal", { kind: "sent", text: box.value.trim() });
+  emit("input-sent", { text: box.value.trim() });
   box.value = "";
   if (!(await loadSettings()).inputAlwaysVisible) await hide();
 });

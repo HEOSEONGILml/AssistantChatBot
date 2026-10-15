@@ -20,6 +20,7 @@ export type Dog = {
   action: DogAction; actionEnd: number;                    // action: Jev·반응이 고른 동작
   houseSince: number | null;
   vx: number; vy: number;                                  // thrown: 속도 (CSS px/초)
+  impact: number; bounces: number; thrownAt: number;       // thrown: 가장 세게 부딪힌 속도, 부딪힌 횟수, 던진 시각
   targetWin: number | null; perchFx: number;               // perch·watch: 대상 창과 윗변 위치 비율
   pounceStart: number; fromX: number; fromY: number;       // pounce: 점프 시작 시각과 출발점
   hop: number;                                             // 점프 높이 (그림만 위로 띄운다)
@@ -31,6 +32,12 @@ export type World = { width: number; height: number; dogWidth: number; dogHeight
 // 창: 위치·크기와 사용 중인지만 안다 (제목·내용은 모른다). 좌표는 다닐 수 있는 영역 기준
 // span: 윗변 중 다른 창에 가려지지 않고 보이는 가장 넓은 구간 (exposeTopEdges가 채운다. 없으면 윗변 전체)
 export type Win = { id: number; left: number; top: number; width: number; height: number; active: boolean; span?: { left: number; right: number } | null };
+// 평소 움직임 경향: 두뇌가 성격·기분으로 계산해 보낸다 (프로토콜 v2 movement). 두뇌가 없으면 기본 경향
+export const MOVES = ["rest", "sleep", "roam", "approach", "play", "explore"] as const;
+export type Move = (typeof MOVES)[number];
+export type Movement = { weights: Record<Move, number>; run: number; idleScale: number };
+// 기본 경향은 예전 "보통" 프로필과 같은 값이다 (두뇌 tuning.MOVE_BASE와 같게 유지)
+export const DEFAULT_MOVEMENT: Movement = { weights: { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 }, run: 0.2, idleScale: 1 };
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
 // activity: 설정의 움직임 정도. 성격과 무관하게 사용자가 고정한 값이다 (vision)
 export type Activity = "rest" | "calm" | "normal" | "lively";
@@ -78,7 +85,7 @@ const FLOOR_BOUNCE = 0.35, FLOOR_FRICTION = 0.6;
 export function newDog(x: number, y: number): Dog {
   return {
     x, y, dir: 1, mode: "idle", pose: "idle_stand", until: 0, targetX: x, targetY: y, running: false,
-    action: "idle_stand", actionEnd: 0, houseSince: null, vx: 0, vy: 0,
+    action: "idle_stand", actionEnd: 0, houseSince: null, vx: 0, vy: 0, impact: 0, bounces: 0, thrownAt: 0,
     targetWin: null, perchFx: 0.5, pounceStart: 0, fromX: x, fromY: y, hop: 0, clickSeenAt: -1,
   };
 }
@@ -302,17 +309,21 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
       const dt = dtMs / 1000;
       let vx = d.vx, vy = d.vy + GRAVITY * dt;
       let x = d.x + vx * dt, y = d.y + vy * dt;
+      let impact = d.impact, bounces = d.bounces;
+      // 부딪힐 때마다 그 순간의 속도를 기록한다. 착지할 때 화면이 충격으로 바꿔 두뇌에 알린다 (프로토콜 throw)
+      const hit = (v: number) => { impact = Math.max(impact, Math.abs(v)); bounces++; };
       const maxX = w.width - w.dogWidth;
-      if (x < 0) { x = 0; vx = -vx * BOUNCE; }
-      if (x > maxX) { x = maxX; vx = -vx * BOUNCE; }
-      if (y < 0) { y = 0; vy = -vy * BOUNCE; }
+      if (x < 0) { x = 0; hit(vx); vx = -vx * BOUNCE; }
+      if (x > maxX) { x = maxX; hit(vx); vx = -vx * BOUNCE; }
+      if (y < 0) { y = 0; hit(vy); vy = -vy * BOUNCE; }
       const floor = w.height - w.dogHeight;
       if (y >= floor) {
+        hit(vy);
         // 세게 떨어지면 바닥에서 한 번 더 튕기고, 약하면 내려앉는다
-        if (vy > FLOOR_BOUNCE_SPEED) return { ...d, x, y: floor, vx: vx * FLOOR_FRICTION, vy: -vy * FLOOR_BOUNCE };
-        return { ...idleFor({ ...d, x, y: floor, vx: 0, vy: 0 }, now, PAUSE_MAX_MS, "idle_sit"), dir: vx >= 0 ? 1 : -1 };
+        if (vy > FLOOR_BOUNCE_SPEED) return { ...d, x, y: floor, vx: vx * FLOOR_FRICTION, vy: -vy * FLOOR_BOUNCE, impact, bounces };
+        return { ...idleFor({ ...d, x, y: floor, vx: 0, vy: 0 }, now, PAUSE_MAX_MS, "idle_sit"), dir: vx >= 0 ? 1 : -1, impact, bounces };
       }
-      return { ...d, x, y, vx, vy };
+      return { ...d, x, y, vx, vy, impact, bounces };
     }
   }
 }
@@ -380,5 +391,5 @@ export function holdAt(d: Dog, x: number, y: number, w: World): Dog {
 export function release(d: Dog, vx: number, vy: number, now = 0): Dog {
   if (d.mode !== "held") return d;
   if (Math.hypot(vx, vy) < THROW_MIN_SPEED) return idleFor(d, now, PAUSE_MAX_MS);
-  return { ...d, mode: "thrown", vx, vy, dir: vx >= 0 ? 1 : -1 };
+  return { ...d, mode: "thrown", vx, vy, dir: vx >= 0 ? 1 : -1, impact: 0, bounces: 0, thrownAt: now };
 }

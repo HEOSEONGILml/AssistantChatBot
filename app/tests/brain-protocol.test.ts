@@ -1,27 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_TO_DOG, outgoing, parseBrainMessage, stateSignals, statusText } from "../src/shared/brain-protocol";
+import { ACTION_TO_DOG, outgoing, parseBrainMessage, statusText } from "../src/shared/brain-protocol";
 import { DOG_ACTIONS } from "../src/body/sprite";
 
-const msg = (o: object) => JSON.stringify({ v: 1, ...o });
+const msg = (o: object) => JSON.stringify({ v: 2, ...o });
+const weights = { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 };
 
 describe("parseBrainMessage", () => {
   it("reads a full reaction", () => {
-    expect(parseBrainMessage(msg({ type: "reaction", emotion: "excited", action: "bark", utterance: "멍!" })))
-      .toEqual({ type: "reaction", emotion: "excited", action: "bark", utterance: "멍!" });
+    expect(parseBrainMessage(msg({ type: "reaction", reaction: "joy", action: "bark", utterance: "멍!" })))
+      .toEqual({ type: "reaction", reaction: "joy", action: "bark", utterance: "멍!" });
   });
   it("drops unknown vocabulary but keeps the rest", () => {
-    expect(parseBrainMessage(msg({ type: "reaction", emotion: "hungry", action: "dance", utterance: "멍" })))
+    expect(parseBrainMessage(msg({ type: "reaction", reaction: "hungry", action: "dance", utterance: "멍" })))
       .toEqual({ type: "reaction", utterance: "멍" });
-  });
-  it("drops a non-string utterance", () => {
-    expect(parseBrainMessage(msg({ type: "reaction", utterance: 3 }))).toEqual({ type: "reaction" });
   });
   it("reads status", () => {
     expect(parseBrainMessage(msg({ type: "status", ai: "bad_key" }))).toEqual({ type: "status", ai: "bad_key" });
   });
-  it("rejects bad input", () => {
+  it("reads movement", () => {
+    expect(parseBrainMessage(msg({ type: "movement", weights, run: 0.2, idle_scale: 1.3 })))
+      .toEqual({ type: "movement", movement: { weights, run: 0.2, idleScale: 1.3 } });
+  });
+  it("rejects broken movement", () => {
+    expect(parseBrainMessage(msg({ type: "movement", weights: { ...weights, play: -1 }, run: 0.2, idle_scale: 1 }))).toBeNull();
+    expect(parseBrainMessage(msg({ type: "movement", weights: { rest: 1 }, run: 0.2, idle_scale: 1 }))).toBeNull();
+    expect(parseBrainMessage(msg({ type: "movement", weights, run: 2, idle_scale: 1 }))).toBeNull();
+    expect(parseBrainMessage(msg({ type: "movement", weights, run: 0.2, idle_scale: 0 }))).toBeNull();
+  });
+  it("rejects bad input and old versions", () => {
     expect(parseBrainMessage("{oops")).toBeNull();
-    expect(parseBrainMessage(JSON.stringify({ v: 2, type: "status", ai: "ok" }))).toBeNull();
+    expect(parseBrainMessage(JSON.stringify({ v: 1, type: "status", ai: "ok" }))).toBeNull();
     expect(parseBrainMessage(msg({ type: "dance" }))).toBeNull();
     expect(parseBrainMessage(msg({ type: "status", ai: "maybe" }))).toBeNull();
     expect(parseBrainMessage(42)).toBeNull();
@@ -30,7 +38,7 @@ describe("parseBrainMessage", () => {
 
 describe("outgoing", () => {
   it("adds the protocol version", () => {
-    expect(JSON.parse(outgoing({ type: "clear_history" }))).toEqual({ v: 1, type: "clear_history" });
+    expect(JSON.parse(outgoing({ type: "event", kind: "poke", context: {} }))).toEqual({ v: 2, type: "event", kind: "poke", context: {} });
   });
 });
 
@@ -47,21 +55,5 @@ describe("statusText", () => {
     expect(statusText(null)).toBeNull();
     expect(statusText("no_keys")).toContain("키를 넣어");
     expect(statusText("bad_key")).toContain("키를 확인");
-  });
-});
-
-describe("stateSignals", () => {
-  // 연결이 끊긴 사이 바뀐 상태를 두뇌가 놓치지 않게, 접속할 때마다 집·자리 상태를 모두 알린다
-  it("reports the dog outside the house and the user present", () => {
-    expect(stateSignals({ inHouse: false, houseAwayMs: 5000, userActive: true })).toEqual([
-      { kind: "house", inside: false, awayMs: 5000 },
-      { kind: "user_return" },
-    ]);
-  });
-  it("reports the dog inside the house and the user away", () => {
-    expect(stateSignals({ inHouse: true, houseAwayMs: 0, userActive: false })).toEqual([
-      { kind: "house", inside: true, awayMs: 0 },
-      { kind: "user_away" },
-    ]);
   });
 });

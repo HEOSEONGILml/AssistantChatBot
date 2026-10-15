@@ -1,10 +1,15 @@
-// 두뇌 프로토콜 v1 (docs/brain-protocol.md). 두뇌가 정한 어휘를 이 화면의 몸체 동작에 대응시킨다.
+// 두뇌 프로토콜 v2 (docs/brain-protocol.md). 두뇌가 정한 어휘를 이 화면의 몸체 동작에 대응시킨다.
 import type { DogAction } from "../body/sprite";
+import { MOVES, type Move, type Movement } from "../body/dog";
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
-const EMOTIONS = ["excited", "angry", "curious", "surprised", "sad", "sleepy", "calm"] as const;
-export type Emotion = (typeof EMOTIONS)[number];
+export const EVENT_KINDS = ["typing", "message", "dog_spoke", "quiet", "returned", "house_in", "house_out", "poke", "pet", "throw"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+export type EventContext = Record<string, string | number>;
+
+const REACTIONS = ["joy", "curious", "surprised", "annoyed", "sad", "scared"] as const;
+export type BrainReaction = (typeof REACTIONS)[number];
 
 export const ACTION_TO_DOG = {
   stand: "idle_stand", sit: "idle_sit", lie_down: "idle_lay", sleep: "sleep", beg: "beg", bark: "bark",
@@ -14,24 +19,32 @@ export type BrainAction = keyof typeof ACTION_TO_DOG;
 const AI_STATUSES = ["ok", "no_keys", "bad_key"] as const;
 export type AiStatus = (typeof AI_STATUSES)[number];
 
-export type Signal =
-  | { kind: "typing"; text: string }
-  | { kind: "sent"; text: string }
-  | { kind: "house"; inside: boolean; awayMs: number }
-  | { kind: "bubble_seen" }
-  | { kind: "user_return" }
-  | { kind: "user_away" }
-  | { kind: "interaction"; type: "poke" | "pet" | "throw" };
-
-export type Reaction = { emotion?: Emotion; action?: BrainAction; utterance?: string };
-export type BrainMessage = ({ type: "reaction" } & Reaction) | { type: "status"; ai: AiStatus };
+export type Reaction = { reaction?: BrainReaction; action?: BrainAction; utterance?: string };
+export type BrainMessage =
+  | ({ type: "reaction" } & Reaction)
+  | { type: "status"; ai: AiStatus }
+  | { type: "movement"; movement: Movement };
 export type Outgoing =
   | { type: "hello"; token: string }
-  | { type: "signal"; signal: Signal }
+  | { type: "event"; kind: EventKind; context: EventContext }
   | { type: "set_key"; name: "typesafe" | "gemini"; value: string }
   | { type: "clear_history" };
 
 const includes = <T extends string>(list: readonly T[], x: unknown): x is T => list.includes(x as T);
+const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+
+function parseMovement(o: Record<string, unknown>): Movement | null {
+  const w = o.weights;
+  if (!w || typeof w !== "object") return null;
+  const weights = {} as Record<Move, number>;
+  for (const m of MOVES) {
+    const v = (w as Record<string, unknown>)[m];
+    if (!finite(v) || v < 0) return null;
+    weights[m] = v;
+  }
+  if (!finite(o.run) || o.run < 0 || o.run > 1 || !finite(o.idle_scale) || o.idle_scale <= 0) return null;
+  return { weights, run: o.run, idleScale: o.idle_scale };
+}
 
 export function parseBrainMessage(raw: unknown): BrainMessage | null {
   let m: unknown;
@@ -40,10 +53,11 @@ export function parseBrainMessage(raw: unknown): BrainMessage | null {
   const o = m as Record<string, unknown>;
   if (o.v !== PROTOCOL_VERSION) return null;
   if (o.type === "status") return includes(AI_STATUSES, o.ai) ? { type: "status", ai: o.ai } : null;
+  if (o.type === "movement") { const mv = parseMovement(o); return mv ? { type: "movement", movement: mv } : null; }
   if (o.type !== "reaction") return null;
   // 모르는 어휘는 그 항목만 버린다: 두뇌가 먼저 어휘를 늘려도 화면이 멈추지 않게
   const r: { type: "reaction" } & Reaction = { type: "reaction" };
-  if (includes(EMOTIONS, o.emotion)) r.emotion = o.emotion;
+  if (includes(REACTIONS, o.reaction)) r.reaction = o.reaction;
   if (typeof o.action === "string" && o.action in ACTION_TO_DOG) r.action = o.action as BrainAction;
   if (typeof o.utterance === "string") r.utterance = o.utterance;
   return r;
@@ -51,15 +65,6 @@ export function parseBrainMessage(raw: unknown): BrainMessage | null {
 
 export function outgoing(msg: Outgoing): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, ...msg });
-}
-
-// 접속할 때마다 보낼 현재 상태. 연결이 끊긴 사이 바뀐 집·자리 상태를 두뇌가 놓치지 않게 항상 둘 다 보낸다.
-// 두뇌는 이미 아는 상태면 무시한다 (docs/brain-protocol.md)
-export function stateSignals(s: { inHouse: boolean; houseAwayMs: number; userActive: boolean }): Signal[] {
-  return [
-    { kind: "house", inside: s.inHouse, awayMs: s.inHouse ? 0 : s.houseAwayMs },
-    { kind: s.userActive ? "user_return" : "user_away" },
-  ];
 }
 
 // AI 상태를 사용자에게 알릴 문구. 두뇌는 상태만 알리고 보여주는 방법은 화면이 정한다 (프로토콜)

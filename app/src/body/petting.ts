@@ -11,16 +11,17 @@ export function newPetting(): Petting {
   return { lastX: null, lastDir: 0, reversals: [], cooldownUntil: 0 };
 }
 
-export function feedPetting(s: Petting, x: number, now: number, overDog: boolean): { state: Petting; petted: boolean } {
-  if (!overDog) return { state: { ...newPetting(), cooldownUntil: s.cooldownUntil }, petted: false };
-  if (s.lastX === null) return { state: { ...s, lastX: x }, petted: false };
+export function feedPetting(s: Petting, x: number, now: number, overDog: boolean): { state: Petting; petted: boolean; seconds: number } {
+  if (!overDog) return { state: { ...newPetting(), cooldownUntil: s.cooldownUntil }, petted: false, seconds: 0 };
+  if (s.lastX === null) return { state: { ...s, lastX: x }, petted: false, seconds: 0 };
   const dx = x - s.lastX;
-  if (Math.abs(dx) < MIN_STROKE_PX) return { state: s, petted: false };
+  if (Math.abs(dx) < MIN_STROKE_PX) return { state: s, petted: false, seconds: 0 };
   const dir: 1 | -1 = dx > 0 ? 1 : -1;
   let reversals = s.reversals.filter((t) => now - t <= WINDOW_MS);
   if (s.lastDir !== 0 && dir !== s.lastDir && now >= s.cooldownUntil) reversals = [...reversals, now];
   if (reversals.length >= REVERSALS) {
-    return { state: { lastX: x, lastDir: dir, reversals: [], cooldownUntil: now + COOLDOWN_MS }, petted: true };
+    // 쓰다듬은 시간: 이번 문지르기의 첫 방향 전환부터 지금까지 (두뇌 이벤트 pet의 seconds)
+    return { state: { lastX: x, lastDir: dir, reversals: [], cooldownUntil: now + COOLDOWN_MS }, petted: true, seconds: (now - reversals[0]) / 1000 };
   }
-  return { state: { ...s, lastX: x, lastDir: dir, reversals }, petted: false };
+  return { state: { ...s, lastX: x, lastDir: dir, reversals }, petted: false, seconds: 0 };
 }

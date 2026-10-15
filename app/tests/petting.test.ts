@@ -21,3 +21,14 @@ test("강아지 밖이면 세지 않는다", () =>
   expect(run([[100, 0], [120, 100], [100, 200], [120, 300], [100, 400]], false)).toBe(0));
 test("한 번 쓰다듬은 뒤 잠깐은 다시 세지 않는다", () =>
   expect(run([[100, 0], [120, 100], [100, 200], [120, 300], [100, 400], [120, 500], [100, 600], [120, 700]])).toBe(1));
+
+test("쓰다듬은 시간(초)을 함께 알려 준다", () => {
+  let s: Petting = newPetting();
+  let seconds = 0;
+  for (const [x, t] of [[100, 0], [120, 100], [100, 200], [120, 300], [100, 400]] as [number, number][]) {
+    const r = feedPetting(s, x, t, true);
+    s = r.state;
+    if (r.petted) seconds = r.seconds;
+  }
+  expect(seconds).toBeCloseTo(0.2, 5);
+});

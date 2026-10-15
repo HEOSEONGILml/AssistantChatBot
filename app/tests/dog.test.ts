@@ -368,3 +368,21 @@ describe("쓰다듬기와 겹치지 않기", () => {
     expect(d.mode).toBe("idle");
   });
 });
+
+describe("던지기 충격", () => {
+  test("놓을 때 기록을 새로 시작한다", () => {
+    const d = release(grab(at(300, 100)), 900, -300, 5000);
+    expect([d.impact, d.bounces, d.thrownAt]).toEqual([0, 0, 5000]);
+  });
+  test("벽에 부딪힌 속도와 횟수를 기록한다", () => {
+    const d = step(at(5, 100, { mode: "thrown", vx: -1500, vy: 0 }), w, 0, 16, senses());
+    expect(d.bounces).toBe(1);
+    expect(d.impact).toBeCloseTo(1500);
+  });
+  test("바닥에 내려앉을 때도 기록하고 대기로 바뀐다", () => {
+    const d = step(at(300, 515, { mode: "thrown", vx: 0, vy: 300 }), w, 0, 16, senses());
+    expect(d.mode).toBe("idle");
+    expect(d.bounces).toBe(1);
+    expect(d.impact).toBeGreaterThan(300);
+  });
+});
