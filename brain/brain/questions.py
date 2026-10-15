@@ -1,82 +1,107 @@
-"""Jev 질문 정의와 state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 4.1·4.2절).
-질문 문구나 Jev 모델을 바꾸면 점수가 달라지므로 임계값(tuning.speak_threshold)을 다시 산출한다."""
+"""Jev 질문 4개와 선택지 정책 설명, Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
+문구를 바꾸면 분포가 달라지므로 Jev를 다시 녹화하고 보정값을 다시 맞춘다 (brain/sim)."""
 from datetime import datetime
 
 from typesafe_sdk import Choice, Noul
 
-from .persona import PERSONA, SPEAKER_NAMES
+from .model import ACTION_NAMES, REACTION_NAMES, Dog
+from .persona import PERSONA
+from .tuning import MOODS
 
-# 감정 7개 (vision, 2026-10-15 사용자 결정). 키는 프로토콜 어휘다
-EMOTIONS = {
-    "excited": "신남: 즐겁고 들떠 있다",
-    "angry": "분노: 화가 나거나 짜증이 났다",
-    "curious": "궁금함: 무언가가 궁금하고 알고 싶다",
-    "surprised": "놀람: 예상 못 한 일에 깜짝 놀랐다",
-    "sad": "슬픔: 서운하거나 슬프다",
-    "sleepy": "졸림: 졸리고 나른하다",
-    "calm": "평온: 특별한 감정 없이 편안하다",
+REACTION_TEXT = {
+    "joy": "기쁨: 즐겁거나 반가워서 기뻐한다",
+    "curious": "궁금함: 무언가가 궁금해 고개를 갸웃한다",
+    "surprised": "놀람: 예상 못 한 일에 깜짝 놀란다",
+    "annoyed": "짜증: 귀찮거나 싫은 일에 짜증을 낸다",
+    "sad": "서운함: 무시당하거나 거절당해 서운해한다",
+    "scared": "무서움: 위험하거나 거친 일에 겁을 먹는다",
+    "none": "없음: 특별한 감정 반응 없이 담담하다",
 }
-
-# 제자리 동작만 (vision, 2026-10-15 사용자 결정). 이동은 화면의 평소 움직임 규칙이 고른다
-ACTIONS = {
-    "stand": "서서 바라본다",
-    "sit": "앉는다",
-    "lie_down": "엎드린다",
-    "sleep": "잠든다",
-    "beg": "두 발로 서서 조른다",
-    "bark": "짖는다",
-    "none": "특별한 동작 없이 하던 대로 한다",
+# 정책: 반응·기분과 동작의 연결 (스펙 5절). 조르기가 모든 상황에 들어맞지 않게 쓴다 (성격 유형 실측)
+ACTION_TEXT = {
+    "stand": "서기: 서서 지켜본다. 궁금하거나 무언가를 기다릴 때",
+    "sit": "앉기: 앉아서 쉰다. 차분하고 별일 없을 때",
+    "lie_down": "엎드리기: 엎드린다. 졸리거나 시무룩할 때",
+    "sleep": "잠: 잠든다. 아주 졸리고 아무 일이 없을 때만",
+    "beg": "조르기: 두 발로 서서 조른다. 기뻐서 반기거나 무언가를 바랄 때",
+    "bark": "짖기: 짖는다. 놀라거나 짜증 나거나 무섭거나 아주 신날 때",
+    "none": "없음: 특별한 동작 없이 하던 대로 한다. 대부분의 평범한 순간",
 }
-
-SITUATIONS = {
-    "typing": "사용자가 강아지에게 할 말을 타이핑하는 중이다(아직 보내지 않았다)",
-    "sent": "사용자가 방금 강아지에게 말을 보냈다",
-    "quiet": "한동안 별일이 없다",
-    "just_spoke": "강아지가 방금 말했다",
-    "interaction:poke": "사용자가 방금 강아지를 콕 찔렀다",
-    "interaction:pet": "사용자가 방금 강아지를 쓰다듬었다",
-    "interaction:throw": "사용자가 방금 강아지를 들어서 던졌다",
-    "user_return": "자리를 비웠던 사용자가 방금 돌아왔다",
-    "house_out": "강아지가 방금 자기 집에서 나왔다",
-}
+# 첫 실측에서 상황 순서(보냄 > 방금 말함 > 타이핑·조용함)를 바로잡은 "차례" 문구
+SPEAK_TEXT = ("대화 흐름상 지금은 강아지가 말할 차례다. 사용자의 대답을 기다려야 하거나 "
+              "사용자가 아직 할 말을 다 하지 않았다면 강아지의 차례가 아니다")
+CHANGE_TEXT = {f"{d}{s}": f"이 일 자체로 강아지의 {d}이(가) {'올라간다' if s == '↑' else '내려간다'}"
+               for d in (*MOODS, "친밀도") for s in ("↑", "↓")}
+CHANGE_TEXT["변화없음"] = "이 일로 기분과 친밀도는 거의 변하지 않는다. 시간이 흘러 생기는 변화(혼자 있으면 심심해짐 등)는 여기서 따지지 않는다"
 
 QUESTIONS = {
-    "emotion": Choice(instructions="이 강아지의 지금 감정은 무엇인가?", criteria=EMOTIONS),
-    "action": Choice(instructions="이 강아지가 지금 할 동작은 무엇인가?", criteria=ACTIONS),
-    # 끼어들기·선발화·답할지·한 마디 더 할지를 모두 이 질문 하나로 묻는다. 상황은 state로만 구분한다
-    "speak_now": Noul(instructions="이 강아지가 지금 말을 하는 것이 자연스럽다"),
+    "reaction": Choice(instructions="이 강아지가 이번 이벤트(들)에 보일 감정 반응은?", criteria=REACTION_TEXT),
+    "action": Choice(instructions="이 강아지가 지금 할 동작은?", criteria=ACTION_TEXT),
+    "speak": Noul(instructions=SPEAK_TEXT),
+    "change": Choice(instructions="이번 이벤트(들) 자체로 강아지의 기분·친밀도는 어떻게 변하나?", criteria=CHANGE_TEXT),
 }
 
+EVENT_NAMES = {"typing": "타이핑", "message": "메시지 보냄", "dog_spoke": "강아지 말이 화면에 뜸", "quiet": "조용함",
+               "returned": "사용자가 돌아옴", "house_in": "강아지가 집에 들어감", "house_out": "강아지가 집에서 나옴",
+               "poke": "찌르기", "pet": "쓰다듬기", "throw": "던지기"}
+CONTEXT_NAMES = {"text": "글", "seconds": "시간(초)", "away_seconds": "떠나 있던 시간(초)", "impact": "충격(0~1)",
+                 "bounces": "튕긴 횟수", "flight_seconds": "날아간 시간(초)"}
 
-def human_duration(seconds: float) -> str:
-    s = int(seconds)
+
+def describe_event(kind: str, context: dict) -> dict:
+    d = {"종류": EVENT_NAMES.get(kind, kind)}
+    if context:
+        d["맥락"] = {CONTEXT_NAMES.get(k, k): v for k, v in context.items()}
+    return d
+
+
+def relative(seconds: float) -> str:
+    s = int(max(0, seconds))
+    if s < 10:
+        return "방금"
     if s < 60:
-        return f"{s}초"
+        return f"{s}초 전"
     if s < 3600:
-        return f"{s // 60}분"
-    return f"{s // 3600}시간 {s % 3600 // 60}분"
+        return f"{s // 60}분 전"
+    if s < 86400:
+        return f"{s // 3600}시간 전"
+    return f"{s // 86400}일 전"
 
 
-def format_recent(recent: list[tuple[float, str, str]]) -> str:
-    return "\n".join(f"{SPEAKER_NAMES.get(who, who)}: {text}" for _, who, text in recent)
+def log_line(ev, now: float) -> str | None:
+    """이벤트 기록 한 줄. 타이핑과 말풍선 표시는 대화·강아지 줄과 겹치므로 뺀다."""
+    if ev.kind in ("typing", "dog_spoke"):
+        return None
+    if ev.kind == "message":
+        what = f"사용자: {ev.data.get('text', '')}"
+    elif ev.kind == "dog":
+        if "utterance" in ev.data:
+            what = f"강아지: {ev.data['utterance']}"
+        else:
+            what = f"강아지 반응 {REACTION_NAMES.get(ev.data.get('reaction'), '없음')}, 동작 {ACTION_NAMES.get(ev.data.get('action'), '없음')}"
+    else:
+        d = describe_event(ev.kind, ev.data)
+        what = d["종류"] + (" (" + ", ".join(f"{k} {v}" for k, v in d["맥락"].items()) + ")" if "맥락" in d else "")
+    return f"{relative(now - ev.ts)} · {what}"
 
 
-def jev_state(*, situation: str, now: datetime, typing: str, recent: list[tuple[float, str, str]],
-              since_last_s: float | None, unread: bool, emotion: str, consecutive: int,
-              house_away_s: float | None) -> dict[str, object]:
-    # 자리 비움 여부는 넣지 않는다. 호출 주기에만 쓴다 (첫 버전 스펙 4.2절)
-    state: dict[str, object] = {
-        "강아지 성격": PERSONA,
-        "지금 시각": now.strftime("%Y-%m-%d %H:%M (%a)"),
-        "상황": SITUATIONS[situation],
-        "최근 대화": format_recent(recent) or "(없음)",
-        "마지막 대화 이후": "대화한 적 없음" if since_last_s is None else human_duration(since_last_s),
-        "강아지의 안 읽힌 말풍선": "있음" if unread else "없음",
-        "강아지의 지금 감정": EMOTIONS[emotion],
-        "사용자 입력 없이 강아지가 연달아 말한 횟수": consecutive,
+def format_log(events: list, now: float) -> list[str]:
+    return [line for e in events if (line := log_line(e, now))]
+
+
+def _r(x: float) -> float:
+    return round(x, 2)
+
+
+def jev_state(dog: Dog, batch: list, recent: list, now: float) -> dict:
+    """Jev와 Gemini가 함께 보는 데이터 (스펙 5절). 수치는 소수 둘째 자리."""
+    p = dog.personality
+    return {
+        "강아지 성격": {"기본 성격": PERSONA, "기준값": {d: _r(p.baseline[d]) for d in MOODS},
+                     "민감도": {d: _r(p.sensitivity[d]) for d in MOODS}, "변덕": _r(p.whim)},
+        "지금 시각": datetime.fromtimestamp(now).strftime("%Y-%m-%d (%a) %H:%M"),
+        "이번 이벤트들": [describe_event(e.kind, e.data) for e in batch],
+        "최근 이벤트 기록": format_log(recent, now),
+        "기분": {d: _r(dog.mood[d]) for d in MOODS},
+        "친밀도": _r(dog.intimacy),
     }
-    if typing:
-        state["사용자가 타이핑 중인 글"] = typing
-    if house_away_s is not None:
-        state["집에 있던 시간"] = human_duration(house_away_s)
-    return state
