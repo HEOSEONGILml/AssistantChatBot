@@ -85,12 +85,31 @@ def test_drift_once_per_day_change():
         dog.mood["들뜸"] = 0.9
         model.record_mood(dog)
     model.advance(dog, ts(16, 9), random.Random(0), QUIET)
-    assert dog.personality.baseline["들뜸"] == pytest.approx(0.4 + 0.05 * (0.9 - 0.4))
+    assert dog.personality.baseline["들뜸"] == pytest.approx(0.4 + 0.025 * (0.9 - 0.4))
     model.advance(dog, ts(16, 18), random.Random(0), QUIET)
-    assert dog.personality.baseline["들뜸"] == pytest.approx(0.425)
+    assert dog.personality.baseline["들뜸"] == pytest.approx(0.4125)
 
 
 def test_round_trip_through_json():
     dog = model.birth(random.Random(5), ts())
     data = json.loads(json.dumps(model.dog_to_dict(dog), ensure_ascii=False))
     assert model.dog_from_dict(data) == dog
+
+
+def test_personality_keeps_some_temperament():
+    # 매일 같은 기분으로 지내도 타고난 기질 쪽으로 되돌아가는 힘 때문에 경험 쪽으로 끝까지 가지 않는다 (시뮬레이션에서 발견)
+    dog = model.default_dog(ts(1, 10))
+    assert dog.personality.temperament["들뜸"] == 0.4
+    for day in range(1, 200):
+        for _ in range(10):
+            dog.mood["들뜸"] = 0.9
+            model.record_mood(dog)
+        dog.day = f"day-{day}"  # 날이 바뀐 것으로 만든다
+        model.advance(dog, dog.updated_at, random.Random(0), QUIET)
+    assert dog.personality.baseline["들뜸"] == pytest.approx(0.65, abs=0.01)
+
+
+def test_old_saved_dog_gets_temperament_from_baseline():
+    data = model.dog_to_dict(model.default_dog(ts()))
+    del data["personality"]["temperament"]
+    assert model.dog_from_dict(data).personality.temperament == data["personality"]["baseline"]

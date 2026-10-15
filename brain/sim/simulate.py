@@ -12,7 +12,7 @@ from datetime import datetime
 
 from brain import model
 from brain.clients import Readout
-from brain.tuning import BIRTH_BASELINE, MOODS, Tuning
+from brain.tuning import BASELINE_RANGE, BIRTH_BASELINE, MOODS, Tuning
 
 from .record import INTIMACY, OUT, PRESETS
 
@@ -77,8 +77,10 @@ class World:
     def _judge(self, kind: str, tag: str | None) -> bool:
         dog, t = self.dog, self.t
         model.advance(dog, self.now, self.rng, t)
+        if kind != "dog_spoke":  # 두뇌 core와 같은 규칙: 연달아 말하기는 한 흐름 안에서만
+            self.streak = 0
         if kind in ("message", "typing"):
-            self.streak, self.waiting = 0, False
+            self.waiting = False
         rd = self.rec.readout(kind, dog, self.streak)
         scores = model.reaction_scores(rd.reaction, dog, model.habit_level(dog, [kind]), t)
         reaction = model.pick(scores, self.rng)
@@ -108,9 +110,11 @@ class World:
         self.stats.chains.append(length)
         return True
 
-    def sample(self) -> None:
+    def sample(self, minutes: int = 1) -> None:
+        """기분 표본. 실제 두뇌는 하루 내내 30초마다 고르게 모으므로, 자리 비움 30분 표본은 30분 몫으로 센다."""
         model.advance(self.dog, self.now, self.rng, self.t)
-        model.record_mood(self.dog)
+        for _ in range(minutes):
+            model.record_mood(self.dog)
         self.stats.samples += 1
         self.stats.stuck += sum(m >= 0.9 or m <= 0.05 for m in self.dog.mood.values())
 
@@ -118,7 +122,7 @@ class World:
         while self.now + 1800 <= until:  # 자리 비움: 30분마다 조용함
             self.now += 1800
             self.event("quiet", "quiet_away")
-            self.sample()
+            self.sample(30)
         self.now = until
 
     def present(self, until: float) -> None:
@@ -205,11 +209,24 @@ def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int
     spread = " | ".join(f"{min(v):.2f} / {statistics.median(v):.2f} / {max(v):.2f}"
                         for v in ([x for x in vs if not math.isnan(x)] for vs in metrics.values()))
     rows.append(f"| 무작위 {dogs}마리 (최소/중앙/최대) | {spread} | | |")
-    out_of_range = 0
+    # 성격 변화: 기준값이 한계(0.05·0.95)에 붙는지, 얼마나 움직이는지, 개성(강아지 사이 차이)이 남는지
+    at_edge, moved, born, grown = 0, [], [], []
     for i in range(20):
-        p = run(model.birth(random.Random(1000 + i), START), rec, t, weeks * 7, i).dog.personality
-        out_of_range += any(not 0.1 <= v <= 0.9 for v in (*p.baseline.values(), *p.sensitivity.values()))
-    tail = [f"\n{weeks}주 뒤 기준값·민감도가 0.1~0.9를 벗어난 강아지: 20마리 중 {out_of_range}마리 (목표 0)",
+        dog = model.birth(random.Random(1000 + i), START)
+        b0 = dict(dog.personality.baseline)
+        b1 = run(dog, rec, t, weeks * 7, i).dog.personality.baseline
+        edge = lambda b: {m for m, v in b.items() if v <= BASELINE_RANGE[0] + 0.01 or v >= BASELINE_RANGE[1] - 0.01}
+        at_edge += bool(edge(b1) - edge(b0))  # 태어날 때 이미 한계였던 것은 빼고, 새로 붙은 것만
+        moved.append(max(abs(b1[m] - b0[m]) for m in MOODS))
+        born.append(b0)
+        grown.append(b1)
+
+    def spread(bs):
+        return statistics.mean(statistics.pstdev([b[m] for b in bs]) for m in MOODS)
+
+    tail = [f"\n{weeks}주 뒤 기준값이 새로 한계(0.05·0.95)에 붙은 강아지: 20마리 중 {at_edge}마리 (목표 0)",
+            f"\n{weeks}주 동안 기준값이 가장 크게 움직인 폭: 중앙 {statistics.median(moved):.2f}, 최대 {max(moved):.2f}",
+            f"\n강아지 사이 기준값 표준편차(개성): 태어날 때 {spread(born):.3f} → {weeks}주 뒤 {spread(grown):.3f}",
             f"\nkind_bias = {json.dumps(t.kind_bias, ensure_ascii=False)}"]
     return "\n".join(head + rows + tail)
 

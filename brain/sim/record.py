@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from brain import config, model
-from brain.clients import TypeSafeJev
+from brain.clients import CallError, TypeSafeJev
 from brain.questions import jev_state
 
 PRESETS = {"기본": {}, "심심함": {"심심함": 0.9}, "졸림": {"졸림": 0.9}, "분노": {"분노": 0.9}, "들뜸": {"들뜸": 0.9}, "시무룩": {"시무룩": 0.9}}
@@ -53,7 +53,14 @@ async def main() -> None:
     jev = TypeSafeJev(keys["typesafe"], 10.0)
     data = {}
     for c in cases():
-        rd = await jev.judge(state_for(*c))
+        for attempt in range(3):  # 녹화는 실시간이 아니므로 일시적인 API 오류는 다시 시도한다
+            try:
+                rd = await jev.judge(state_for(*c))
+                break
+            except CallError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(2)
         data[key(*c)] = {"reaction": rd.reaction, "action": rd.action, "speak": rd.speak, "change": rd.change}
     await jev.aclose()
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")

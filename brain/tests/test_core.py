@@ -203,3 +203,17 @@ async def test_clear_history_keeps_dog(make):
     await env.brain.clear_history()
     assert env.store.recent(5) == []
     assert env.store.load_dog() == before
+
+
+async def test_quiet_after_a_full_chain_can_speak_again(make):
+    # 연달아 말하기 상한은 한 흐름 안에서만이다. 10분 뒤 조용함에는 다시 먼저 말을 걸 수 있다 (시뮬레이션에서 발견)
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("message", {"text": "안녕"})
+    await env.brain.drain()
+    for _ in range(3):
+        await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
+        await env.brain.drain()
+    assert len(utterances(env.out)) == 3
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert len(utterances(env.out)) == 4

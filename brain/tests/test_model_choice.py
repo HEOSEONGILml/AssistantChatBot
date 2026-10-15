@@ -7,6 +7,7 @@ from brain import model
 from brain.tuning import MOODS, Tuning
 
 T = Tuning()
+ZERO = replace(T, kind_bias={k: 0.0 for k in T.kind_bias})  # 이벤트 종류별 보정 없이 식만 본다
 
 
 def neutral(**kw):
@@ -76,10 +77,10 @@ def test_talkativeness_directions():
 
 
 def test_speak_probability_formula():
-    assert model.speak_probability(0.5, neutral(), "message", 0, False, T) == pytest.approx(0.5)
-    assert model.speak_probability(0.5, neutral(), "message", 1, False, T) < 0.5
-    assert model.speak_probability(0.5, neutral(), "message", 0, True, T) < 0.5
-    biased = replace(T, kind_bias={**T.kind_bias, "dog_spoke": -2.0})
+    assert model.speak_probability(0.5, neutral(), "message", 0, False, ZERO) == pytest.approx(0.5)
+    assert model.speak_probability(0.5, neutral(), "message", 1, False, ZERO) < 0.5
+    assert model.speak_probability(0.5, neutral(), "message", 0, True, ZERO) < 0.5
+    biased = replace(ZERO, kind_bias={**ZERO.kind_bias, "dog_spoke": -2.0})
     assert model.speak_probability(0.5, neutral(), "dog_spoke", 0, False, biased) == pytest.approx(0.1192, abs=1e-3)
 
 

@@ -50,7 +50,10 @@ class Tuning:
     change_k: float = 0.3               # 강한 내용 (P↑−P↓) ±0.6~0.7 × 민감도 0.5 → 한 이벤트에 ±0.1
     change_noise: float = 0.02
     intimacy_k: float = 0.05            # 강하게 좋은 일 약 20번에 +0.5
-    drift_rate: float = 0.05            # 하루에 기준값이 어제 평균 쪽으로 5% 이동 (2주에 절반)
+    # 기질로 되돌아가는 힘. drift_rate와 같으면 성격은 기질과 경험의 한가운데에 자리 잡는다.
+    # 이 힘이 없으면 8주 시뮬레이션에서 모든 강아지가 같은 성격으로 수렴했다 (docs/spikes/2026-10-15-simulation.md)
+    temperament_pull: float = 0.025
+    drift_rate: float = 0.025           # 하루에 기준값이 어제 평균 쪽으로 2.5% 이동 (4주에 절반). 5%는 8주 시뮬레이션에서 20마리 중 8마리가 극단으로 감
     habit_rate: float = 0.3             # 같은 자극 5번이면 h≈0.83 (민감도 0.5)
     habit_half_life_s: float = 3600.0   # 1시간 쉬면 습관화가 절반 풀림
     w_habit: float = 2.0
@@ -58,7 +61,11 @@ class Tuning:
     w_sens: float = 1.0
     w_react: float = 1.0
     talk_scale: float = 1.0             # 말수 계수 크기
-    kind_bias: dict = field(default_factory=lambda: {k: 0.0 for k in EVENT_KINDS})  # Task 9에서 시뮬레이션으로 맞춤
+    # 이벤트 종류별 말하기 보정. 평균 성격 강아지가 목표 지표(끼어들기 15%, 답하기 85%, 먼저 말 걸기 1/3,
+    # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
+    # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
+    kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
+                                                     "typing": -4.28, "message": -0.71, "dog_spoke": -2.13, "quiet": -2.61})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 1.0

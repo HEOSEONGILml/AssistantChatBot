@@ -101,8 +101,11 @@ class Brain:
             return
         ev = Event(self._clock(), "user" if kind in USER_KINDS else "screen", kind, dict(context or {}))
         self._store.add(ev)
+        # 연달아 말하기는 한 흐름(말풍선이 뜨고 이어 말하기) 안에서만 센다. 다른 일이 생기면 새 흐름이다
+        if kind != "dog_spoke":
+            self._streak = 0
         if kind in ("message", "typing"):
-            self._streak, self._waiting = 0, False
+            self._waiting = False
         if kind == "house_in" or (kind == "message" and self._phase == "speaking"):
             self._cancel()  # 만들던 대사를 버린다 (스펙 8절)
             if kind == "house_in":

@@ -20,6 +20,11 @@ class Personality:
     baseline: dict[str, float]      # 기분마다 기준값: 아무 일 없을 때 돌아가는 값. 겪은 일로 천천히 변한다
     sensitivity: dict[str, float]   # 기분마다 민감도: 같은 일에 움직이는 폭. 태어날 때 고정
     whim: float                     # 변덕: 뽑기 온도. 태어날 때 고정
+    temperament: dict[str, float] = field(default_factory=dict)  # 타고난 기질: 태어날 때의 기준값. 기준값이 아주 약하게 되돌아가는 자리
+
+    def __post_init__(self):
+        if not self.temperament:  # 기질이 없던 예전 저장본은 지금 기준값을 기질로 본다
+            self.temperament = dict(self.baseline)
 
 
 @dataclass
@@ -77,7 +82,10 @@ def advance(dog: Dog, now: float, rng, t: Tuning) -> None:
         if dog.day_count:
             b = dog.personality.baseline
             for d in MOODS:
-                b[d] = clip(b[d] + t.drift_rate * (dog.day_sum[d] / dog.day_count - b[d]), *BASELINE_RANGE)
+                # 겪은 일(어제 기분 평균) 쪽으로 끌리고, 타고난 기질 쪽으로 약하게 되돌아간다: 개성이 경험에 다 지워지지 않게
+                mean = dog.day_sum[d] / dog.day_count
+                pull = dog.personality.temperament[d] - b[d]
+                b[d] = clip(b[d] + t.drift_rate * (mean - b[d]) + t.temperament_pull * pull, *BASELINE_RANGE)
         dog.day, dog.day_sum, dog.day_count = today, {d: 0.0 for d in MOODS}, 0
 
 
