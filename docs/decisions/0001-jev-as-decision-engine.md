@@ -1,6 +1,6 @@
 # 0001. 실시간 반응 결정에 Jev를 쓴다
 
-- 상태: 채택
+- 상태: 채택 (Jev는 분포를 주고 결정은 확률 모델이 한다로 개정: [0014](0014-probabilistic-model-with-jev-distributions.md))
 - 날짜: 2026-10-14
 
 ## 배경

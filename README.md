@@ -17,7 +17,7 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [`docs/decisions/`](docs/decisions/) | 결정 기록(ADR). 결정 하나에 파일 하나 |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
 | [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌](docs/superpowers/specs/2026-10-15-brain-design.md) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
 | [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md), [Jev speak_now 실측](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정 실측](docs/spikes/2026-10-15-brain-v2-assumptions.md) |
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
@@ -27,7 +27,7 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 
 | 번호 | 제목 | 상태 |
 |---|---|---|
-| [0001](docs/decisions/0001-jev-as-decision-engine.md) | 실시간 반응 결정에 Jev를 쓴다 | 채택 |
+| [0001](docs/decisions/0001-jev-as-decision-engine.md) | 실시간 반응 결정에 Jev를 쓴다 | 채택 (일부 개정: 0014) |
 | [0002](docs/decisions/0002-platform-order.md) | Windows PC 먼저, Android는 그다음 | 채택 |
 | [0003](docs/decisions/0003-windows-display-modes.md) | Windows 배경·오버레이 모드 모두 지원, 설정으로 고정 | 대체됨(0010) |
 | [0004](docs/decisions/0004-input-box-trigger.md) | 캐릭터 클릭·전역 단축키로 입력창, 상시 표시는 설정 | 대체됨(말풍선 아이콘으로) |
@@ -39,3 +39,5 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [0010](docs/decisions/0010-overlay-only-with-doghouse.md) | 오버레이 모드만, 강아지 집(비활성 모드) 추가 | 채택 |
 | [0011](docs/decisions/0011-python-brain-local-sidecar.md) | 두뇌는 PC 안에서 도는 파이썬 프로세스 | 채택 (일부 개정: 0012) |
 | [0012](docs/decisions/0012-brain-as-frontend-independent-service.md) | 두뇌는 화면과 독립된 WebSocket 서비스, 키도 두뇌가 보관 | 채택 |
+| [0013](docs/decisions/0013-event-driven-brain-with-event-log.md) | 두뇌는 이벤트 단위로 판단, 이벤트 기록이 기억 | 채택 |
+| [0014](docs/decisions/0014-probabilistic-model-with-jev-distributions.md) | Jev는 분포를 주고 확률 모델이 뽑아서 결정 | 채택 |

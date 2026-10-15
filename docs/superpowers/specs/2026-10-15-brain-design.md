@@ -1,7 +1,7 @@
 # 두뇌(서브 프로젝트 2) 설계
 
 - 날짜: 2026-10-15
-- 상태: 초안. 실제로 써 보며 고치고, 고도화 단계에서 크게 바뀔 수 있다 ([vision](../../vision.md))
+- 상태: 판단 부분(4·5·6절)은 [두뇌 v2](2026-10-15-brain-v2-design.md)로 대체됨 (2026-10-15). 전송 계층·키·오류 처리·Tauri 연결은 유효
 - 구현: 2026-10-15 (`brain/`, 계획 [2026-10-15-brain](../plans/2026-10-15-brain.md)). 수동 확인: [체크리스트](../../manual-checks/brain.md)
 - 근거 문서: [첫 버전 스펙](2026-10-14-windows-desktop-pet-design.md) 4·6절, 결정 기록 [0001](../../decisions/0001-jev-as-decision-engine.md), [0007](../../decisions/0007-dialogue-llm.md), [0011](../../decisions/0011-python-brain-local-sidecar.md), [0012](../../decisions/0012-brain-as-frontend-independent-service.md)
 
