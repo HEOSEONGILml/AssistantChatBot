@@ -1,6 +1,6 @@
-# 두뇌 프로토콜 (v1)
+# 두뇌 프로토콜 (v2)
 
-화면(프론트엔드)과 두뇌가 주고받는 규약이다. 화면은 이 문서만 보고 만들 수 있어야 한다. 두뇌는 고정이고 화면은 바뀔 수 있다 ([0012](decisions/0012-brain-as-frontend-independent-service.md)).
+화면(프론트엔드)과 두뇌가 주고받는 규약이다. 화면은 이 문서만 보고 만들 수 있어야 한다. 두뇌는 고정이고 화면은 바뀔 수 있다 ([0012](decisions/0012-brain-as-frontend-independent-service.md)). 이벤트의 **의미**는 여기서 고정하고, **언제** 낼지는 화면이 정한다 ([0013](decisions/0013-event-driven-brain-with-event-log.md)).
 
 ## 접속
 
@@ -13,69 +13,63 @@ sequenceDiagram
   화면->>파일: port, token 읽기
   화면->>두뇌: WebSocket ws://127.0.0.1:{port}
   화면->>두뇌: hello {token}
-  두뇌-->>화면: status {ai}
-  화면->>두뇌: (기본값과 다른 상태가 있으면) signal
+  두뇌-->>화면: status {ai}, movement {...}
+  화면->>두뇌: event ...
+  두뇌-->>화면: reaction ..., movement ...
 ```
 
-- 접속 정보 파일: `%APPDATA%\TamagotchiChatBot\brain\brain.json` = `{"port": 숫자, "token": 문자열, "pid": 숫자}`. 파일이 없거나 접속이 안 되면 두뇌가 꺼진 것이다.
+- 접속 정보 파일: `%APPDATA%\TamagotchiChatBot\brain\brain.json` = `{"port", "token", "pid"}`. 파일이 없거나 접속이 안 되면 두뇌가 꺼진 것이다.
 - 두뇌는 `127.0.0.1`에서만 받는다. 첫 메시지는 5초 안에 `hello`여야 한다.
-- 화면은 하나만 붙는다. 새 화면이 `hello`에 성공하면 이전 연결은 코드 4002로 닫힌다.
+- 화면은 하나만 붙는다. 새 화면이 `hello`에 성공하면 이전 연결은 4002로 닫힌다.
 - 닫기 코드: 4001 토큰·hello 오류, 4002 다른 화면으로 교체, 4003 프로토콜 버전 불일치.
-- 두뇌는 처음에 "강아지는 집 밖, 사용자는 자리에 있음"으로 안다. 화면은 **접속할 때마다** 지금 집 상태(`house`)와 자리 상태(`user_away`/`user_return`)를 `signal`로 알린다. 연결이 끊긴 사이 바뀐 상태를 놓치지 않기 위해서다. 두뇌는 이미 아는 상태를 다시 받으면 무시하고, 연결이 끊겨도 상태를 기억한다.
 
 ## 메시지
 
-모든 메시지는 JSON 객체 하나이고 `v: 1`과 `type`이 있다. 해석할 수 없는 메시지는 버리고 연결은 유지한다.
+모든 메시지는 JSON 객체 하나이고 `v: 2`와 `type`이 있다. 해석할 수 없는 메시지는 버리고 연결은 유지한다.
 
 ### 화면 → 두뇌
 
 | type | 필드 | 뜻 |
 |---|---|---|
 | `hello` | `token` | 인증. 첫 메시지 |
-| `signal` | `signal`: 아래 Signal | 무슨 일이 있었는지 알림 |
+| `event` | `kind`, `context` | 일어난 일 (아래 표) |
 | `set_key` | `name`: `typesafe`·`gemini`, `value` | API 키 저장. 두뇌가 OS 자격 저장소에 보관한다 |
-| `clear_history` | | 대화 기록 전체 삭제 |
+| `clear_history` | | 이벤트 기록 전체 삭제 (강아지 성격·기분·친밀도는 남는다) |
 
-**Signal**
+**이벤트**: 강아지가 집에 있는 동안은 `house_out` 외에는 보내지 않는다. 세기 값은 0~1로 정규화해 보낸다(정규화는 화면이 정한다).
 
-| kind | 필드 | 뜻 |
-|---|---|---|
-| `typing` | `text` | 입력 중인 글이 바뀜 (보내기 전) |
-| `sent` | `text` | 메시지를 보냄 |
-| `house` | `inside`, `awayMs` | 강아지가 집에 들어감(`inside: true`) / 나옴(`false`, `awayMs`는 집에 있던 시간) |
-| `bubble_seen` | | 사용자가 말풍선을 봤음 (판단 기준은 화면이 정한다) |
-| `user_away` / `user_return` | | 사용자가 자리를 비움 / 돌아옴 (판단 기준은 화면이 정한다) |
-| `interaction` | `type`: `poke`·`pet`·`throw` | 몸 상호작용 (찌르기·쓰다듬기·던지기) |
+| kind | context | 뜻 | Windows 화면이 내는 때 |
+|---|---|---|---|
+| `typing` | `text` | 보내기 전 쓰는 중 | 0.6초 멈춤, 또는 지난 typing 뒤 10자 넘게 바뀜 |
+| `message` | `text` | 사용자가 말함 | Enter |
+| `dog_spoke` | `text` | 강아지 말이 화면에 뜸 | 말풍선 표시 직후 |
+| `quiet` | `seconds` | 한동안 아무 일 없음 | 마지막 이벤트 뒤 10분(자리에 있음)/30분(비움). 반복 |
+| `returned` | `away_seconds` | 사용자가 돌아옴 | 1분 넘게 입력이 없다가 다시 입력 |
+| `house_in` | | 강아지가 집에 들어감 | 집 클릭·트레이·단축키 |
+| `house_out` | `away_seconds` | 강아지가 집에서 나옴 | 같음 |
+| `poke` | | 찌르기 | 짧은 클릭 |
+| `pet` | `seconds` | 쓰다듬기 | 문지르기 감지 |
+| `throw` | `impact`(0~1), `bounces`, `flight_seconds` | 던지기 | 착지할 때. impact = 가장 세게 부딪힌 속도 ÷ 2000px/초 |
 
 ### 두뇌 → 화면
 
 | type | 필드 | 뜻 |
 |---|---|---|
-| `reaction` | `emotion?`, `action?`, `utterance?` | 강아지 반응. 바뀐 항목만 온다. 감정·행동과 대사는 따로 올 수 있다 |
-| `status` | `ai`: `ok`·`no_keys`·`bad_key` | AI 상태. `hello` 직후와 바뀔 때 온다. 보여주는 방법은 화면이 정한다 |
+| `reaction` | `reaction?`, `action?`, `utterance?` | 강아지 반응. 반응·동작과 대사는 따로 올 수 있다 |
+| `status` | `ai`: `ok`·`no_keys`·`bad_key` | AI 상태. `hello` 직후와 바뀔 때 |
+| `movement` | `weights`, `run`, `idle_scale` | 평소 움직임 경향. `hello` 직후와 바뀔 때. 화면은 최신 값으로 평소 움직임을 뽑는다 |
 
-**어휘** — 모든 화면이 전부 표현해야 한다.
+| 반응 `reaction` | 동작 `action` | 움직임 범주 `weights` 키 |
+|---|---|---|
+| `joy` 기쁨 | `stand` 서기 | `rest` 쉬기 |
+| `curious` 궁금함 | `sit` 앉기 | `sleep` 잠 |
+| `surprised` 놀람 | `lie_down` 엎드리기 | `roam` 돌아다니기 |
+| `annoyed` 짜증 | `sleep` 잠 | `approach` 사용자 곁으로 |
+| `sad` 서운함 | `beg` 조르기 | `play` 놀기 |
+| `scared` 무서움 | `bark` 짖기 | `explore` 구경하기 |
 
-| 감정 `emotion` | 뜻 |
-|---|---|
-| `excited` | 신남 |
-| `angry` | 분노 |
-| `curious` | 궁금함 |
-| `surprised` | 놀람 |
-| `sad` | 슬픔 |
-| `sleepy` | 졸림 |
-| `calm` | 평온 |
-
-| 행동 `action` | 뜻 |
-|---|---|
-| `stand` | 서서 바라보기 |
-| `sit` | 앉기 |
-| `lie_down` | 엎드리기 |
-| `sleep` | 잠자기 |
-| `beg` | 두 발로 서서 조르기 |
-| `bark` | 짖기 |
-
-(`none`은 두뇌 안에서만 쓰고 화면으로 보내지 않는다.)
+- `run`: 돌아다닐 때 달리는 비율(0~1). `idle_scale`: 한 움직임에 머무는 시간 배율(양수).
+- 모든 화면이 위 어휘를 모두 표현해야 한다. "없음"은 보내지 않는다.
 
 ## 바꿀 때
 

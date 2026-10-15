@@ -21,8 +21,8 @@ class FakeBrain:
     async def connected(self, on):
         self.events.append(("connected", on))
 
-    async def handle(self, signal):
-        self.events.append(("signal", signal))
+    async def handle_event(self, kind, context):
+        self.events.append(("event", kind, context))
 
     async def set_keys(self, keys):
         self.events.append(("keys", keys))
@@ -41,7 +41,7 @@ async def server():
         yield link, f"ws://127.0.0.1:{sock.getsockname()[1]}"
 
 
-def hello(token=TOKEN, v=1):
+def hello(token=TOKEN, v=2):
     return json.dumps({"v": v, "type": "hello", "token": token})
 
 
@@ -66,7 +66,7 @@ async def test_bad_token_is_rejected(server):
 async def test_wrong_version_is_rejected(server):
     _, url = server
     async with connect(url) as ws:
-        await ws.send(hello(v=2))
+        await ws.send(hello(v=1))
         with pytest.raises(ConnectionClosed):
             await ws.recv()
         assert ws.close_code == CLOSE_VERSION
@@ -76,10 +76,10 @@ async def test_signal_reaches_brain_and_send_reaches_screen(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 1, "type": "signal", "signal": {"kind": "sent", "text": "안녕"}}))
-        await wait_for(lambda: ("signal", {"kind": "sent", "text": "안녕"}) in link.brain.events)
+        await ws.send(json.dumps({"v": 2, "type": "event", "kind": "message", "context": {"text": "안녕"}}))
+        await wait_for(lambda: ("event", "message", {"text": "안녕"}) in link.brain.events)
         await link.send({"type": "reaction", "utterance": "멍!"})
-        assert json.loads(await ws.recv()) == {"v": 1, "type": "reaction", "utterance": "멍!"}
+        assert json.loads(await ws.recv()) == {"v": 2, "type": "reaction", "utterance": "멍!"}
     await wait_for(lambda: link.brain.events[-1] == ("connected", False))
     assert link.brain.events[0] == ("connected", True)
 
@@ -106,10 +106,11 @@ async def test_garbage_is_ignored(server):
     async with connect(url) as ws:
         await ws.send(hello())
         await ws.send("{not json")
-        await ws.send(json.dumps({"v": 1, "type": "dance"}))
-        await ws.send(json.dumps({"v": 1, "type": "signal", "signal": "not-a-dict"}))
-        await ws.send(json.dumps({"v": 1, "type": "signal", "signal": {"kind": "bubble_seen"}}))
-        await wait_for(lambda: ("signal", {"kind": "bubble_seen"}) in link.brain.events)
+        await ws.send(json.dumps({"v": 2, "type": "dance"}))
+        await ws.send(json.dumps({"v": 2, "type": "event", "kind": "poke", "context": "not-a-dict"}))
+        await ws.send(json.dumps({"v": 2, "type": "event", "kind": 3}))
+        await ws.send(json.dumps({"v": 2, "type": "event", "kind": "poke"}))
+        await wait_for(lambda: ("event", "poke", {}) in link.brain.events)
 
 
 async def test_set_key_and_clear_history(server, monkeypatch):
@@ -119,8 +120,8 @@ async def test_set_key_and_clear_history(server, monkeypatch):
     monkeypatch.setattr(config, "read_keys", lambda: {"typesafe": None, "gemini": "g"})
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 1, "type": "set_key", "name": "gemini", "value": "g"}))
-        await ws.send(json.dumps({"v": 1, "type": "clear_history"}))
+        await ws.send(json.dumps({"v": 2, "type": "set_key", "name": "gemini", "value": "g"}))
+        await ws.send(json.dumps({"v": 2, "type": "clear_history"}))
         await wait_for(lambda: ("clear",) in link.brain.events)
     assert written == {"gemini": "g"}
     assert ("keys", {"typesafe": None, "gemini": "g"}) in link.brain.events

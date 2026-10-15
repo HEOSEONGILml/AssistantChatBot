@@ -10,7 +10,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 HELLO_TIMEOUT_S = 5
 CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION = 4001, 4002, 4003
 
@@ -72,8 +72,8 @@ class Link:
 
     async def _dispatch(self, msg: dict) -> None:
         kind = msg["type"]
-        if kind == "signal" and isinstance(msg.get("signal"), dict):
-            await self.brain.handle(msg["signal"])
+        if kind == "event" and isinstance(msg.get("kind"), str) and isinstance(msg.get("context", {}), dict):
+            await self.brain.handle_event(msg["kind"], msg.get("context", {}))
         elif kind == "set_key":
             try:
                 config.write_key(str(msg.get("name")), str(msg.get("value", "")))

@@ -14,7 +14,7 @@ from websockets.asyncio.server import serve
 from . import config
 from .clients import make_clients
 from .core import Brain
-from .memory import History
+from .store import Store
 from .server import Link
 from .tuning import Tuning
 
@@ -51,8 +51,11 @@ async def main() -> None:
         return
     tuning = Tuning()
     link = Link(secrets.token_urlsafe(32))
-    brain = Brain(emit=link.send, make_clients=lambda keys: make_clients(keys, tuning),
-                  history=History(data / "history.db"), tuning=tuning)
+    store = Store(data / "brain.db")
+    moved = store.import_v1(data / "history.db")
+    if moved:
+        log.info("v1 대화 기록 %d개를 이벤트 기록으로 옮겼다", moved)
+    brain = Brain(emit=link.send, make_clients=lambda keys: make_clients(keys, tuning), store=store, tuning=tuning)
     link.brain = brain
     await brain.set_keys(config.read_keys())
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,7 +65,7 @@ async def main() -> None:
         info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
         log.info("두뇌 시작: 포트 %d", port)
         try:
-            await brain.run_ticker()
+            await brain.run_clock()
         finally:
             info.unlink(missing_ok=True)
             await brain.aclose()
