@@ -19,11 +19,13 @@
       <label><input type="checkbox" id="hideHouseWhenInside" /> 강아지가 집에 있을 때 집도 숨기기</label>
       <label>입력창 단축키 <input id="inputShortcut" /></label>
       <label>강아지 집 단축키 <input id="houseShortcut" /></label>
-      <fieldset><legend>TypeSafe(Jev) 키 <span id="typesafe-state"></span></legend>
-        <input id="typesafe" type="password" placeholder="새 키 입력" /> <button data-del="typesafe">삭제</button></fieldset>
-      <fieldset><legend>Gemini 키 <span id="gemini-state"></span></legend>
-        <input id="gemini" type="password" placeholder="새 키 입력" /> <button data-del="gemini">삭제</button></fieldset>
+      <p>AI 상태: <span id="ai-state">확인 중…</span></p>
+      <fieldset><legend>TypeSafe(Jev) 키</legend>
+        <input id="typesafe" type="password" placeholder="새 키 입력" /></fieldset>
+      <fieldset><legend>Gemini 키</legend>
+        <input id="gemini" type="password" placeholder="새 키 입력" /></fieldset>
       <button id="save">저장</button>
+      <button id="clear-history">대화 기록 전체 삭제</button>
       <p id="msg" role="status"></p>
     </main>
     <script type="module" src="/src/settings-page.ts"></script>

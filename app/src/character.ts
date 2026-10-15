@@ -10,9 +10,9 @@ import { showBubble, tickBubble, type Bubble } from "./body/bubble";
 import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX, drawGearIcon, GEAR_PX } from "./body/house";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { stubReact } from "./body/stub-brain";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
-import { ACTION_TO_DOG, type Reaction, type Signal } from "./shared/brain-protocol";
+import { ACTION_TO_DOG, statusText, type AiStatus, type BrainMessage, type Signal } from "./shared/brain-protocol";
+import { connectBrain } from "./brain-link";
 import "./styles.css";
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -123,15 +123,36 @@ async function main() {
     emit("toggle-input", cssBoxToPhys(houseBox, origin, scale));
   };
 
-  listen<Reaction>("reaction", (e) => {
-    if (dog.mode === "in_house" || dog.mode === "to_house") return; // 집에서는 완전히 조용 (vision)
-    if (e.payload.action) dog = playAction(dog, ACTION_TO_DOG[e.payload.action], Date.now(), ACTION_MS);
-    if (e.payload.utterance) { bubble = showBubble(e.payload.utterance); bubbleEl.textContent = e.payload.utterance; }
+  // 두뇌 연결. 두뇌가 없거나 끊겨도 강아지는 평소대로 움직인다 (두뇌 스펙 8절)
+  let aiStatus: AiStatus | null = null; // null: 두뇌에 연결되지 않음
+  const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
+  const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
+  const onBrain = (m: BrainMessage) => {
+    const home = dog.mode === "in_house" || dog.mode === "to_house"; // 집에서는 완전히 조용 (vision)
+    if (m.type === "status") {
+      setStatus(m.ai);
+      const t = statusText(m.ai);
+      if (t && !home) say(t);
+      return;
+    }
+    if (home) return;
+    if (m.action) dog = playAction(dog, ACTION_TO_DOG[m.action], Date.now(), ACTION_MS);
+    if (m.utterance) say(m.utterance);
+    // m.emotion: 감정별 그림은 다음 몸체 작업에서 붙인다 (vision)
+  };
+  const brain = connectBrain({
+    onMessage: onBrain,
+    onOpen: () => {
+      // 두뇌는 처음에 "집 밖, 사용자 있음"으로 안다. 다르면 바로 알린다 (docs/brain-protocol.md)
+      if (dog.mode === "in_house") brain.send({ type: "signal", signal: { kind: "house", inside: true, awayMs: 0 } });
+      if (!userActive) brain.send({ type: "signal", signal: { kind: "user_away" } });
+    },
+    onClose: () => setStatus(null),
   });
-  listen<Signal>("signal", (e) => {
-    const r = stubReact(e.payload);
-    if (r) emit("reaction", r);
-  });
+  listen<Signal>("signal", (e) => { brain.send({ type: "signal", signal: e.payload }); });
+  listen<{ name: "typesafe" | "gemini"; value: string }>("brain-set-key", (e) => { brain.send({ type: "set_key", ...e.payload }); });
+  listen("brain-clear-history", () => { brain.send({ type: "clear_history" }); });
+  listen("brain-status-request", () => { emit("brain-status", aiStatus); });
   listen("toggle-house", doToggleHouse);
   // 톱니바퀴 아이콘: 설정 창 열기
   const openSettings = async () => {
@@ -313,13 +334,6 @@ async function main() {
     activity = e.payload.activity;
     enqueue(e.payload);
   });
-
-  // 첫 실행 안내: 키가 없으면 돌아다니기만 하고 안내 말풍선. 자격 증명 저장소 오류도 "키 없음"으로 본다
-  const has = (name: string) => invoke<boolean>("key_has", { name }).catch(() => false);
-  if (!((await has("typesafe")) && (await has("gemini")))) {
-    bubble = showBubble("트레이 아이콘 → 설정에서 키를 넣어 주세요");
-    bubbleEl.textContent = bubble!.text;
-  }
 }
 
 main();
