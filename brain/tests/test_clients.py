@@ -6,12 +6,24 @@ import pytest
 from brain import clients
 
 
-def test_to_judgement_reads_answers():
+def test_to_readout_reads_all_four_answers():
     resp = SimpleNamespace(
-        choices={"emotion": SimpleNamespace(choice="curious"), "action": SimpleNamespace(choice="sit")},
-        nouls={"speak_now": SimpleNamespace(noul=0.73)},
+        choices={"reaction": SimpleNamespace(probabilities={"joy": 0.7, "none": 0.3}),
+                 "action": SimpleNamespace(probabilities={"beg": 1.0}),
+                 "change": SimpleNamespace(probabilities={"변화없음": 1.0})},
+        nouls={"speak": SimpleNamespace(noul=0.4)},
     )
-    assert clients.to_judgement(resp) == clients.Judgement("curious", "sit", 0.73)
+    assert clients.to_readout(resp) == clients.Readout({"joy": 0.7, "none": 0.3}, {"beg": 1.0}, 0.4, {"변화없음": 1.0})
+
+
+async def test_jev_unexpected_shape_becomes_call_error(monkeypatch):
+    jev = clients.TypeSafeJev("k", timeout_s=1)
+    async def odd(**kwargs):
+        return SimpleNamespace(choices={}, nouls={})
+    monkeypatch.setattr(jev._client, "system_one", odd)
+    with pytest.raises(clients.CallError):
+        await jev.judge({})
+    await jev.aclose()
 
 
 @pytest.mark.parametrize("code,message,expected", [

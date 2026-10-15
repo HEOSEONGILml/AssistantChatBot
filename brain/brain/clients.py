@@ -25,14 +25,21 @@ class CallError(Exception):
 
 
 @dataclass(frozen=True)
-class Judgement:
-    emotion: str
-    action: str
+class Readout:
+    """Jev가 준 분포 (두뇌 스펙 v2 5절). 결정은 확률 모델이 한다."""
+    reaction: dict[str, float]
+    action: dict[str, float]
     speak: float
+    change: dict[str, float]
+
+
+def to_readout(resp) -> Readout:
+    return Readout(dict(resp.choices["reaction"].probabilities), dict(resp.choices["action"].probabilities),
+                   resp.nouls["speak"].noul, dict(resp.choices["change"].probabilities))
 
 
 class Jev(Protocol):
-    async def judge(self, state: dict) -> Judgement: ...
+    async def judge(self, state: dict) -> Readout: ...
     async def aclose(self) -> None: ...
 
 
@@ -41,24 +48,20 @@ class Talker(Protocol):
     async def aclose(self) -> None: ...
 
 
-def to_judgement(resp) -> Judgement:
-    return Judgement(resp.choices["emotion"].choice, resp.choices["action"].choice, resp.nouls["speak_now"].noul)
-
-
 class TypeSafeJev:
     def __init__(self, api_key: str, timeout_s: float):
         # 재시도는 하지 않는다: 늦은 판단은 쓸모가 없고, 다음 트리거가 곧 다시 부른다
         self._client = AsyncTypeSafeClient(api_key=api_key, timeout=timeout_s, retry=RetryPolicy(max_retries=0))
         self._timeout = timeout_s
 
-    async def judge(self, state: dict) -> Judgement:
+    async def judge(self, state: dict) -> Readout:
         try:
             resp = await asyncio.wait_for(self._client.system_one(state=state, questions=QUESTIONS), self._timeout)
+            return to_readout(resp)
         except (TypeSafeAuthenticationError, TypeSafePermissionDeniedError) as e:
             raise AuthError("typesafe") from e
         except Exception as e:
             raise CallError(f"jev {type(e).__name__}") from e
-        return to_judgement(resp)
 
     async def aclose(self) -> None:
         await self._client.aclose()
