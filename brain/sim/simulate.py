@@ -1,0 +1,230 @@
+"""녹화한 Jev 분포로 확률 모델을 돌려 지표를 내고, 이벤트 종류별 보정값을 맞춘다 (두뇌 스펙 v2 10절).
+실행: brain/에서  uv run python -m sim.simulate          # 지표 보고
+                 uv run python -m sim.simulate --fit    # 보정값 맞춘 뒤 보고
+가상 사용자 모형은 잠정값이다: 평일 9~18시 자리에 있고 12~13시 점심으로 비운다."""
+import argparse
+import json
+import math
+import random
+import statistics
+from dataclasses import dataclass, field, replace
+from datetime import datetime
+
+from brain import model
+from brain.clients import Readout
+from brain.tuning import BIRTH_BASELINE, MOODS, Tuning
+
+from .record import INTIMACY, OUT, PRESETS
+
+ARCHETYPES = {  # 성격 유형 (기준값, 민감도, 변덕). 성격 유형 실측과 같은 값
+    "평균": ({"심심함": .6, "졸림": .3, "들뜸": .4, "시무룩": .2, "분노": .1}, .5, .5),
+    "과묵·차분": ({"심심함": .3, "졸림": .3, "들뜸": .2, "시무룩": .2, "분노": .1}, .4, .2),
+    "예민·성마름": ({"심심함": .5, "졸림": .3, "들뜸": .3, "시무룩": .4, "분노": .4}, .8, .6),
+    "활발·변덕쟁이": ({"심심함": .7, "졸림": .2, "들뜸": .7, "시무룩": .1, "분노": .1}, .6, .9),
+}
+TARGETS = {"typing": 0.15, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}  # 스펙 10절 (평균 성격 기준)
+START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
+P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
+P_REPLY = 0.5        # 강아지가 말하면 사용자가 답하는 비율 (잠정값)
+P_QUESTION = 0.3     # 강아지 대사가 질문으로 끝나는 비율 (잠정값)
+
+
+class Recording:
+    def __init__(self, data: dict):
+        self.data = data
+        self.moods = {p: {**BIRTH_BASELINE, **o} for p, o in PRESETS.items()}
+
+    @classmethod
+    def load(cls) -> "Recording":
+        return cls(json.loads(OUT.read_text(encoding="utf-8")))
+
+    def readout(self, kind: str, dog: model.Dog, streak: int) -> Readout:
+        preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
+        intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
+        r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
+        return Readout(r["reaction"], r["action"], r["speak"], r["change"])
+
+
+@dataclass
+class Stats:
+    counts: dict = field(default_factory=dict)   # 꼬리표 → (판단 수, 말한 수)
+    chains: list = field(default_factory=list)   # 사용자 입력 없이 이어 말한 길이
+    kept: int = 0                                # 보정 뒤에도 Jev 1위 반응이 1위로 남은 판단 수
+    judged: int = 0
+    stuck: int = 0                               # 기분이 0.9 이상이거나 0.05 이하인 표본 수 (기분 차원별)
+    samples: int = 0
+
+    def rate(self, tag: str) -> float:
+        n, s = self.counts.get(tag, (0, 0))
+        return s / n if n else float("nan")
+
+    def chain2plus(self) -> float:
+        return sum(c >= 2 for c in self.chains) / len(self.chains) if self.chains else float("nan")
+
+    def stuck_ratio(self) -> float:
+        return self.stuck / (self.samples * len(MOODS)) if self.samples else float("nan")
+
+
+class World:
+    """강아지 한 마리와 가상 사용자. 확률 모델만으로 처리하고 Jev는 녹화본을 쓴다."""
+
+    def __init__(self, dog: model.Dog, rec: Recording, rng: random.Random, t: Tuning):
+        self.dog, self.rec, self.rng, self.t = dog, rec, rng, t
+        self.now = self.last = dog.updated_at
+        self.streak, self.waiting = 0, False
+        self.stats = Stats()
+
+    def _judge(self, kind: str, tag: str | None) -> bool:
+        dog, t = self.dog, self.t
+        model.advance(dog, self.now, self.rng, t)
+        if kind in ("message", "typing"):
+            self.streak, self.waiting = 0, False
+        rd = self.rec.readout(kind, dog, self.streak)
+        scores = model.reaction_scores(rd.reaction, dog, model.habit_level(dog, [kind]), t)
+        reaction = model.pick(scores, self.rng)
+        model.pick(model.action_scores(rd.action, dog, reaction, t), self.rng)
+        self.stats.judged += 1
+        self.stats.kept += max(rd.reaction, key=rd.reaction.get) == max(scores, key=scores.get)
+        model.apply_change(dog, rd.change, [kind], self.rng, t)
+        spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t)
+        n, s = self.stats.counts.get(tag or kind, (0, 0))
+        self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
+        self.last = self.now
+        if spoke:
+            self.streak += 1
+            self.waiting = self.rng.random() < P_QUESTION
+        return spoke
+
+    def event(self, kind: str, tag: str | None = None) -> bool:
+        """이벤트 하나를 처리하고, 강아지가 말하면 말풍선 이벤트(dog_spoke)로 이어 말할지 따진다."""
+        if not self._judge(kind, tag) or kind == "dog_spoke":
+            return False
+        length = 1
+        while True:
+            self.now += 2
+            if not self._judge("dog_spoke", None):
+                break
+            length += 1
+        self.stats.chains.append(length)
+        return True
+
+    def sample(self) -> None:
+        model.advance(self.dog, self.now, self.rng, self.t)
+        model.record_mood(self.dog)
+        self.stats.samples += 1
+        self.stats.stuck += sum(m >= 0.9 or m <= 0.05 for m in self.dog.mood.values())
+
+    def away(self, until: float) -> None:
+        while self.now + 1800 <= until:  # 자리 비움: 30분마다 조용함
+            self.now += 1800
+            self.event("quiet", "quiet_away")
+            self.sample()
+        self.now = until
+
+    def present(self, until: float) -> None:
+        while self.now < until:
+            self.now += 60
+            r, spoke = self.rng.random(), False
+            if r < P_MESSAGE:
+                self.event("typing")
+                self.event("typing")
+                spoke = self.event("message")
+            elif r < P_MESSAGE + P_POKE:
+                spoke = self.event("poke")
+            elif r < P_MESSAGE + P_POKE + P_PET:
+                spoke = self.event("pet")
+            elif r < P_MESSAGE + P_POKE + P_PET + P_THROW:
+                spoke = self.event("throw")
+            elif self.now - self.last >= 600:
+                spoke = self.event("quiet")
+            if spoke and self.rng.random() < P_REPLY:
+                self.now += 20
+                self.event("typing")
+                self.event("message")
+            self.sample()
+
+    def day(self, midnight: float) -> None:
+        self.away(midnight + 9 * 3600)
+        self.event("returned")
+        self.present(midnight + 12 * 3600)
+        self.away(midnight + 13 * 3600)
+        self.event("returned")
+        self.present(midnight + 18 * 3600)
+        self.away(midnight + 24 * 3600)
+
+
+def run(dog: model.Dog, rec: Recording, t: Tuning, days: int, seed: int) -> World:
+    w = World(dog, rec, random.Random(seed), t)
+    for i in range(days):
+        w.day(START + i * 86400)
+    return w
+
+
+def archetype_dog(name: str) -> model.Dog:
+    base, sens, whim = ARCHETYPES[name]
+    dog = model.default_dog(START)
+    dog.personality = model.Personality(dict(base), {d: sens for d in MOODS}, whim)
+    dog.mood = dict(base)
+    return dog
+
+
+def fit(rec: Recording, t: Tuning, days: int = 10, seed: int = 1, rounds: int = 3) -> dict:
+    """평균 성격 강아지가 목표 지표에 맞도록 이벤트 종류별 보정값을 이분 탐색한다 (보정값이 커지면 비율이 커진다)."""
+    bias = dict(t.kind_bias)
+    goals = [("typing", lambda s: s.rate("typing"), TARGETS["typing"]),
+             ("message", lambda s: s.rate("message"), TARGETS["message"]),
+             ("quiet", lambda s: s.rate("quiet"), TARGETS["quiet"]),
+             ("dog_spoke", lambda s: s.chain2plus(), TARGETS["chain2plus"])]
+    for _ in range(rounds):
+        for kind, metric, target in goals:
+            lo, hi = -10.0, 10.0
+            for _ in range(14):
+                mid = (lo + hi) / 2
+                v = metric(run(archetype_dog("평균"), rec, replace(t, kind_bias={**bias, kind: mid}), days, seed).stats)
+                if math.isnan(v) or v < target:
+                    lo = mid
+                else:
+                    hi = mid
+            bias[kind] = round((lo + hi) / 2, 2)
+    return bias
+
+
+def _row(name: str, s: Stats) -> str:
+    return (f"| {name} | {s.rate('typing'):.2f} | {s.rate('message'):.2f} | {s.rate('quiet'):.2f} | {s.chain2plus():.2f} "
+            f"| {s.kept / s.judged:.2f} | {s.stuck_ratio():.2f} |")
+
+
+def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int = 8) -> str:
+    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | Jev 1위 유지 | 기분 고착 |",
+            "|---|---|---|---|---|---|---|",
+            f"| **목표** | {TARGETS['typing']:.2f} | {TARGETS['message']:.2f} | {TARGETS['quiet']:.2f} | {TARGETS['chain2plus']:.2f} | ≥ 0.60 | ≤ 0.20 |"]
+    rows = [_row(name, run(archetype_dog(name), rec, t, days, 1).stats) for name in ARCHETYPES]
+    pop = [run(model.birth(random.Random(i), START), rec, t, days, i).stats for i in range(dogs)]
+    metrics = {"typing": [s.rate("typing") for s in pop], "message": [s.rate("message") for s in pop],
+               "quiet": [s.rate("quiet") for s in pop], "chain": [s.chain2plus() for s in pop]}
+    spread = " | ".join(f"{min(v):.2f} / {statistics.median(v):.2f} / {max(v):.2f}"
+                        for v in ([x for x in vs if not math.isnan(x)] for vs in metrics.values()))
+    rows.append(f"| 무작위 {dogs}마리 (최소/중앙/최대) | {spread} | | |")
+    out_of_range = 0
+    for i in range(20):
+        p = run(model.birth(random.Random(1000 + i), START), rec, t, weeks * 7, i).dog.personality
+        out_of_range += any(not 0.1 <= v <= 0.9 for v in (*p.baseline.values(), *p.sensitivity.values()))
+    tail = [f"\n{weeks}주 뒤 기준값·민감도가 0.1~0.9를 벗어난 강아지: 20마리 중 {out_of_range}마리 (목표 0)",
+            f"\nkind_bias = {json.dumps(t.kind_bias, ensure_ascii=False)}"]
+    return "\n".join(head + rows + tail)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--fit", action="store_true")
+    ap.add_argument("--days", type=int, default=7)
+    ap.add_argument("--dogs", type=int, default=100)
+    args = ap.parse_args()
+    rec, t = Recording.load(), Tuning()
+    if args.fit:
+        t = replace(t, kind_bias=fit(rec, t))
+    print(report(rec, t, args.days, args.dogs))
+
+
+if __name__ == "__main__":
+    main()
