@@ -227,3 +227,4 @@ CLAUDE.local.md
 app/node_modules/
 app/dist/
 app/src-tauri/target/
+brain/review/out/
