@@ -4,7 +4,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
 from .tuning import (BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
-                     INTIMACY_START, MOODS, SENS_RANGE, SENS_SD, WHIM_SD, Tuning)
+                     IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION, MOODS, MOVE_BASE, MOVE_BASELINE,
+                     MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
+                     TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
 
 LN2 = math.log(2)
 
@@ -93,3 +95,109 @@ def dog_to_dict(dog: Dog) -> dict:
 def dog_from_dict(data: dict) -> Dog:
     data = dict(data)
     return Dog(personality=Personality(**data.pop("personality")), **data)
+
+
+# ---- 어휘 (프로토콜 v2) ----
+
+REACTIONS = ("joy", "curious", "surprised", "annoyed", "sad", "scared", "none")
+ACTIONS = ("stand", "sit", "lie_down", "sleep", "beg", "bark", "none")
+REACTION_NAMES = {"joy": "기쁨", "curious": "궁금함", "surprised": "놀람", "annoyed": "짜증", "sad": "서운함", "scared": "무서움", "none": "없음"}
+ACTION_NAMES = {"stand": "서기", "sit": "앉기", "lie_down": "엎드리기", "sleep": "잠", "beg": "조르기", "bark": "짖기", "none": "없음"}
+
+
+def _log(p: float) -> float:
+    return math.log(max(p, 1e-6))
+
+
+def _sigmoid(x: float) -> float:
+    return 1 / (1 + math.exp(-x))
+
+
+def _logit(p: float) -> float:
+    p = clip(p, 1e-4, 1 - 1e-4)
+    return math.log(p / (1 - p))
+
+
+def _affinity(row: dict[str, float], values: dict[str, float]) -> float:
+    return sum(w * (values[d] - 0.5) for d, w in row.items())
+
+
+# ---- 뽑기: 점수 = Jev 로그확률 / 온도 + 우리 모형 보정 (스펙 6절) ----
+
+def temperature(dog: Dog) -> float:
+    return 0.5 + dog.personality.whim
+
+
+def reaction_scores(jev: dict[str, float], dog: Dog, habit: float, t: Tuning) -> dict[str, float]:
+    T = temperature(dog)
+    sens = sum(dog.personality.sensitivity.values()) / len(MOODS)
+    scores = {}
+    for r in REACTIONS:
+        s = _log(jev.get(r, 0.0)) / T + t.w_mood * _affinity(MOOD_REACTION.get(r, {}), dog.mood)
+        # 민감한 성격은 반응이 잘 나오고, 같은 자극에 익숙해지면 덤덤해진다
+        s += t.w_habit * habit if r == "none" else t.w_sens * (sens - 0.5)
+        scores[r] = s
+    return scores
+
+
+def action_scores(jev: dict[str, float], dog: Dog, reaction: str, t: Tuning) -> dict[str, float]:
+    T = temperature(dog)
+    return {a: _log(jev.get(a, 0.0)) / T + t.w_mood * _affinity(MOOD_ACTION.get(a, {}), dog.mood)
+            + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0) for a in ACTIONS}
+
+
+def probabilities(scores: dict[str, float]) -> dict[str, float]:
+    top = max(scores.values())
+    w = {k: math.exp(v - top) for k, v in scores.items()}
+    z = sum(w.values())
+    return {k: v / z for k, v in w.items()}
+
+
+def pick(scores: dict[str, float], rng) -> str:
+    r, acc, key = rng.random(), 0.0, ""
+    for key, p in probabilities(scores).items():
+        acc += p
+        if r < acc:
+            return key
+    return key
+
+
+# ---- 말하기 (스펙 6절 3) ----
+
+def talkativeness(dog: Dog, t: Tuning) -> float:
+    """말수는 독립 파라미터가 아니라 친밀도·지금 기분·기준값에서 계산한다 (사용자 결정)."""
+    return t.talk_scale * ((dog.intimacy - 0.5) + _affinity(TALK_MOOD, dog.mood)
+                           + _affinity(TALK_BASELINE, dog.personality.baseline))
+
+
+def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: bool, t: Tuning) -> float:
+    if streak >= t.max_streak:
+        return 0.0
+    x = (_logit(p_jev) + talkativeness(dog, t) + t.kind_bias.get(kind, 0.0)
+         - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0))
+    return _sigmoid(x)
+
+
+# ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----
+
+def habit_level(dog: Dog, kinds: list[str]) -> float:
+    return max((dog.habit[k] for k in kinds if k in HABIT_KINDS), default=0.0)
+
+
+def apply_change(dog: Dog, change: dict[str, float], kinds: list[str], rng, t: Tuning) -> dict[str, float]:
+    damp = 1 - habit_level(dog, kinds)
+    sens = dog.personality.sensitivity
+    deltas = {}
+    for d in MOODS:
+        delta = (t.change_k * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0)) * sens[d]
+                 + rng.gauss(0, t.change_noise)) * damp
+        dog.mood[d] = clip(dog.mood[d] + delta)
+        deltas[d] = delta
+    delta = t.intimacy_k * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0)) * damp
+    dog.intimacy = clip(dog.intimacy + delta)
+    deltas["친밀도"] = delta
+    # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정)
+    for k in set(kinds) & set(HABIT_KINDS):
+        lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
+        dog.habit[k] += lam * (1 - dog.habit[k])
+    return deltas
