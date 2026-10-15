@@ -201,3 +201,29 @@ def apply_change(dog: Dog, change: dict[str, float], kinds: list[str], rng, t: T
         lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
         dog.habit[k] += lam * (1 - dog.habit[k])
     return deltas
+
+
+# ---- 평소 움직임 경향 (스펙 6.5): 두뇌가 계산하고 화면이 샘플링한다 ----
+
+MOVES = tuple(MOVE_BASE)
+
+
+def movement(dog: Dog, t: Tuning) -> dict:
+    m, b = dog.mood, dog.personality.baseline
+    weights = {}
+    for c in MOVES:
+        x = _affinity(MOVE_MOOD[c], m) + _affinity(MOVE_BASELINE.get(c, {}), b) + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5)
+        weights[c] = round(MOVE_BASE[c] * math.exp(t.move_scale * x), 4)
+    return {"weights": weights,
+            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * _affinity(RUN_MOOD, m)), 4),
+            "idle_scale": round(math.exp(t.move_scale * _affinity(IDLE_MOOD, m)), 4)}
+
+
+def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:
+    """화면에 보낼 만큼 경향이 바뀌었나 (사람이 움직임 차이를 느낄 만한 크기)."""
+    if old is None:
+        return True
+    if any(abs(new["weights"][c] / old["weights"][c] - 1) > t.send_weight_ratio for c in MOVES):
+        return True
+    return (abs(new["run"] - old["run"]) > t.send_run_delta
+            or abs(new["idle_scale"] / old["idle_scale"] - 1) > t.send_idle_ratio)
