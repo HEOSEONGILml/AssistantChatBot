@@ -131,6 +131,8 @@ async function main() {
   const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
   const onBrain = (m: BrainMessage) => {
     if (m.type === "movement") { movement = m.movement; return; }
+    if (m.type === "state") { emit("brain-state", m.state); return; } // 설정 창 상태 탭으로
+    if (m.type === "log") { emit("brain-log", m.log); return; }       // 설정 창 로그 탭으로
     const home = dog.mode === "in_house" || dog.mode === "to_house"; // 집에서는 완전히 조용 (vision)
     if (m.type === "status") {
       setStatus(m.ai);
@@ -171,6 +173,8 @@ async function main() {
   listen<{ name: "typesafe" | "gemini"; value: string }>("brain-set-key", (e) => { brain.send({ type: "set_key", ...e.payload }); });
   listen("brain-clear-history", () => { brain.send({ type: "clear_history" }); });
   listen("brain-status-request", () => { emit("brain-status", aiStatus); });
+  listen("brain-state-request", () => { brain.send({ type: "get_state" }); });
+  listen("brain-log-request", () => { brain.send({ type: "get_log" }); });
   listen("toggle-house", doToggleHouse);
   // 톱니바퀴 아이콘: 설정 창 열기
   const openSettings = async () => {

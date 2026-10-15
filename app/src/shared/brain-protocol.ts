@@ -20,15 +20,41 @@ const AI_STATUSES = ["ok", "no_keys", "bad_key"] as const;
 export type AiStatus = (typeof AI_STATUSES)[number];
 
 export type Reaction = { reaction?: BrainReaction; action?: BrainAction; utterance?: string };
+
+// 설정 창 상태·로그 탭용 조회 결과 (두뇌 스펙 v2 3.1). 보기만 하므로 모양만 가볍게 확인한다
+export type BrainState = {
+  dog: {
+    personality: { baseline: Record<string, number>; sensitivity: Record<string, number>; whim: number; temperament: Record<string, number> };
+    mood: Record<string, number>; intimacy: number; habit: Record<string, number>;
+  };
+  talkativeness: number;
+  movement: { weights: Record<string, number>; run: number; idle_scale: number };
+};
+export type Judgement = {
+  ts: number;
+  events: { 종류: string; 맥락?: Record<string, unknown> }[];
+  jev?: { reaction: Record<string, number>; action: Record<string, number>; speak: number };
+  model?: { reaction: Record<string, number>; action: Record<string, number>; speak: number };
+  picked?: { reaction: string; action: string; speak: boolean };
+  mood_change?: Record<string, number>;
+  utterance?: string;
+  error?: string;
+};
+export type BrainLog = { judgements: Judgement[]; events: string[]; brain_log: string[] };
+
 export type BrainMessage =
   | ({ type: "reaction" } & Reaction)
   | { type: "status"; ai: AiStatus }
-  | { type: "movement"; movement: Movement };
+  | { type: "movement"; movement: Movement }
+  | { type: "state"; state: BrainState }
+  | { type: "log"; log: BrainLog };
 export type Outgoing =
   | { type: "hello"; token: string }
   | { type: "event"; kind: EventKind; context: EventContext }
   | { type: "set_key"; name: "typesafe" | "gemini"; value: string }
-  | { type: "clear_history" };
+  | { type: "clear_history" }
+  | { type: "get_state" }
+  | { type: "get_log" };
 
 const includes = <T extends string>(list: readonly T[], x: unknown): x is T => list.includes(x as T);
 const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
@@ -54,6 +80,15 @@ export function parseBrainMessage(raw: unknown): BrainMessage | null {
   if (o.v !== PROTOCOL_VERSION) return null;
   if (o.type === "status") return includes(AI_STATUSES, o.ai) ? { type: "status", ai: o.ai } : null;
   if (o.type === "movement") { const mv = parseMovement(o); return mv ? { type: "movement", movement: mv } : null; }
+  if (o.type === "state") {
+    const dog = o.dog as Record<string, unknown> | undefined;
+    if (!dog || typeof dog !== "object" || !dog.mood || !dog.personality || !finite(o.talkativeness) || !o.movement) return null;
+    return { type: "state", state: { dog: o.dog, talkativeness: o.talkativeness, movement: o.movement } as BrainState };
+  }
+  if (o.type === "log") {
+    if (!Array.isArray(o.judgements) || !Array.isArray(o.events) || !Array.isArray(o.brain_log)) return null;
+    return { type: "log", log: { judgements: o.judgements, events: o.events, brain_log: o.brain_log } as BrainLog };
+  }
   if (o.type !== "reaction") return null;
   // 모르는 어휘는 그 항목만 버린다: 두뇌가 먼저 어휘를 늘려도 화면이 멈추지 않게
   const r: { type: "reaction" } & Reaction = { type: "reaction" };

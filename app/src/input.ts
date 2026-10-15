@@ -1,7 +1,6 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
-import { loadSettings } from "./shared/settings";
 import { placeAbove } from "./body/coords";
 
 const win = getCurrentWindow();
@@ -37,5 +36,4 @@ box.addEventListener("keydown", async (ev) => {
   if (ev.key !== "Enter" || ev.isComposing || !box.value.trim()) return;
   emit("input-sent", { text: box.value.trim() });
   box.value = "";
-  if (!(await loadSettings()).inputAlwaysVisible) await hide();
 });

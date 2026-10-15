@@ -35,6 +35,8 @@ sequenceDiagram
 | `event` | `kind`, `context` | 일어난 일 (아래 표) |
 | `set_key` | `name`: `typesafe`·`gemini`, `value` | API 키 저장. 두뇌가 OS 자격 저장소에 보관한다 |
 | `clear_history` | | 이벤트 기록 전체 삭제 (강아지 성격·기분·친밀도는 남는다) |
+| `get_state` | | 강아지 상태 조회 → `state` |
+| `get_log` | | 판단 로그 조회 → `log` |
 
 **이벤트**: 강아지가 집에 있는 동안은 `house_out` 외에는 보내지 않는다. 세기 값은 0~1로 정규화해 보낸다(정규화는 화면이 정한다).
 
@@ -58,6 +60,8 @@ sequenceDiagram
 | `reaction` | `reaction?`, `action?`, `utterance?` | 강아지 반응. 반응·동작과 대사는 따로 올 수 있다 |
 | `status` | `ai`: `ok`·`no_keys`·`bad_key` | AI 상태. `hello` 직후와 바뀔 때 |
 | `movement` | `weights`, `run`, `idle_scale` | 평소 움직임 경향. `hello` 직후와 바뀔 때. 화면은 최신 값으로 평소 움직임을 뽑는다 |
+| `state` | `dog`, `talkativeness`, `movement` | `get_state`에 대한 답: 성격·기분·친밀도·습관화, 말수 계산값, 지금 경향 (설정 창 상태 탭용) |
+| `log` | `judgements`, `events`, `brain_log` | `get_log`에 대한 답: 최근 판단 50개(Jev 분포·보정 뒤 확률·뽑힌 결과·기분 변화·대사), 이벤트 기록 문장, 두뇌 실행 로그 30줄 (설정 창 로그 탭용) |
 
 | 반응 `reaction` | 동작 `action` | 움직임 범주 `weights` 키 |
 |---|---|---|

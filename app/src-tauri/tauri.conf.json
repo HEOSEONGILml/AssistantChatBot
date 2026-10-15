@@ -46,8 +46,8 @@
         "url": "settings.html",
         "title": "강아지 설정",
         "visible": false,
-        "width": 420,
-        "height": 520
+        "width": 560,
+        "height": 720
       }
     ],
     "security": {

@@ -4,11 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>강아지 설정</title>
+    <style>
+      body { margin: 0; font: 14px 'Malgun Gothic', sans-serif; }
+      nav { display: flex; gap: 4px; padding: 8px 16px 0; border-bottom: 1px solid #ccc; }
+      nav button { border: 1px solid #ccc; border-bottom: none; background: #f3f3f3; padding: 6px 14px; cursor: pointer; }
+      nav button.on { background: #fff; font-weight: bold; position: relative; top: 1px; }
+      .tab { padding: 16px; }
+      .tab[hidden] { display: none; }
+      #tab-settings { display: grid; gap: 12px; }
+      .section h3 { margin: 14px 0 6px; font-size: 14px; }
+      .row { display: grid; grid-template-columns: 110px 1fr 150px; align-items: center; gap: 8px; margin: 3px 0; }
+      .bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+      .bar > div { height: 100%; background: #c8843a; }
+      .num { font-variant-numeric: tabular-nums; color: #444; font-size: 12px; }
+      pre { margin: 0 0 12px; white-space: pre-wrap; font: 12px Consolas, 'Malgun Gothic', monospace; }
+      .muted { color: #888; }
+    </style>
   </head>
   <body>
-    <main style="font: 14px 'Malgun Gothic', sans-serif; padding: 16px; display: grid; gap: 12px;">
+    <nav>
+      <button data-tab="settings" class="on">설정</button>
+      <button data-tab="status">상태</button>
+      <button data-tab="log">로그</button>
+    </nav>
+    <main id="tab-settings" class="tab">
       <label><input type="checkbox" id="rest" /> 쉬기 — 그 자리에서 잠만 자요 (집중할 때)</label>
-      <label><input type="checkbox" id="inputAlwaysVisible" /> 입력창 항상 표시</label>
       <label><input type="checkbox" id="hideHouseWhenInside" /> 강아지가 집에 있을 때 집도 숨기기</label>
       <label>입력창 단축키 <input id="inputShortcut" /></label>
       <label>강아지 집 단축키 <input id="houseShortcut" /></label>
@@ -21,6 +41,8 @@
       <button id="clear-history">대화 기록 전체 삭제</button>
       <p id="msg" role="status"></p>
     </main>
+    <section id="tab-status" class="tab" hidden><p class="muted">불러오는 중…</p></section>
+    <section id="tab-log" class="tab" hidden><p class="muted">불러오는 중…</p></section>
     <script type="module" src="/src/settings-page.ts"></script>
   </body>
 </html>

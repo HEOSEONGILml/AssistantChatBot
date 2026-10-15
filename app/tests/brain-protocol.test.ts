@@ -57,3 +57,22 @@ describe("statusText", () => {
     expect(statusText("bad_key")).toContain("키를 확인");
   });
 });
+
+describe("state·log 조회", () => {
+  const state = { dog: { personality: { baseline: { 분노: 0.1 }, sensitivity: { 분노: 0.5 }, whim: 0.5, temperament: { 분노: 0.1 } }, mood: { 분노: 0.2 }, intimacy: 0.3, habit: { poke: 0 } }, talkativeness: 0.4, movement: { weights: {}, run: 0.2, idle_scale: 1 } };
+  it("reads state", () => {
+    expect(parseBrainMessage(msg({ type: "state", ...state }))).toEqual({ type: "state", state });
+  });
+  it("reads log", () => {
+    const log = { judgements: [{ ts: 1, events: [{ 종류: "찌르기" }] }], events: ["방금 · 찌르기"], brain_log: ["줄"] };
+    expect(parseBrainMessage(msg({ type: "log", ...log }))).toEqual({ type: "log", log });
+  });
+  it("rejects malformed state and log", () => {
+    expect(parseBrainMessage(msg({ type: "state", talkativeness: 1 }))).toBeNull();
+    expect(parseBrainMessage(msg({ type: "log", judgements: "x", events: [], brain_log: [] }))).toBeNull();
+  });
+  it("sends get_state and get_log", () => {
+    expect(JSON.parse(outgoing({ type: "get_state" }))).toEqual({ v: 2, type: "get_state" });
+    expect(JSON.parse(outgoing({ type: "get_log" }))).toEqual({ v: 2, type: "get_log" });
+  });
+});

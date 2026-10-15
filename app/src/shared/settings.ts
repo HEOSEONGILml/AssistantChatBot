@@ -1,19 +1,22 @@
 import { Store } from "@tauri-apps/plugin-store";
 
-export type Settings = { rest: boolean; inputAlwaysVisible: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
+export type Settings = { rest: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
 
 export const DEFAULT_SETTINGS: Settings = {
   rest: false,
-  inputAlwaysVisible: false,
   hideHouseWhenInside: false,
   inputShortcut: "CommandOrControl+Shift+Space",
   houseShortcut: "CommandOrControl+Shift+H",
 };
 
-// 움직임 정도는 쉬기 켜기/끄기만 남았다 (vision 2026-10-15). 예전 4단계 설정은 "쉬기"만 옮긴다
-export function withDefaults(partial: (Partial<Settings> & { activity?: string }) | null | undefined): Settings {
-  const { activity, ...others } = partial ?? {};
-  const merged = { ...DEFAULT_SETTINGS, ...others };
+// 예전 설정 옮기기 (vision 2026-10-15): 움직임 정도 4단계는 "쉬기"만 남고, 입력창 항상 표시는 없어졌다
+// (입력창은 직접 닫기 전까지 열려 있다)
+export function withDefaults(partial: (Partial<Settings> & { activity?: string; inputAlwaysVisible?: boolean }) | null | undefined): Settings {
+  const others: Record<string, unknown> = { ...(partial ?? {}) };
+  const activity = others.activity;
+  delete others.activity;
+  delete others.inputAlwaysVisible;
+  const merged = { ...DEFAULT_SETTINGS, ...others } as Settings;
   if (others.rest === undefined && activity !== undefined) merged.rest = activity === "rest";
   return merged;
 }
