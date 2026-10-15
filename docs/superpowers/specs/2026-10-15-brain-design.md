@@ -2,6 +2,7 @@
 
 - 날짜: 2026-10-15
 - 상태: 초안. 실제로 써 보며 고치고, 고도화 단계에서 크게 바뀔 수 있다 ([vision](../../vision.md))
+- 구현: 2026-10-15 (`brain/`, 계획 [2026-10-15-brain](../plans/2026-10-15-brain.md)). 수동 확인: [체크리스트](../../manual-checks/brain.md)
 - 근거 문서: [첫 버전 스펙](2026-10-14-windows-desktop-pet-design.md) 4·6절, 결정 기록 [0001](../../decisions/0001-jev-as-decision-engine.md), [0007](../../decisions/0007-dialogue-llm.md), [0011](../../decisions/0011-python-brain-local-sidecar.md), [0012](../../decisions/0012-brain-as-frontend-independent-service.md)
 
 ## 1. 목표
@@ -200,7 +201,8 @@ sequenceDiagram
 
 ## 9. Windows 화면(Tauri) 변경
 
-- **두뇌 실행**: 앱이 시작할 때 `brain.json`의 주소로 접속을 시도한다. 실패하면 두뇌를 띄운다(개발 환경: `brain/`에서 `uv run python -m brain`). 앱이 꺼질 때 자기가 띄운 두뇌는 함께 끈다.
+- **두뇌 실행**: 앱이 시작할 때 `brain.json`의 주소로 접속을 시도한다. 실패하면 두뇌를 띄운다(개발 환경: `brain/.venv`의 파이썬으로 `-m brain`. 미리 `uv sync` 필요). 앱이 트레이 → 종료로 꺼질 때 자기가 띄운 두뇌는 함께 끈다. 앱이 강제 종료되면 두뇌는 남고, 다음 실행 때 그대로 재사용한다.
+- **스케줄러 해상도**: 두뇌는 0.1초마다 시간 트리거를 확인한다. 타이핑 멈춤 판정(T)에 최대 0.1초가 더해진다.
 - **연결**: 캐릭터 창이 WebSocket 연결 하나를 갖는다. 입력창·설정 창은 지금처럼 Tauri 이벤트로 캐릭터 창에 넘기고, 캐릭터 창이 두뇌로 보낸다. 끊기면 계속 다시 접속한다(간격 잠정 2초).
 - **Reaction 반영**
   - 행동: 두뇌 어휘를 몸체 동작에 대응시킨다(`stand`→`idle_stand`, `sit`→`idle_sit`, `lie_down`→`idle_lay`, `sleep`, `beg`, `bark`).
