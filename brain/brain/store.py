@@ -103,4 +103,9 @@ class Store:
             return 0
         for ts, who, text in rows:
             self.add(Event(ts, "user", "message", {"text": text}) if who == "user" else Event(ts, "dog", "dog", {"utterance": text}))
+        # 옮긴 파일은 이름을 바꿔 둔다: 기록을 지운 뒤 다시 켜도 되살아나지 않게
+        try:
+            history_path.rename(history_path.with_name(history_path.stem + ".v1-imported" + history_path.suffix))
+        except OSError:
+            log.exception("v1 대화 기록 파일 이름을 바꾸지 못했다")
         return len(rows)

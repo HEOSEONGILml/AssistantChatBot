@@ -217,3 +217,30 @@ async def test_quiet_after_a_full_chain_can_speak_again(make):
     await env.brain.handle_event("quiet", {"seconds": 600})
     await env.brain.drain()
     assert len(utterances(env.out)) == 4
+
+
+class SpyStore(Store):
+    def __init__(self, dog_data):
+        super().__init__(None)
+        self._dog = dog_data
+        self.saved = 0
+
+    def save_dog(self, data):
+        self.saved += 1
+
+
+async def test_malformed_saved_dog_keeps_running_without_overwriting(make):
+    # 리뷰 지적: JSON은 맞지만 모양이 어긋난 저장본이면 두뇌가 시작할 때마다 죽었다
+    store = SpyStore({"intimacy": 0.4})
+    env = await make(store=store)
+    assert env.brain.dog.personality.baseline == BIRTH_BASELINE
+    await env.brain.clock_tick()
+    assert store.saved == 0
+
+
+async def test_house_in_never_speaks(make):
+    # 리뷰 지적: 집에 들어가는 판단에서 대사를 만들면 화면엔 안 보이는데 기록·연속 횟수에 남았다
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("house_in", {})
+    await env.brain.drain()
+    assert env.talker.calls == [] and utterances(env.out) == []

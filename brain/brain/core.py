@@ -59,7 +59,12 @@ class Brain:
             self._store.save_dog(model.dog_to_dict(dog))
             log.info("강아지가 태어났다")
             return dog
-        return model.dog_from_dict(data)
+        try:
+            return model.dog_from_dict(data)
+        except (TypeError, KeyError, ValueError):
+            log.exception("저장된 강아지 상태의 모양이 어긋나 기본값으로 계속한다. 저장본을 덮어쓰지 않는다")
+            self._can_save = False
+            return model.default_dog(now)
 
     def _save(self) -> None:
         if self._can_save:
@@ -180,7 +185,8 @@ class Brain:
         reaction = model.pick(model.reaction_scores(rd.reaction, dog, model.habit_level(dog, kinds), t), self._rng)
         action = model.pick(model.action_scores(rd.action, dog, reaction, t), self._rng)
         model.apply_change(dog, rd.change, kinds, self._rng, t)
-        speak = self._rng.random() < model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
+        # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
+        speak = kinds[-1] != "house_in" and             self._rng.random() < model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
         self._save()
         shown = {k: v for k, v in (("reaction", reaction), ("action", action)) if v != "none"}
         if shown:

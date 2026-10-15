@@ -69,3 +69,18 @@ def test_import_v1_history_once(tmp_path):
     assert s.import_v1(old) == 2
     assert s.recent(5) == [Event(1.0, "user", "message", {"text": "안녕"}), Event(2.0, "dog", "dog", {"utterance": "멍!"})]
     assert s.import_v1(old) == 0  # 이벤트가 이미 있으면 옮기지 않는다
+
+
+def test_import_v1_happens_only_once_even_after_clear(tmp_path):
+    # 리뷰 지적: 기록을 지운 뒤 다시 켜면 v1 대화가 되살아났다
+    old = tmp_path / "history.db"
+    con = sqlite3.connect(old)
+    con.execute("CREATE TABLE messages (ts REAL NOT NULL, speaker TEXT NOT NULL, text TEXT NOT NULL)")
+    con.execute("INSERT INTO messages VALUES (1.0, 'user', '안녕')")
+    con.commit()
+    con.close()
+    s = Store(tmp_path / "brain.db")
+    assert s.import_v1(old) == 1
+    s.clear_events()
+    assert Store(tmp_path / "brain.db").import_v1(old) == 0
+    assert Store(tmp_path / "brain.db").recent(5) == []

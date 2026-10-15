@@ -101,8 +101,11 @@ def dog_to_dict(dog: Dog) -> dict:
 
 
 def dog_from_dict(data: dict) -> Dog:
+    """저장본에서 강아지를 만든다. 모양이 어긋나면 TypeError·KeyError·ValueError가 난다(부르는 쪽이 처리)."""
     data = dict(data)
-    return Dog(personality=Personality(**data.pop("personality")), **data)
+    dog = Dog(personality=Personality(**data.pop("personality")), **data)
+    dog.habit = {**{k: 0.0 for k in HABIT_KINDS}, **dog.habit}  # 습관화 대상이 늘어도 예전 저장본을 읽는다
+    return dog
 
 
 # ---- 어휘 (프로토콜 v2) ----
