@@ -37,6 +37,8 @@
 | Rust 테스트 | `cd src-tauri && cargo test` |
 | 두뇌 준비 (처음 한 번, 의존성 바뀔 때) | `cd ../brain && uv sync` |
 | 두뇌 테스트 | `cd ../brain && uv run pytest` |
+| Jev 녹화 (질문 문구·Jev 버전을 바꿨을 때) | `cd ../brain && uv run python -m sim.record` |
+| 시뮬레이션·보정값 맞추기 | `cd ../brain && uv run python -m sim.simulate --fit` |
 | 설치 파일 빌드 | `npm run tauri build` → `src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi` |
 
 **개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 강아지 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).

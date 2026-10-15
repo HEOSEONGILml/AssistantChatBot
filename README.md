@@ -4,7 +4,7 @@ Windows 화면 위를 돌아다니는 강아지와 타이핑으로 대화하는 
 
 - 구조와 동작 원리: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - 작업 규칙: [`CLAUDE.md`](CLAUDE.md)
-- 상태: 몸체 완료, 두뇌 v1 동작. 두뇌 v2(이벤트 단위 판단 + 확률 모델) 구현 중. 대상은 개발자 본인과 팀 내부다(외부 배포 전).
+- 상태: 몸체 완료, 두뇌 v2(이벤트 단위 판단 + 확률 모델) 구현 완료, 실제 키로 수동 확인 중([체크리스트](docs/manual-checks/brain.md)). 대상은 개발자 본인과 팀 내부다(외부 배포 전).
 
 ## 구성
 
@@ -75,6 +75,14 @@ cd brain && uv run pytest              # 두뇌
 cd app && npm test                     # 화면 순수 로직 (Vitest)
 cd app && npx tsc --noEmit             # 타입 검사
 cd app/src-tauri && cargo test         # Rust 셸
+```
+
+강아지 행동 빈도(끼어들기·먼저 말 걸기 등)를 맞추는 시뮬레이션:
+
+```bash
+cd brain
+uv run python -m sim.record            # 실제 Jev 응답 녹화 (질문 문구·Jev 버전을 바꿨을 때, 키 필요)
+uv run python -m sim.simulate --fit    # 녹화본으로 보정값 맞추고 지표 보고
 ```
 
 창·Win32·실제 키가 필요한 동작은 [`docs/manual-checks/`](docs/manual-checks/)의 체크리스트로 확인한다.
