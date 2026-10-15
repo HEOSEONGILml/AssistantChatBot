@@ -1,6 +1,6 @@
 # 0011. 두뇌는 PC 안에서 도는 파이썬 프로세스로 만든다
 
-- 상태: 채택
+- 상태: 채택 (실행·연결 방식은 [0012](0012-brain-as-frontend-independent-service.md)로 일부 개정)
 - 날짜: 2026-10-14
 - 수정: [0008](0008-tech-stack-tauri.md)의 "TypeScript 프론트엔드가 판단·대사 로직을 맡는다" 부분
 
