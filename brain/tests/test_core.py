@@ -244,3 +244,33 @@ async def test_house_in_never_speaks(make):
     await env.brain.handle_event("house_in", {})
     await env.brain.drain()
     assert env.talker.calls == [] and utterances(env.out) == []
+
+
+async def test_state_snapshot_shows_numbers(make):
+    env = await make()
+    snap = env.brain.state_snapshot()
+    assert set(snap) == {"dog", "talkativeness", "movement"}
+    assert set(snap["dog"]["mood"]) == set(BIRTH_BASELINE)
+    assert "temperament" in snap["dog"]["personality"]
+    assert set(snap["movement"]["weights"]) == {"rest", "sleep", "roam", "approach", "play", "explore"}
+
+
+async def test_log_records_why_the_dog_acted(make):
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("poke", {})
+    await env.brain.drain()
+    j = env.brain.log_snapshot()["judgements"][-1]
+    assert j["events"] == [{"종류": "찌르기"}]
+    assert j["jev"]["reaction"] == {"joy": 1.0} and j["jev"]["speak"] == 0.5
+    assert j["picked"] == {"reaction": "joy", "action": "beg", "speak": True}
+    assert 0 <= j["model"]["speak"] <= 1 and "joy" in j["model"]["reaction"]
+    assert j["utterance"] == "멍! 안녕"
+    assert env.brain.log_snapshot()["events"][-1].endswith("강아지: 멍! 안녕")
+
+
+async def test_log_records_jev_failure(make):
+    env = await make()
+    env.jev.error = CallError("timeout")
+    await env.brain.handle_event("poke", {})
+    await env.brain.drain()
+    assert "error" in env.brain.log_snapshot()["judgements"][-1]

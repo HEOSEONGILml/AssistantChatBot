@@ -30,6 +30,12 @@ class FakeBrain:
     async def clear_history(self):
         self.events.append(("clear",))
 
+    def state_snapshot(self):
+        return {"dog": {"mood": {}}, "talkativeness": 0.1, "movement": {}}
+
+    def log_snapshot(self):
+        return {"judgements": [], "events": ["방금 · 찌르기"]}
+
 
 @pytest.fixture
 async def server():
@@ -135,3 +141,19 @@ async def test_already_running(tmp_path, server):
     assert await already_running(info) is True
     info.write_text(json.dumps({"port": 1, "token": "x"}), encoding="utf-8")
     assert await already_running(info) is False
+
+
+async def test_get_state_and_get_log(server, monkeypatch, tmp_path):
+    link, url = server
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "brain.log").write_text("\n".join(f"줄 {i}" for i in range(40)), encoding="utf-8")
+    monkeypatch.setattr(config, "data_dir", lambda: tmp_path)
+    async with connect(url) as ws:
+        await ws.send(hello())
+        await ws.send(json.dumps({"v": 2, "type": "get_state"}))
+        state = json.loads(await asyncio.wait_for(ws.recv(), 2))
+        await ws.send(json.dumps({"v": 2, "type": "get_log"}))
+        got = json.loads(await asyncio.wait_for(ws.recv(), 2))
+    assert state == {"v": 2, "type": "state", "dog": {"mood": {}}, "talkativeness": 0.1, "movement": {}}
+    assert got["type"] == "log" and got["judgements"] == [] and got["events"] == ["방금 · 찌르기"]
+    assert got["brain_log"][0] == "줄 10" and len(got["brain_log"]) == 30

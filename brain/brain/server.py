@@ -23,6 +23,15 @@ def parse(raw) -> dict | None:
     return msg if isinstance(msg, dict) and isinstance(msg.get("type"), str) else None
 
 
+def tail_log(n: int) -> list[str]:
+    """두뇌 실행 로그의 마지막 n줄. 키와 대화 내용은 원래 로그에 쓰지 않는다."""
+    try:
+        lines = (config.data_dir() / "logs" / "brain.log").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    return lines[-n:]
+
+
 class Link:
     """지금 붙어 있는 화면 하나. 새 화면이 hello에 성공하면 이전 화면을 닫는다 (첫 버전은 화면이 하나)."""
 
@@ -83,5 +92,9 @@ class Link:
             await self.brain.set_keys(config.read_keys())
         elif kind == "clear_history":
             await self.brain.clear_history()
+        elif kind == "get_state":  # 설정 창 상태 탭 (스펙 3.1)
+            await self.send({"type": "state", **self.brain.state_snapshot()})
+        elif kind == "get_log":    # 설정 창 로그 탭
+            await self.send({"type": "log", **self.brain.log_snapshot(), "brain_log": tail_log(30)})
         else:
             log.warning("모르는 메시지를 버림: %s", kind)

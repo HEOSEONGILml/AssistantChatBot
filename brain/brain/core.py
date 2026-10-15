@@ -4,12 +4,13 @@ import asyncio
 import logging
 import random
 import time
+from collections import deque
 from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Talker
 from .persona import dialogue_prompt, system_instruction, trim_line
-from .questions import jev_state
+from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
 
@@ -40,6 +41,7 @@ class Brain:
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
         self._sent_movement: dict | None = None
         self._can_save = True
+        self._judgements: deque[dict] = deque(maxlen=200)  # 판단 로그: 설정 창 로그 탭용, 메모리에만 (스펙 3.1)
         self._dog = self._load_dog()
 
     @property
@@ -97,6 +99,18 @@ class Brain:
         self._cancel()
         await self._close_clients()
         self._save()
+
+    # ---- 조회 (설정 창 상태·로그 탭, 스펙 3.1) ----
+
+    def state_snapshot(self) -> dict:
+        model.advance(self._dog, self._clock(), self._rng, self._t)  # 지금 시각의 기분을 보여 준다
+        return {"dog": model.dog_to_dict(self._dog),
+                "talkativeness": round(model.talkativeness(self._dog, self._t), 3),
+                "movement": model.movement(self._dog, self._t)}
+
+    def log_snapshot(self, n: int = 50) -> dict:
+        return {"judgements": list(self._judgements)[-n:],
+                "events": format_log(self._store.recent(n), self._clock())}
 
     # ---- 이벤트 ----
 
@@ -173,20 +187,33 @@ class Brain:
         model.advance(dog, now, self._rng, t)
         recent = [e for e in self._store.recent(t.recent_events + len(batch)) if e not in batch][-t.recent_events:]
         state = jev_state(dog, batch, recent, now)
+        entry: dict = {"ts": now, "events": [describe_event(e.kind, e.data) for e in batch]}
+        self._judgements.append(entry)
         try:
             rd = await self._jev.judge(state)
         except AuthError:
+            entry["error"] = "키 오류"
             await self._set_ai("bad_key")
             return
         except CallError as e:
+            entry["error"] = f"Jev 실패: {e}"
             log.warning("Jev 실패(%s). 이번 판단은 건너뛴다", e)
             return
         kinds = [e.kind for e in batch]
-        reaction = model.pick(model.reaction_scores(rd.reaction, dog, model.habit_level(dog, kinds), t), self._rng)
-        action = model.pick(model.action_scores(rd.action, dog, reaction, t), self._rng)
-        model.apply_change(dog, rd.change, kinds, self._rng, t)
+        r_scores = model.reaction_scores(rd.reaction, dog, model.habit_level(dog, kinds), t)
+        reaction = model.pick(r_scores, self._rng)
+        a_scores = model.action_scores(rd.action, dog, reaction, t)
+        action = model.pick(a_scores, self._rng)
+        deltas = model.apply_change(dog, rd.change, kinds, self._rng, t)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
-        speak = kinds[-1] != "house_in" and             self._rng.random() < model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
+        p_speak = 0.0 if kinds[-1] == "house_in" else \
+            model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
+        speak = self._rng.random() < p_speak
+        entry.update({"jev": {"reaction": _top(rd.reaction), "action": _top(rd.action), "speak": round(rd.speak, 3)},
+                      "model": {"reaction": _top(model.probabilities(r_scores)), "action": _top(model.probabilities(a_scores)),
+                                "speak": round(p_speak, 3)},
+                      "picked": {"reaction": reaction, "action": action, "speak": speak},
+                      "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})
         self._save()
         shown = {k: v for k, v in (("reaction", reaction), ("action", action)) if v != "none"}
         if shown:
@@ -207,6 +234,7 @@ class Brain:
         if not line:
             return
         await self._emit({"type": "reaction", "utterance": line})
+        entry["utterance"] = line
         self._store.add(Event(self._clock(), "dog", "dog", {"utterance": line}))
         self._streak += 1
         self._waiting = line.rstrip().endswith("?")
@@ -238,3 +266,7 @@ class Brain:
             except Exception:
                 log.exception("클라이언트 닫기 실패")
         self._jev = self._talker = None
+
+
+def _top(dist: dict[str, float], k: int = 3) -> dict[str, float]:
+    return {key: round(v, 3) for key, v in sorted(dist.items(), key=lambda x: -x[1])[:k]}
