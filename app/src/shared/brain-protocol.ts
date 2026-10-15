@@ -53,6 +53,15 @@ export function outgoing(msg: Outgoing): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, ...msg });
 }
 
+// 접속할 때마다 보낼 현재 상태. 연결이 끊긴 사이 바뀐 집·자리 상태를 두뇌가 놓치지 않게 항상 둘 다 보낸다.
+// 두뇌는 이미 아는 상태면 무시한다 (docs/brain-protocol.md)
+export function stateSignals(s: { inHouse: boolean; houseAwayMs: number; userActive: boolean }): Signal[] {
+  return [
+    { kind: "house", inside: s.inHouse, awayMs: s.inHouse ? 0 : s.houseAwayMs },
+    { kind: s.userActive ? "user_return" : "user_away" },
+  ];
+}
+
 // AI 상태를 사용자에게 알릴 문구. 두뇌는 상태만 알리고 보여주는 방법은 화면이 정한다 (프로토콜)
 export function statusText(ai: AiStatus | null): string | null {
   if (ai === "no_keys") return "트레이 아이콘 → 설정에서 키를 넣어 주세요";

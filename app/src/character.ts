@@ -11,7 +11,7 @@ import { physToCss, cssBoxToPhys, boxContains, type Box } from "./body/coords";
 import { drawHouse, HOUSE_PX, drawChatIcon, CHAT_PX, drawGearIcon, GEAR_PX } from "./body/house";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
-import { ACTION_TO_DOG, statusText, type AiStatus, type BrainMessage, type Signal } from "./shared/brain-protocol";
+import { ACTION_TO_DOG, stateSignals, statusText, type AiStatus, type BrainMessage, type Signal } from "./shared/brain-protocol";
 import { connectBrain } from "./brain-link";
 import "./styles.css";
 
@@ -143,9 +143,8 @@ async function main() {
   const brain = connectBrain({
     onMessage: onBrain,
     onOpen: () => {
-      // 두뇌는 처음에 "집 밖, 사용자 있음"으로 안다. 다르면 바로 알린다 (docs/brain-protocol.md)
-      if (dog.mode === "in_house") brain.send({ type: "signal", signal: { kind: "house", inside: true, awayMs: 0 } });
-      if (!userActive) brain.send({ type: "signal", signal: { kind: "user_away" } });
+      const houseAwayMs = Date.now() - (dogHouseSince ?? Date.now());
+      for (const signal of stateSignals({ inHouse: dog.mode === "in_house", houseAwayMs, userActive })) brain.send({ type: "signal", signal });
     },
     onClose: () => setStatus(null),
   });

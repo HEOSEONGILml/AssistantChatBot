@@ -225,3 +225,35 @@ async def test_unknown_signal_is_ignored(env):
     await env.brain.handle({"kind": "teleport"})
     await env.brain.drain()
     assert env.jev.calls == [] and env.out == []
+
+
+async def test_typing_does_not_cancel_reply_to_sent(env):
+    # 리뷰 지적: 보낸 말에 대한 판단이 진행 중일 때 다음 말을 타이핑해도 답이 사라지면 안 된다
+    env.jev.result = Judgement("excited", "none", 0.9)
+    env.jev.gate = asyncio.Event()
+    await env.brain.handle({"kind": "sent", "text": "오늘 힘들었어"})
+    await settle(lambda: len(env.jev.calls) == 1)
+    await env.brain.handle({"kind": "typing", "text": "그래서 오늘은 일찍 잘 거야 멍멍"})
+    env.jev.gate.set()
+    await env.brain.drain()
+    assert utterances(env.out) == ["멍! 안녕"]
+    assert len(env.jev.calls) == 1  # 타이핑 판단은 답이 끝난 뒤 tick이 다시 본다
+    assert "상황: 사용자가 방금 강아지에게 말을 보냈다" in env.talker.calls[0][1]
+
+
+async def test_repeated_known_state_does_not_trigger(env):
+    # 화면은 다시 연결할 때마다 집·자리 상태를 알린다. 이미 아는 상태면 판단하지 않는다
+    await env.brain.handle({"kind": "house", "inside": False, "awayMs": 0})
+    await env.brain.handle({"kind": "user_return"})
+    await env.brain.drain()
+    assert env.jev.calls == []
+
+
+async def test_house_exit_learned_on_reconnect(env):
+    # 리뷰 지적: 연결이 끊긴 사이 집에서 나오면, 다시 연결할 때 알려 준 상태로 깨어나야 한다
+    await env.brain.handle({"kind": "house", "inside": True, "awayMs": 0})
+    await env.brain.connected(False)
+    await env.brain.connected(True)
+    await env.brain.handle({"kind": "house", "inside": False, "awayMs": 60_000})
+    await env.brain.drain()
+    assert env.jev.calls[-1]["상황"].startswith("강아지가 방금 자기 집")

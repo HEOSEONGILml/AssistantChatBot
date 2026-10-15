@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_TO_DOG, outgoing, parseBrainMessage, statusText } from "../src/shared/brain-protocol";
+import { ACTION_TO_DOG, outgoing, parseBrainMessage, stateSignals, statusText } from "../src/shared/brain-protocol";
 import { DOG_ACTIONS } from "../src/body/sprite";
 
 const msg = (o: object) => JSON.stringify({ v: 1, ...o });
@@ -47,5 +47,21 @@ describe("statusText", () => {
     expect(statusText(null)).toBeNull();
     expect(statusText("no_keys")).toContain("키를 넣어");
     expect(statusText("bad_key")).toContain("키를 확인");
+  });
+});
+
+describe("stateSignals", () => {
+  // 연결이 끊긴 사이 바뀐 상태를 두뇌가 놓치지 않게, 접속할 때마다 집·자리 상태를 모두 알린다
+  it("reports the dog outside the house and the user present", () => {
+    expect(stateSignals({ inHouse: false, houseAwayMs: 5000, userActive: true })).toEqual([
+      { kind: "house", inside: false, awayMs: 5000 },
+      { kind: "user_return" },
+    ]);
+  });
+  it("reports the dog inside the house and the user away", () => {
+    expect(stateSignals({ inHouse: true, houseAwayMs: 0, userActive: false })).toEqual([
+      { kind: "house", inside: true, awayMs: 0 },
+      { kind: "user_away" },
+    ]);
   });
 });

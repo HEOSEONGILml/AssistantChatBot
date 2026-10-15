@@ -46,6 +46,7 @@ class Brain:
         self._due: str | None = None          # 다음 tick에 바로 할 판단 (강아지가 방금 말함)
         self._task: asyncio.Task | None = None
         self._phase: str | None = None        # 진행 중인 판단의 단계: judging / speaking
+        self._situation: str | None = None    # 진행 중인 판단의 상황
 
     # ---- 화면 연결과 설정 ----
 
@@ -96,7 +97,7 @@ class Brain:
                 self._in_house = True
                 self._due = None
                 self._cancel()  # 만들던 대사도 버린다
-            else:
+            elif self._in_house:  # 이미 집 밖인 줄 알면(다시 연결할 때 화면이 다시 알림) 판단하지 않는다
                 self._in_house = False
                 self._house_away_s = float(signal.get("awayMs", 0)) / 1000
                 self._start("house_out")
@@ -105,8 +106,9 @@ class Brain:
         elif kind == "user_away":
             self._away = True
         elif kind == "user_return":
-            self._away = False
-            self._start("user_return")
+            if self._away:
+                self._away = False
+                self._start("user_return")
         elif kind == "interaction":
             situation = f"interaction:{signal.get('type')}"
             if situation not in SITUATIONS:
@@ -162,7 +164,8 @@ class Brain:
             self._typing_pending = False  # 다 지웠으면 타이핑 판단을 하지 않는다
             return False
         if self._busy():
-            if cancel or (situation == "typing" and self._phase == "judging"):
+            # 타이핑은 Jev 단계의 판단만 새 글로 바꾼다. 보낸 말에 대한 답은 버리지 않는다 (스펙 5절 3)
+            if cancel or (situation == "typing" and self._phase == "judging" and self._situation != "sent"):
                 self._cancel()
             else:
                 return False
@@ -171,6 +174,7 @@ class Brain:
             self._typing_at_call = self._typing
         self._last_call_at = self._clock()
         self._phase = "judging"
+        self._situation = situation
         self._task = asyncio.create_task(self._run(situation))
         return True
 
