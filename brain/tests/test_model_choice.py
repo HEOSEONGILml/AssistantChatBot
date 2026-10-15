@@ -19,36 +19,52 @@ def neutral(**kw):
     return dog
 
 
-JEV = {"joy": 0.6, "curious": 0.3, "none": 0.1}
+JEV = {"beg": 0.6, "stand": 0.3, "none": 0.1}
 
 
 def test_whim_controls_temperature():
-    sharp = model.probabilities(model.reaction_scores(JEV, neutral(whim=0.0), 0.0, T))
-    flat = model.probabilities(model.reaction_scores(JEV, neutral(whim=1.0), 0.0, T))
-    assert sharp["joy"] == pytest.approx(0.78, abs=0.01)
-    assert flat["joy"] == pytest.approx(0.52, abs=0.01)
+    sharp = model.probabilities(model.action_scores(JEV, neutral(whim=0.0), "none", T))
+    flat = model.probabilities(model.action_scores(JEV, neutral(whim=1.0), "none", T))
+    assert sharp["beg"] == pytest.approx(0.78, abs=0.01)
+    assert flat["beg"] == pytest.approx(0.52, abs=0.01)
 
 
-def test_mood_tilts_reaction():
-    angry = neutral()
-    angry.mood["분노"] = 0.95
-    jev = {"joy": 0.5, "annoyed": 0.5}
-    assert model.probabilities(model.reaction_scores(jev, angry, 0.0, T))["annoyed"] > \
-        model.probabilities(model.reaction_scores(jev, neutral(), 0.0, T))["annoyed"]
+def test_reaction_is_the_mood_that_rose_most():
+    deltas = {d: 0.0 for d in MOODS} | {"분노": 0.1, "들뜸": 0.05, "친밀도": 0.3}
+    assert model.reaction_from(deltas, ["poke"], T) == "annoyed"
 
 
-def test_habit_makes_reaction_none_likelier():
-    fresh = model.probabilities(model.reaction_scores(JEV, neutral(), 0.0, T))
-    used = model.probabilities(model.reaction_scores(JEV, neutral(), 0.9, T))
-    assert used["none"] > fresh["none"]
+def test_small_rise_is_no_reaction():
+    deltas = {d: 0.0 for d in MOODS} | {"들뜸": 0.01}
+    assert model.reaction_from(deltas, ["poke"], T) == "none"
+
+
+def test_typing_always_reacts():
+    small = {d: 0.0 for d in MOODS} | {"들뜸": 0.01}
+    falling = {d: -0.05 for d in MOODS}
+    assert model.reaction_from(small, ["typing"], T) == "excited"
+    assert model.reaction_from(falling, ["typing"], T) == "curious"  # 오른 기분이 없으면 궁금함
+
+
+def test_every_mood_has_a_reaction():
+    assert set(model.MOOD_REACTION_ID) == set(MOODS)
+    assert set(model.REACTIONS) == set(model.MOOD_REACTION_ID.values()) | {"none"}
+
+
+def test_dominant_mood():
+    dog = neutral()
+    assert model.dominant_mood(dog, T) == "calm"
+    dog.mood["무서움"] = 0.7
+    dog.mood["분노"] = 0.6
+    assert model.dominant_mood(dog, T) == "scared"
 
 
 def test_reaction_tilts_action():
     jev = {"bark": 0.4, "beg": 0.4, "none": 0.2}
     after_annoyed = model.probabilities(model.action_scores(jev, neutral(), "annoyed", T))
-    after_joy = model.probabilities(model.action_scores(jev, neutral(), "joy", T))
+    after_excited = model.probabilities(model.action_scores(jev, neutral(), "excited", T))
     assert after_annoyed["bark"] > after_annoyed["beg"]
-    assert after_joy["beg"] > after_joy["bark"]
+    assert after_excited["beg"] > after_excited["bark"]
 
 
 def test_sleepy_mood_tilts_action_to_sleep():
@@ -60,19 +76,21 @@ def test_sleepy_mood_tilts_action_to_sleep():
 
 
 def test_pick_follows_probabilities():
-    scores = model.reaction_scores(JEV, neutral(), 0.0, T)
+    scores = model.action_scores(JEV, neutral(), "none", T)
     rng = random.Random(7)
     picks = [model.pick(scores, rng) for _ in range(4000)]
-    assert picks.count("joy") / 4000 == pytest.approx(model.probabilities(scores)["joy"], abs=0.03)
+    assert picks.count("beg") / 4000 == pytest.approx(model.probabilities(scores)["beg"], abs=0.03)
 
 
 def test_talkativeness_directions():
     base = model.talkativeness(neutral(), T)
-    angry, bored_type = neutral(), neutral()
+    angry, bored_type, scared = neutral(), neutral(), neutral()
     angry.mood["분노"] = 0.9
+    scared.mood["무서움"] = 0.9
     bored_type.personality.baseline["심심함"] = 0.9
     assert model.talkativeness(neutral(intimacy=0.9), T) > base
     assert model.talkativeness(angry, T) < base
+    assert model.talkativeness(scared, T) < base
     assert model.talkativeness(bored_type, T) > base
 
 
@@ -106,7 +124,7 @@ def test_intimacy_change():
 def test_repeated_stimulus_habituates():
     quiet = replace(T, change_noise=0.0)
     dog = neutral()
-    deltas = [model.apply_change(dog, {"분노↑": 1.0}, ["poke"], random.Random(0), quiet)["분노"] for _ in range(5)]
+    deltas = [model.apply_change(dog, {"놀람↑": 1.0}, ["poke"], random.Random(0), quiet)["놀람"] for _ in range(5)]
     assert deltas[0] > deltas[1] > deltas[2] > deltas[4] > 0
     assert model.habit_level(dog, ["poke"]) > 0.7
     assert model.habit_level(dog, ["message"]) == 0.0
@@ -115,7 +133,7 @@ def test_repeated_stimulus_habituates():
 def test_sensitive_dog_habituates_slower():
     quiet = replace(T, change_noise=0.0)
     calm, touchy = neutral(), neutral()
-    calm.personality.sensitivity["분노"], touchy.personality.sensitivity["분노"] = 0.2, 0.9
+    calm.personality.sensitivity["놀람"], touchy.personality.sensitivity["놀람"] = 0.2, 0.9
     for dog in (calm, touchy):
         model.apply_change(dog, {}, ["poke"], random.Random(0), quiet)
     assert calm.habit["poke"] > touchy.habit["poke"]

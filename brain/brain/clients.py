@@ -27,15 +27,14 @@ class CallError(Exception):
 @dataclass(frozen=True)
 class Readout:
     """Jev가 준 분포 (두뇌 스펙 v2 5절). 결정은 확률 모델이 한다."""
-    reaction: dict[str, float]
     action: dict[str, float]
     speak: float
     change: dict[str, float]
 
 
 def to_readout(resp) -> Readout:
-    return Readout(dict(resp.choices["reaction"].probabilities), dict(resp.choices["action"].probabilities),
-                   resp.nouls["speak"].noul, dict(resp.choices["change"].probabilities))
+    return Readout(dict(resp.choices["action"].probabilities), resp.nouls["speak"].noul,
+                   dict(resp.choices["change"].probabilities))
 
 
 class Jev(Protocol):

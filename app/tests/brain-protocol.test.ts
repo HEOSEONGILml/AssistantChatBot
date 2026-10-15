@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { ACTION_TO_DOG, outgoing, parseBrainMessage, statusText } from "../src/shared/brain-protocol";
 import { DOG_ACTIONS } from "../src/body/sprite";
 
-const msg = (o: object) => JSON.stringify({ v: 2, ...o });
+const msg = (o: object) => JSON.stringify({ v: 3, ...o });
 const weights = { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 };
 
 describe("parseBrainMessage", () => {
   it("reads a full reaction", () => {
-    expect(parseBrainMessage(msg({ type: "reaction", reaction: "joy", action: "bark", utterance: "멍!" })))
-      .toEqual({ type: "reaction", reaction: "joy", action: "bark", utterance: "멍!" });
+    expect(parseBrainMessage(msg({ type: "reaction", reaction: "excited", action: "bark", utterance: "멍!" })))
+      .toEqual({ type: "reaction", reaction: "excited", action: "bark", utterance: "멍!" });
   });
   it("drops unknown vocabulary but keeps the rest", () => {
     expect(parseBrainMessage(msg({ type: "reaction", reaction: "hungry", action: "dance", utterance: "멍" })))
@@ -18,8 +18,10 @@ describe("parseBrainMessage", () => {
     expect(parseBrainMessage(msg({ type: "status", ai: "bad_key" }))).toEqual({ type: "status", ai: "bad_key" });
   });
   it("reads movement", () => {
-    expect(parseBrainMessage(msg({ type: "movement", weights, run: 0.2, idle_scale: 1.3 })))
-      .toEqual({ type: "movement", movement: { weights, run: 0.2, idleScale: 1.3 } });
+    expect(parseBrainMessage(msg({ type: "movement", weights, mood: "sad", run: 0.2, idle_scale: 1.3 })))
+      .toEqual({ type: "movement", movement: { weights, run: 0.2, idleScale: 1.3 }, mood: "sad" });
+    expect(parseBrainMessage(msg({ type: "movement", weights, mood: "weird", run: 0.2, idle_scale: 1 })))
+      .toEqual({ type: "movement", movement: { weights, run: 0.2, idleScale: 1 }, mood: "calm" });
   });
   it("rejects broken movement", () => {
     expect(parseBrainMessage(msg({ type: "movement", weights: { ...weights, play: -1 }, run: 0.2, idle_scale: 1 }))).toBeNull();
@@ -29,7 +31,7 @@ describe("parseBrainMessage", () => {
   });
   it("rejects bad input and old versions", () => {
     expect(parseBrainMessage("{oops")).toBeNull();
-    expect(parseBrainMessage(JSON.stringify({ v: 1, type: "status", ai: "ok" }))).toBeNull();
+    expect(parseBrainMessage(JSON.stringify({ v: 2, type: "status", ai: "ok" }))).toBeNull();
     expect(parseBrainMessage(msg({ type: "dance" }))).toBeNull();
     expect(parseBrainMessage(msg({ type: "status", ai: "maybe" }))).toBeNull();
     expect(parseBrainMessage(42)).toBeNull();
@@ -38,7 +40,7 @@ describe("parseBrainMessage", () => {
 
 describe("outgoing", () => {
   it("adds the protocol version", () => {
-    expect(JSON.parse(outgoing({ type: "event", kind: "poke", context: {} }))).toEqual({ v: 2, type: "event", kind: "poke", context: {} });
+    expect(JSON.parse(outgoing({ type: "event", kind: "poke", context: {} }))).toEqual({ v: 3, type: "event", kind: "poke", context: {} });
   });
 });
 
@@ -72,7 +74,14 @@ describe("state·log 조회", () => {
     expect(parseBrainMessage(msg({ type: "log", judgements: "x", events: [], brain_log: [] }))).toBeNull();
   });
   it("sends get_state and get_log", () => {
-    expect(JSON.parse(outgoing({ type: "get_state" }))).toEqual({ v: 2, type: "get_state" });
-    expect(JSON.parse(outgoing({ type: "get_log" }))).toEqual({ v: 2, type: "get_log" });
+    expect(JSON.parse(outgoing({ type: "get_state" }))).toEqual({ v: 3, type: "get_state" });
+    expect(JSON.parse(outgoing({ type: "get_log" }))).toEqual({ v: 3, type: "get_log" });
+  });
+});
+
+describe("반응 어휘 v3", () => {
+  it("기분 8개의 반응을 모두 읽는다", () => {
+    for (const r of ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared"])
+      expect(parseBrainMessage(msg({ type: "reaction", reaction: r }))).toEqual({ type: "reaction", reaction: r });
   });
 });

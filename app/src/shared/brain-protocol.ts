@@ -1,14 +1,16 @@
-// 두뇌 프로토콜 v2 (docs/brain-protocol.md). 두뇌가 정한 어휘를 이 화면의 몸체 동작에 대응시킨다.
+// 두뇌 프로토콜 v3 (docs/brain-protocol.md). 두뇌가 정한 어휘를 이 화면의 몸체 동작에 대응시킨다.
 import type { DogAction } from "../body/sprite";
 import { MOVES, type Move, type Movement } from "../body/dog";
+import { MOOD_IDS, type MoodId } from "../body/mood-style";
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export const EVENT_KINDS = ["typing", "message", "dog_spoke", "quiet", "returned", "house_in", "house_out", "poke", "pet", "throw"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 export type EventContext = Record<string, string | number>;
 
-const REACTIONS = ["joy", "curious", "surprised", "annoyed", "sad", "scared"] as const;
+// 반응 = 가장 크게 오른 기분의 표출 (기분 8개 스펙). 평온(calm)은 반응이 아니라 기분 상태에만 쓴다
+const REACTIONS = ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared"] as const;
 export type BrainReaction = (typeof REACTIONS)[number];
 
 export const ACTION_TO_DOG = {
@@ -33,8 +35,8 @@ export type BrainState = {
 export type Judgement = {
   ts: number;
   events: { 종류: string; 맥락?: Record<string, unknown> }[];
-  jev?: { reaction: Record<string, number>; action: Record<string, number>; speak: number };
-  model?: { reaction: Record<string, number>; action: Record<string, number>; speak: number };
+  jev?: { action: Record<string, number>; speak: number; change?: Record<string, number> };
+  model?: { action: Record<string, number>; speak: number };
   picked?: { reaction: string; action: string; speak: boolean };
   mood_change?: Record<string, number>;
   utterance?: string;
@@ -45,7 +47,7 @@ export type BrainLog = { judgements: Judgement[]; events: string[]; brain_log: s
 export type BrainMessage =
   | ({ type: "reaction" } & Reaction)
   | { type: "status"; ai: AiStatus }
-  | { type: "movement"; movement: Movement }
+  | { type: "movement"; movement: Movement; mood: MoodId }
   | { type: "state"; state: BrainState }
   | { type: "log"; log: BrainLog };
 export type Outgoing =
@@ -79,7 +81,10 @@ export function parseBrainMessage(raw: unknown): BrainMessage | null {
   const o = m as Record<string, unknown>;
   if (o.v !== PROTOCOL_VERSION) return null;
   if (o.type === "status") return includes(AI_STATUSES, o.ai) ? { type: "status", ai: o.ai } : null;
-  if (o.type === "movement") { const mv = parseMovement(o); return mv ? { type: "movement", movement: mv } : null; }
+  if (o.type === "movement") {
+    const mv = parseMovement(o);
+    return mv ? { type: "movement", movement: mv, mood: includes(MOOD_IDS, o.mood) ? o.mood : "calm" } : null;
+  }
   if (o.type === "state") {
     const dog = o.dog as Record<string, unknown> | undefined;
     if (!dog || typeof dog !== "object" || !dog.mood || !dog.personality || !finite(o.talkativeness) || !o.movement) return null;

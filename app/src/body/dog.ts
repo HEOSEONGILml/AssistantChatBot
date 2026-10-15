@@ -401,3 +401,19 @@ export function release(d: Dog, vx: number, vy: number, now = 0): Dog {
   if (Math.hypot(vx, vy) < THROW_MIN_SPEED) return idleFor(d, now, PAUSE_MAX_MS);
   return { ...d, mode: "thrown", vx, vy, dir: vx >= 0 ? 1 : -1, impact: 0, bounces: 0, thrownAt: now };
 }
+
+// 듣는 자세: 타이핑이 시작되면 대기 중인 강아지가 입력창(x, y: 다닐 수 있는 영역 좌표) 쪽을 바라보고,
+// 멀리 있으면 가끔 몇 걸음 다가온다. 두뇌를 기다리지 않는 즉각 반응이다 (기분 8개 스펙 6절)
+const LISTEN_WALK_CHANCE = 0.3, LISTEN_NEAR_PX = 250, LISTEN_STEP_PX = 120; // 잠정값
+export function listenTo(d: Dog, w: World, x: number, y: number, _now: number, rand: () => number): Dog {
+  if (d.mode !== "idle" || d.pose === "sleep") return d;
+  const c = center(d, w);
+  const dx = x - c.x, dy = y - c.y;
+  const dist = Math.hypot(dx, dy);
+  const faced: Dog = { ...d, dir: dx >= 0 ? 1 : -1 };
+  if (dist > LISTEN_NEAR_PX && rand() < LISTEN_WALK_CHANCE) {
+    const k = LISTEN_STEP_PX / dist;
+    return { ...faced, mode: "walk_to", targetX: clampX(d.x + dx * k, w), targetY: clampY(d.y + dy * k, w), running: false };
+  }
+  return faced;
+}

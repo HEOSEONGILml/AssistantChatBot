@@ -27,7 +27,7 @@ class FakeClock:
 class FakeJev:
     def __init__(self):
         self.calls: list[dict] = []
-        self.readout = Readout({"joy": 1.0}, {"beg": 1.0}, 0.5, {"변화없음": 1.0})
+        self.readout = Readout({"beg": 1.0}, 0.5, {"들뜸↑": 1.0})  # 들뜸이 올라 신남 반응이 나온다
         self.error: Exception | None = None
         self.gate: asyncio.Event | None = None
 

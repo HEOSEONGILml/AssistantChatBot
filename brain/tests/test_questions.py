@@ -13,10 +13,9 @@ def ev(kind, data=None, ago=0.0, source="user"):
 
 def test_question_vocabulary():
     q = questions.QUESTIONS
-    assert set(q) == {"reaction", "action", "speak", "change"}
-    assert set(q["reaction"].criteria) == set(model.REACTIONS)
+    assert set(q) == {"action", "speak", "change"}  # 반응은 기분 변화에서 나온다 (기분 8개 스펙)
     assert set(q["action"].criteria) == set(model.ACTIONS)
-    assert len(q["change"].criteria) == 13 and "변화없음" in q["change"].criteria
+    assert len(q["change"].criteria) == 19 and "변화없음" in q["change"].criteria and "무서움↑" in q["change"].criteria
     assert "분노↑" in q["change"].criteria and "친밀도↓" in q["change"].criteria
 
 
@@ -33,7 +32,7 @@ def test_log_lines():
     assert questions.log_line(ev("dog_spoke", {"text": "멍"}), NOW) is None
     assert questions.log_line(ev("message", {"text": "안녕"}, 120), NOW) == "2분 전 · 사용자: 안녕"
     assert questions.log_line(ev("dog", {"utterance": "멍!"}, 60, "dog"), NOW) == "1분 전 · 강아지: 멍!"
-    assert questions.log_line(ev("dog", {"reaction": "joy", "action": "beg"}, 5, "dog"), NOW) == "방금 · 강아지 반응 기쁨, 동작 조르기"
+    assert questions.log_line(ev("dog", {"reaction": "excited", "action": "beg"}, 5, "dog"), NOW) == "방금 · 강아지 반응 신남, 동작 조르기"
     assert questions.log_line(ev("throw", {"impact": 0.9}, 30), NOW) == "30초 전 · 던지기 (충격(0~1) 0.9)"
     assert questions.log_line(ev("poke"), NOW) == "방금 · 찌르기"
 
@@ -54,7 +53,7 @@ def test_jev_state_shape():
 
 def test_dialogue_prompt_carries_state_and_picks():
     state = {"기분": {"시무룩": 0.9}}
-    p = persona.dialogue_prompt(state, "sad", "lie_down")
+    p = persona.dialogue_prompt(state, "sad", "lie_down")  # 서운함
     assert '"시무룩": 0.9' in p and "서운함" in p and "엎드리기" in p
 
 

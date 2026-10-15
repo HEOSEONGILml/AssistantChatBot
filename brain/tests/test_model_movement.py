@@ -13,6 +13,7 @@ def neutral():
 
 def test_neutral_dog_gets_base_tendency():
     mv = model.movement(neutral(), T)
+    assert mv["mood"] == "calm"
     assert mv["weights"] == pytest.approx(MOVE_BASE)
     assert mv["run"] == pytest.approx(0.2)
     assert mv["idle_scale"] == pytest.approx(1.0)
@@ -51,3 +52,11 @@ def test_changed_threshold():
     assert model.movement_changed(None, a, T)
     assert not model.movement_changed(a, model.movement(small, T), T)
     assert model.movement_changed(a, model.movement(big, T), T)
+
+
+def test_scared_dog_hides_and_reports_mood():
+    dog = neutral()
+    dog.mood["무서움"] = 0.95
+    mv = model.movement(dog, T)
+    assert mv["mood"] == "scared"
+    assert mv["weights"]["rest"] > MOVE_BASE["rest"] and mv["weights"]["approach"] < MOVE_BASE["approach"]

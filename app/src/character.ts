@@ -3,7 +3,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
-import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, DEFAULT_MOVEMENT, type Movement } from "./body/dog";
+import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, DEFAULT_MOVEMENT, listenTo, type Movement } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
 import { exposeTopEdges } from "./body/windows";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
@@ -13,6 +13,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
 import { ACTION_TO_DOG, statusText, type AiStatus, type BrainMessage, type EventContext, type EventKind } from "./shared/brain-protocol";
 import { newTyping, feedTyping, tickTyping, quietDue, impactOf } from "./body/events";
+import { EMOTES, REACTION_MS, moodStyle, reactionHop, type MoodId, type ReactionId } from "./body/mood-style";
 import { connectBrain } from "./brain-link";
 import "./styles.css";
 
@@ -127,10 +128,12 @@ async function main() {
   // 두뇌 연결 (프로토콜 v2). 두뇌가 없거나 끊겨도 강아지는 평소대로 움직인다 (두뇌 스펙 v2 8절)
   let aiStatus: AiStatus | null = null; // null: 두뇌에 연결되지 않음
   let movement: Movement = DEFAULT_MOVEMENT; // 두뇌가 보낸 최신 평소 움직임 경향
+  let mood: MoodId = "calm"; // 두드러진 기분: 평소 모습을 정한다
+  let shownReaction: { id: ReactionId; at: number } | null = null; // 지금 보여 주는 반응
   const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
   const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
   const onBrain = (m: BrainMessage) => {
-    if (m.type === "movement") { movement = m.movement; return; }
+    if (m.type === "movement") { movement = m.movement; mood = m.mood; return; }
     if (m.type === "state") { emit("brain-state", m.state); return; } // 설정 창 상태 탭으로
     if (m.type === "log") { emit("brain-log", m.log); return; }       // 설정 창 로그 탭으로
     const home = dog.mode === "in_house" || dog.mode === "to_house"; // 집에서는 완전히 조용 (vision)
@@ -141,6 +144,7 @@ async function main() {
       return;
     }
     if (home) return;
+    if (m.reaction) shownReaction = { id: m.reaction, at: Date.now() }; // 기분이 오른 즉시 보인다
     if (m.action) dog = playAction(dog, ACTION_TO_DOG[m.action], Date.now(), ACTION_MS);
     if (m.utterance) { say(m.utterance); sendEvent("dog_spoke", { text: m.utterance }); }
     // m.reaction: 반응별 그림은 다음 몸체 작업에서 붙인다 (vision)
@@ -157,7 +161,10 @@ async function main() {
   };
   let typing = newTyping();
   listen<{ text: string }>("input-typing", (e) => {
+    // 듣는 자세: 두뇌를 기다리지 않고 바로 입력창(집) 쪽을 바라본다. 타이핑을 시작할 때와 판단을 보낼 때만
+    const starting = !typing.text;
     const r = feedTyping(typing, e.payload.text, Date.now());
+    if (starting || r.fire) dog = listenTo(dog, world, world.houseX + dogW / 2, world.houseY, Date.now(), Math.random);
     typing = r.state;
     if (r.fire) sendEvent("typing", { text: typing.text });
   });
@@ -270,6 +277,25 @@ async function main() {
     userActive = active;
   }, 1000);
 
+  // 기분 색: 프레임 위 그림이 있는 픽셀에만 반투명 색을 덮는다. 프레임·색마다 한 번만 만든다
+  const tintCache = new Map<HTMLCanvasElement, Map<string, HTMLCanvasElement>>();
+  const tinted = (src: HTMLCanvasElement, color: string): HTMLCanvasElement => {
+    let byColor = tintCache.get(src);
+    if (!byColor) { byColor = new Map(); tintCache.set(src, byColor); }
+    let c = byColor.get(color);
+    if (!c) {
+      c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height;
+      const g = c.getContext("2d")!;
+      g.drawImage(src, 0, 0);
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = color;
+      g.fillRect(0, 0, c.width, c.height);
+      byColor.set(color, c);
+    }
+    return c;
+  };
+
   // 시트의 강아지가 바라보는 방향과 걷는 방향이 다르면 좌우를 뒤집는다
   const facingLeft = manifest.facing === "left";
 
@@ -295,17 +321,32 @@ async function main() {
       drawGearIcon(ctx, gearBox.left, gearBox.top, HOUSE_SCALE);
     }
     if (dog.mode !== "in_house") {
-      const f = frameAt(manifest, anim, now - animStart);
+      // 평소 모습은 두드러진 기분으로, 반응은 머리 위 아이콘과 톡 튐으로 (기분 8개 스펙 6절, 임시 표현)
+      const style = moodStyle(mood);
+      const f = frameAt(manifest, anim, (now - animStart) * style.speed);
       const fr = frames.get(`${f.sx},${f.sy}`);
       const b = dogBox();
-      const left = Math.round(b.left), top = Math.round(b.top - dog.hop); // 정수 좌표(번짐 방지), 점프 중이면 위로 띄운다
+      const nowMs = Date.now();
+      const react = shownReaction && nowMs - shownReaction.at < REACTION_MS ? shownReaction : null;
+      const hopR = react ? reactionHop(react.id, nowMs - react.at) : 0;
+      const moving = dog.mode === "walk_to" || dog.mode === "follow" || dog.mode === "hunt";
+      const bounce = moving && style.bounce ? Math.abs(Math.sin(now / 90)) * style.bounce : 0;
+      const jitter = style.jitter ? (Math.random() * 2 - 1) * style.jitter : 0;
+      // 정수 좌표(번짐 방지). 점프·반응·신남은 위로 띄우고, 서운함·무서움은 처지게
+      const left = Math.round(b.left + jitter), top = Math.round(b.top - dog.hop - hopR - bounce + style.offsetY);
       const flip = facingLeft ? dog.dir === 1 : dog.dir === -1;
       ctx.save();
+      if (style.tilt) { ctx.translate(left + dogW / 2, top + dogH); ctx.rotate(dog.dir === 1 ? style.tilt : -style.tilt); ctx.translate(-(left + dogW / 2), -(top + dogH)); }
       if (flip) { ctx.translate(left + dogW, 0); ctx.scale(-1, 1); ctx.translate(-left, 0); }
-      if (fr) ctx.drawImage(fr.canvas, left, top, dogW, dogH);
+      if (fr) ctx.drawImage(style.tint ? tinted(fr.canvas, style.tint) : fr.canvas, left, top, dogW, dogH);
       else { ctx.fillStyle = "#c8843a"; ctx.fillRect(left, top, dogW, dogH); }
       ctx.restore();
       headTop = fr ? fr.top * manifest.scale : 0;
+      if (react) {
+        ctx.font = "20px 'Segoe UI Emoji'";
+        ctx.textAlign = "center";
+        ctx.fillText(EMOTES[react.id], left + dogW / 2, top + headTop - 4);
+      }
     }
 
     const t = tickBubble(bubble, Date.now(), dt, userActive);

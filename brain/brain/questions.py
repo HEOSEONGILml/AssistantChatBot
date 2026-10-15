@@ -1,4 +1,4 @@
-"""Jev 질문 4개와 선택지 정책 설명, Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
+"""Jev 질문 3개(동작·말하기·변화)와 선택지 정책 설명. 반응은 따로 묻지 않고 기분 변화에서 나온다(기분 8개 스펙), Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
 문구를 바꾸면 분포가 달라지므로 Jev를 다시 녹화하고 보정값을 다시 맞춘다 (brain/sim)."""
 from datetime import datetime
 
@@ -8,15 +8,6 @@ from .model import ACTION_NAMES, REACTION_NAMES, Dog
 from .persona import PERSONA
 from .tuning import MOODS
 
-REACTION_TEXT = {
-    "joy": "기쁨: 즐겁거나 반가워서 기뻐한다",
-    "curious": "궁금함: 무언가가 궁금해 고개를 갸웃한다",
-    "surprised": "놀람: 예상 못 한 일에 깜짝 놀란다",
-    "annoyed": "짜증: 귀찮거나 싫은 일에 짜증을 낸다",
-    "sad": "서운함: 무시당하거나 거절당해 서운해한다",
-    "scared": "무서움: 위험하거나 거친 일에 겁을 먹는다",
-    "none": "없음: 특별한 감정 반응 없이 담담하다",
-}
 # 정책: 반응·기분과 동작의 연결 (스펙 5절). 조르기가 모든 상황에 들어맞지 않게 쓴다 (성격 유형 실측)
 ACTION_TEXT = {
     "stand": "서기: 서서 지켜본다. 궁금하거나 무언가를 기다릴 때",
@@ -35,7 +26,6 @@ CHANGE_TEXT = {f"{d}{s}": f"이 일 자체로 강아지의 {d}이(가) {'올라�
 CHANGE_TEXT["변화없음"] = "이 일로 기분과 친밀도는 거의 변하지 않는다. 시간이 흘러 생기는 변화(혼자 있으면 심심해짐 등)는 여기서 따지지 않는다"
 
 QUESTIONS = {
-    "reaction": Choice(instructions="이 강아지가 이번 이벤트(들)에 보일 감정 반응은?", criteria=REACTION_TEXT),
     "action": Choice(instructions="이 강아지가 지금 할 동작은?", criteria=ACTION_TEXT),
     "speak": Noul(instructions=SPEAK_TEXT),
     "change": Choice(instructions="이번 이벤트(들) 자체로 강아지의 기분·친밀도는 어떻게 변하나?", criteria=CHANGE_TEXT),

@@ -4,10 +4,10 @@ import type { BrainState, Judgement } from "./brain-protocol";
 export type Row = { label: string; value: number; note?: string }; // value: 막대 길이 (0~1)
 export type Section = { title: string; rows: Row[] };
 
-const MOODS = ["심심함", "졸림", "들뜸", "시무룩", "분노"];
+const MOODS = ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움"];
 const HABITS: Record<string, string> = { poke: "찌르기", pet: "쓰다듬기", throw: "던지기" };
 const MOVES: Record<string, string> = { rest: "쉬기", sleep: "잠", roam: "돌아다니기", approach: "사용자 곁으로", play: "놀기", explore: "구경하기" };
-export const REACTION_NAMES: Record<string, string> = { joy: "기쁨", curious: "궁금함", surprised: "놀람", annoyed: "짜증", sad: "서운함", scared: "무서움", none: "없음" };
+export const REACTION_NAMES: Record<string, string> = { bored: "지루함", sleepy: "하품", excited: "신남", sad: "서운함", annoyed: "짜증", curious: "궁금함", surprised: "놀람", scared: "무서움", none: "없음" };
 export const ACTION_NAMES: Record<string, string> = { stand: "서기", sit: "앉기", lie_down: "엎드리기", sleep: "잠", beg: "조르기", bark: "짖기", none: "없음" };
 
 const f2 = (x: number) => x.toFixed(2);
@@ -44,7 +44,8 @@ export function judgementLines(j: Judgement): string[] {
   const lines = [`${clock(j.ts)} · ${j.events.map(event).join(", ")}`];
   if (j.error) return [...lines, `  ${j.error}`];
   if (!j.jev || !j.model || !j.picked) return lines;
-  lines.push(`  반응  Jev ${dist(j.jev.reaction, REACTION_NAMES)} → 보정 ${dist(j.model.reaction, REACTION_NAMES)} → ${REACTION_NAMES[j.picked.reaction] ?? j.picked.reaction}`);
+  if (j.jev.change) lines.push(`  변화  Jev ${dist(j.jev.change, {})}`);
+  lines.push(`  반응  ${REACTION_NAMES[j.picked.reaction] ?? j.picked.reaction}${j.picked.reaction === "none" ? "" : " (가장 크게 오른 기분)"}`);
   lines.push(`  동작  Jev ${dist(j.jev.action, ACTION_NAMES)} → 보정 ${dist(j.model.action, ACTION_NAMES)} → ${ACTION_NAMES[j.picked.action] ?? j.picked.action}`);
   const said = j.picked.speak ? (j.utterance ? `말함: ${j.utterance}` : "말함") : "안 말함";
   lines.push(`  말하기  Jev ${f2(j.jev.speak)} → 최종 ${f2(j.model.speak)} → ${said}`);

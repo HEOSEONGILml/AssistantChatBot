@@ -1,7 +1,7 @@
 # 두뇌 v2 설계: 이벤트 단위 판단과 확률 모델
 
 - 날짜: 2026-10-15
-- 상태: 구현됨 (2026-10-15, 계획 [2026-10-15-brain-v2](../plans/2026-10-15-brain-v2.md)). 초안이며 써 보며 고치고 고도화 단계에서 바뀔 수 있다 ([vision](../../vision.md)). 수동 확인: [체크리스트](../../manual-checks/brain.md)
+- 상태: 구현됨. 기분·반응·Jev 질문·프로토콜은 [기분 8개 스펙](2026-10-15-mood-reaction-design.md)으로 개정됨(기분 8개, 반응 = 가장 크게 오른 기분, 질문 3개, 프로토콜 v3). (2026-10-15, 계획 [2026-10-15-brain-v2](../plans/2026-10-15-brain-v2.md)). 초안이며 써 보며 고치고 고도화 단계에서 바뀔 수 있다 ([vision](../../vision.md)). 수동 확인: [체크리스트](../../manual-checks/brain.md)
 - 대체: [두뇌 스펙 v1](2026-10-15-brain-design.md)의 판단 부분(4·5·6절). 전송 계층·키·오류 처리·Tauri 연결(2.1, 3, 7, 8, 9절)은 v1을 그대로 쓰고 여기서 바뀌는 점만 적는다
 - 근거: 결정 [0012](../../decisions/0012-brain-as-frontend-independent-service.md), [0013](../../decisions/0013-event-driven-brain-with-event-log.md), [0014](../../decisions/0014-probabilistic-model-with-jev-distributions.md), 실측 [speak_now](../../spikes/2026-10-15-jev-speak-now-probe.md), [v2 가정](../../spikes/2026-10-15-brain-v2-assumptions.md)
 

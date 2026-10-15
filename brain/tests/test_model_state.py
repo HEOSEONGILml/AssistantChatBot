@@ -120,3 +120,19 @@ def test_saved_dog_missing_habit_keys_gets_defaults():
     data["habit"] = {"poke": 0.5}
     dog = model.dog_from_dict(data)
     assert dog.habit == {"poke": 0.5, "pet": 0.0, "throw": 0.0}
+
+
+def test_eight_moods():
+    dog = model.default_dog(ts())
+    assert list(dog.mood) == ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움"]
+    assert dog.mood["궁금함"] == 0.5
+
+
+def test_old_saved_dog_with_five_moods_gets_new_moods():
+    data = model.dog_to_dict(model.default_dog(ts()))
+    for key in ("mood", "day_sum"):
+        data[key] = {k: v for k, v in data[key].items() if k not in ("궁금함", "놀람", "무서움")}
+    for key in ("baseline", "sensitivity", "temperament"):
+        data["personality"][key] = {k: v for k, v in data["personality"][key].items() if k not in ("궁금함", "놀람", "무서움")}
+    dog = model.dog_from_dict(data)
+    assert set(dog.mood) == set(MOODS) and dog.personality.baseline["궁금함"] == 0.5

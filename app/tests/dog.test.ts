@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
   newDog, step, playAction, toggleHouse, currentAnimation, decide, grab, holdAt, release, poke, pickBehavior,
-  SLEEP_IDLE_MS, DEFAULT_MOVEMENT, type Movement, type World, type Senses, type Dog, type Win,
+  SLEEP_IDLE_MS, DEFAULT_MOVEMENT, listenTo, type Movement, type World, type Senses, type Dog, type Win,
 } from "../src/body/dog";
 
 // 강아지 크기 100×80, 움직일 수 있는 영역은 강아지 왼쪽 위 기준 x 0~900, y 0~520
@@ -403,5 +403,22 @@ describe("던지기 충격", () => {
     expect(d.mode).toBe("idle");
     expect(d.bounces).toBe(1);
     expect(d.impact).toBeGreaterThan(300);
+  });
+});
+
+describe("듣는 자세 (타이핑이 시작되면)", () => {
+  test("대기 중이면 입력창 쪽을 바라본다", () => {
+    const d = listenTo(at(300, 200, { dir: -1, until: 99999 }), w, 900, 500, 0, () => 0.99);
+    expect(d.dir).toBe(1);
+    expect(d.mode).toBe("idle");
+  });
+  test("멀리 있으면 가끔 몇 걸음 다가온다", () => {
+    const d = listenTo(at(100, 200, { until: 99999 }), w, 900, 500, 0, () => 0.1);
+    expect(d.mode).toBe("walk_to");
+    expect(d.targetX).toBeGreaterThan(100);
+  });
+  test("다른 일을 하는 중이면 방해하지 않는다", () => {
+    const d = at(300, 200, { mode: "hunt", until: 99999 });
+    expect(listenTo(d, w, 900, 500, 0, () => 0.1)).toBe(d);
   });
 });

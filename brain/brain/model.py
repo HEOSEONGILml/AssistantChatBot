@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
 from .tuning import (BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
-                     IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION, MOODS, MOVE_BASE, MOVE_BASELINE,
+                     IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
                      MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
                      TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
 
@@ -103,16 +103,24 @@ def dog_to_dict(dog: Dog) -> dict:
 def dog_from_dict(data: dict) -> Dog:
     """저장본에서 강아지를 만든다. 모양이 어긋나면 TypeError·KeyError·ValueError가 난다(부르는 쪽이 처리)."""
     data = dict(data)
-    dog = Dog(personality=Personality(**data.pop("personality")), **data)
+    p = dict(data.pop("personality"))
+    # 기분 차원이 늘면(5개 → 8개) 새 차원을 탄생 평균값으로 채운다
+    for key, default in (("baseline", BIRTH_BASELINE), ("sensitivity", {d: BIRTH_SENS for d in MOODS}), ("temperament", BIRTH_BASELINE)):
+        if key in p or key != "temperament":
+            p[key] = {**default, **p.get(key, {})}
+    data["mood"] = {**{d: p["baseline"][d] for d in MOODS}, **data.get("mood", {})}
+    data["day_sum"] = {**{d: 0.0 for d in MOODS}, **data.get("day_sum", {})}
+    dog = Dog(personality=Personality(**p), **data)
     dog.habit = {**{k: 0.0 for k in HABIT_KINDS}, **dog.habit}  # 습관화 대상이 늘어도 예전 저장본을 읽는다
     return dog
 
 
 # ---- 어휘 (프로토콜 v2) ----
 
-REACTIONS = ("joy", "curious", "surprised", "annoyed", "sad", "scared", "none")
+REACTIONS = (*MOOD_REACTION_ID.values(), "none")
 ACTIONS = ("stand", "sit", "lie_down", "sleep", "beg", "bark", "none")
-REACTION_NAMES = {"joy": "기쁨", "curious": "궁금함", "surprised": "놀람", "annoyed": "짜증", "sad": "서운함", "scared": "무서움", "none": "없음"}
+REACTION_NAMES = {"bored": "지루함", "sleepy": "하품", "excited": "신남", "sad": "서운함", "annoyed": "짜증",
+                  "curious": "궁금함", "surprised": "놀람", "scared": "무서움", "none": "없음"}
 ACTION_NAMES = {"stand": "서기", "sit": "앉기", "lie_down": "엎드리기", "sleep": "잠", "beg": "조르기", "bark": "짖기", "none": "없음"}
 
 
@@ -139,16 +147,20 @@ def temperature(dog: Dog) -> float:
     return 0.5 + dog.personality.whim
 
 
-def reaction_scores(jev: dict[str, float], dog: Dog, habit: float, t: Tuning) -> dict[str, float]:
-    T = temperature(dog)
-    sens = sum(dog.personality.sensitivity.values()) / len(MOODS)
-    scores = {}
-    for r in REACTIONS:
-        s = _log(jev.get(r, 0.0)) / T + t.w_mood * _affinity(MOOD_REACTION.get(r, {}), dog.mood)
-        # 민감한 성격은 반응이 잘 나오고, 같은 자극에 익숙해지면 덤덤해진다
-        s += t.w_habit * habit if r == "none" else t.w_sens * (sens - 0.5)
-        scores[r] = s
-    return scores
+def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
+    """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다."""
+    mood, rise = max(((d, deltas.get(d, 0.0)) for d in MOODS), key=lambda x: x[1])
+    if rise >= t.react_threshold:
+        return MOOD_REACTION_ID[mood]
+    if "typing" in kinds:  # 타이핑하는 동안 반응을 더 많이 (사용자 요청)
+        return MOOD_REACTION_ID[mood] if rise > 0 else "curious"
+    return "none"
+
+
+def dominant_mood(dog: Dog, t: Tuning) -> str:
+    """평소 모습을 정하는 기분: 기준값보다 가장 많이 높은 기분. 충분히 높지 않으면 calm."""
+    mood, rise = max(((d, dog.mood[d] - dog.personality.baseline[d]) for d in MOODS), key=lambda x: x[1])
+    return MOOD_REACTION_ID[mood] if rise >= t.dominant_threshold else "calm"
 
 
 def action_scores(jev: dict[str, float], dog: Dog, reaction: str, t: Tuning) -> dict[str, float]:
@@ -225,14 +237,14 @@ def movement(dog: Dog, t: Tuning) -> dict:
     for c in MOVES:
         x = _affinity(MOVE_MOOD[c], m) + _affinity(MOVE_BASELINE.get(c, {}), b) + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5)
         weights[c] = round(MOVE_BASE[c] * math.exp(t.move_scale * x), 4)
-    return {"weights": weights,
+    return {"weights": weights, "mood": dominant_mood(dog, t),
             "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * _affinity(RUN_MOOD, m)), 4),
             "idle_scale": round(math.exp(t.move_scale * _affinity(IDLE_MOOD, m)), 4)}
 
 
 def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:
     """화면에 보낼 만큼 경향이 바뀌었나 (사람이 움직임 차이를 느낄 만한 크기)."""
-    if old is None:
+    if old is None or old.get("mood") != new.get("mood"):  # 평소 모습을 정하는 기분이 바뀌면 바로 보낸다
         return True
     if any(abs(new["weights"][c] / old["weights"][c] - 1) > t.send_weight_ratio for c in MOVES):
         return True

@@ -10,7 +10,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 HELLO_TIMEOUT_S = 5
 CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION = 4001, 4002, 4003
 

@@ -6,14 +6,13 @@ from sim import record, simulate
 
 
 def fake_recording():
-    flat_r = {r: 1 / len(model.REACTIONS) for r in model.REACTIONS}
     flat_a = {a: 1 / len(model.ACTIONS) for a in model.ACTIONS}
-    return simulate.Recording({record.key(*c): {"reaction": flat_r, "action": flat_a, "speak": 0.5, "change": {"변화없음": 1.0}}
+    return simulate.Recording({record.key(*c): {"action": flat_a, "speak": 0.5, "change": {"들뜸↑": 0.3, "변화없음": 0.7}}
                                for c in record.cases()})
 
 
 def test_cases_cover_every_kind_preset_and_streak():
-    assert len({record.key(*c) for c in record.cases()}) == 10 * 6 * 2 + 2 * 6 * 2
+    assert len({record.key(*c) for c in record.cases()}) == 10 * 9 * 2 + 2 * 9 * 2  # 기분 프리셋 9개
 
 
 def test_world_runs_a_day():

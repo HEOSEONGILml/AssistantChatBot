@@ -200,18 +200,17 @@ class Brain:
             log.warning("Jev 실패(%s). 이번 판단은 건너뛴다", e)
             return
         kinds = [e.kind for e in batch]
-        r_scores = model.reaction_scores(rd.reaction, dog, model.habit_level(dog, kinds), t)
-        reaction = model.pick(r_scores, self._rng)
+        # 기분이 먼저 변하고, 가장 크게 오른 기분이 곧 반응이다 (기분 8개 스펙 3절). 동작은 그 반응을 반영해 뽑는다
+        deltas = model.apply_change(dog, rd.change, kinds, self._rng, t)
+        reaction = model.reaction_from(deltas, kinds, t)
         a_scores = model.action_scores(rd.action, dog, reaction, t)
         action = model.pick(a_scores, self._rng)
-        deltas = model.apply_change(dog, rd.change, kinds, self._rng, t)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         p_speak = 0.0 if kinds[-1] == "house_in" else \
             model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"reaction": _top(rd.reaction), "action": _top(rd.action), "speak": round(rd.speak, 3)},
-                      "model": {"reaction": _top(model.probabilities(r_scores)), "action": _top(model.probabilities(a_scores)),
-                                "speak": round(p_speak, 3)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change)},
+                      "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})
         self._save()

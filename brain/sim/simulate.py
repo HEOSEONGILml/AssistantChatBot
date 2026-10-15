@@ -17,12 +17,13 @@ from brain.tuning import BASELINE_RANGE, BIRTH_BASELINE, MOODS, Tuning
 from .record import INTIMACY, OUT, PRESETS
 
 ARCHETYPES = {  # 성격 유형 (기준값, 민감도, 변덕). 성격 유형 실측과 같은 값
-    "평균": ({"심심함": .6, "졸림": .3, "들뜸": .4, "시무룩": .2, "분노": .1}, .5, .5),
-    "과묵·차분": ({"심심함": .3, "졸림": .3, "들뜸": .2, "시무룩": .2, "분노": .1}, .4, .2),
-    "예민·성마름": ({"심심함": .5, "졸림": .3, "들뜸": .3, "시무룩": .4, "분노": .4}, .8, .6),
-    "활발·변덕쟁이": ({"심심함": .7, "졸림": .2, "들뜸": .7, "시무룩": .1, "분노": .1}, .6, .9),
+    "평균": ({"심심함": .6, "졸림": .3, "들뜸": .4, "시무룩": .2, "분노": .1, "궁금함": .5, "놀람": .1, "무서움": .1}, .5, .5),
+    "과묵·차분": ({"심심함": .3, "졸림": .3, "들뜸": .2, "시무룩": .2, "분노": .1, "궁금함": .3, "놀람": .1, "무서움": .1}, .4, .2),
+    "예민·성마름": ({"심심함": .5, "졸림": .3, "들뜸": .3, "시무룩": .4, "분노": .4, "궁금함": .4, "놀람": .3, "무서움": .3}, .8, .6),
+    "활발·변덕쟁이": ({"심심함": .7, "졸림": .2, "들뜸": .7, "시무룩": .1, "분노": .1, "궁금함": .7, "놀람": .1, "무서움": .1}, .6, .9),
 }
-TARGETS = {"typing": 0.15, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}  # 스펙 10절 (평균 성격 기준)
+# 스펙 10절 (평균 성격 기준). 끼어들기는 15% → 30% (사용자 요청 "타이핑하는 동안 반응을 더 많이", 기분 8개 스펙)
+TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}
 START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
 P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
 P_REPLY = 0.5        # 강아지가 말하면 사용자가 답하는 비율 (잠정값)
@@ -42,16 +43,17 @@ class Recording:
         preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
         intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
         r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
-        return Readout(r["reaction"], r["action"], r["speak"], r["change"])
+        return Readout(r["action"], r["speak"], r["change"])
 
 
 @dataclass
 class Stats:
     counts: dict = field(default_factory=dict)   # 꼬리표 → (판단 수, 말한 수)
     chains: list = field(default_factory=list)   # 사용자 입력 없이 이어 말한 길이
-    kept: int = 0                                # 보정 뒤에도 Jev 1위 반응이 1위로 남은 판단 수
+    kept: int = 0                                # 보정 뒤에도 Jev 1위 동작이 1위로 남은 판단 수
     judged: int = 0
     stuck: int = 0                               # 기분이 0.9 이상이거나 0.05 이하인 표본 수 (기분 차원별)
+    reactions: dict = field(default_factory=dict)  # 반응별 횟수
     samples: int = 0
 
     def rate(self, tag: str) -> float:
@@ -82,12 +84,13 @@ class World:
         if kind in ("message", "typing"):
             self.waiting = False
         rd = self.rec.readout(kind, dog, self.streak)
-        scores = model.reaction_scores(rd.reaction, dog, model.habit_level(dog, [kind]), t)
-        reaction = model.pick(scores, self.rng)
-        model.pick(model.action_scores(rd.action, dog, reaction, t), self.rng)
+        deltas = model.apply_change(dog, rd.change, [kind], self.rng, t)
+        reaction = model.reaction_from(deltas, [kind], t)
+        self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
+        scores = model.action_scores(rd.action, dog, reaction, t)
+        model.pick(scores, self.rng)
         self.stats.judged += 1
-        self.stats.kept += max(rd.reaction, key=rd.reaction.get) == max(scores, key=scores.get)
-        model.apply_change(dog, rd.change, [kind], self.rng, t)
+        self.stats.kept += max(rd.action, key=rd.action.get) == max(scores, key=scores.get)
         spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t)
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
@@ -199,7 +202,7 @@ def _row(name: str, s: Stats) -> str:
 
 
 def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int = 8) -> str:
-    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | Jev 1위 유지 | 기분 고착 |",
+    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | Jev 1위 동작 유지 | 기분 고착 |",
             "|---|---|---|---|---|---|---|",
             f"| **목표** | {TARGETS['typing']:.2f} | {TARGETS['message']:.2f} | {TARGETS['quiet']:.2f} | {TARGETS['chain2plus']:.2f} | ≥ 0.60 | ≤ 0.20 |"]
     rows = [_row(name, run(archetype_dog(name), rec, t, days, 1).stats) for name in ARCHETYPES]

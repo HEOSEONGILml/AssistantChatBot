@@ -6,14 +6,13 @@ import pytest
 from brain import clients
 
 
-def test_to_readout_reads_all_four_answers():
+def test_to_readout_reads_all_three_answers():
     resp = SimpleNamespace(
-        choices={"reaction": SimpleNamespace(probabilities={"joy": 0.7, "none": 0.3}),
-                 "action": SimpleNamespace(probabilities={"beg": 1.0}),
+        choices={"action": SimpleNamespace(probabilities={"beg": 1.0}),
                  "change": SimpleNamespace(probabilities={"변화없음": 1.0})},
         nouls={"speak": SimpleNamespace(noul=0.4)},
     )
-    assert clients.to_readout(resp) == clients.Readout({"joy": 0.7, "none": 0.3}, {"beg": 1.0}, 0.4, {"변화없음": 1.0})
+    assert clients.to_readout(resp) == clients.Readout({"beg": 1.0}, 0.4, {"변화없음": 1.0})
 
 
 async def test_jev_unexpected_shape_becomes_call_error(monkeypatch):
