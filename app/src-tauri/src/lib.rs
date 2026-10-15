@@ -1,6 +1,6 @@
-use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
+use tauri::{Emitter, Manager, RunEvent, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
-mod keys;
+mod brain;
 mod signals;
 
 /// 커서 위치와 왼쪽 버튼 눌림 (강아지 근처 클릭 감지용)
@@ -13,13 +13,13 @@ fn idle_ms() -> u32 { signals::idle_ms() }
 #[tauri::command]
 fn windows_snapshot() -> Vec<signals::WinInfo> { signals::windows() }
 
-#[tauri::command] fn key_set(name: String, value: String) -> Result<(), String> { keys::set(&name, &value) }
-#[tauri::command] fn key_has(name: String) -> Result<bool, String> { keys::has(&name) }
-#[tauri::command] fn key_delete(name: String) -> Result<(), String> { keys::delete(&name) }
+#[tauri::command] fn brain_endpoint() -> Result<brain::Endpoint, String> { brain::endpoint() }
+#[tauri::command] fn brain_start(state: tauri::State<brain::BrainProcess>) -> Result<(), String> { brain::ensure_running(&state) }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(brain::BrainProcess(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -58,7 +58,11 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![mouse_state, idle_ms, windows_snapshot, key_set, key_has, key_delete])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .invoke_handler(tauri::generate_handler![mouse_state, idle_ms, windows_snapshot, brain_endpoint, brain_start])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // 앱이 끝나면 이 앱이 띄운 두뇌도 끈다
+            if let RunEvent::Exit = event { brain::stop(&app.state::<brain::BrainProcess>()); }
+        });
 }
