@@ -10,7 +10,7 @@
       nav button { border: 1px solid #ccc; border-bottom: none; background: #f3f3f3; padding: 6px 14px; cursor: pointer; }
       nav button.on { background: #fff; font-weight: bold; position: relative; top: 1px; }
       .tab { padding: 16px; }
-      .tab[hidden] { display: none; }
+      .tab[hidden] { display: none !important; } /* #tab-settings의 display: grid보다 앞서야 한다 */
       #tab-settings { display: grid; gap: 12px; }
       .section h3 { margin: 14px 0 6px; font-size: 14px; }
       .row { display: grid; grid-template-columns: 110px 1fr 150px; align-items: center; gap: 8px; margin: 3px 0; }
