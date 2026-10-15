@@ -12,7 +12,7 @@ def fake_recording():
 
 
 def test_cases_cover_every_kind_preset_and_streak():
-    assert len({record.key(*c) for c in record.cases()}) == 10 * 9 * 2 + 2 * 9 * 2  # 기분 프리셋 9개
+    assert len({record.key(*c) for c in record.cases()}) == 10 * 10 * 2 + 2 * 10 * 2  # 기분 프리셋 10개
 
 
 def test_world_runs_a_day():

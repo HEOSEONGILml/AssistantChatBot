@@ -20,7 +20,7 @@ describe("기분 스타일", () => {
 
 describe("반응 표시", () => {
   test("모든 반응에 아이콘이 있다", () => {
-    expect(Object.keys(EMOTES).sort()).toEqual(["annoyed", "bored", "curious", "excited", "sad", "scared", "sleepy", "surprised"]);
+    expect(Object.keys(EMOTES).sort()).toEqual(["annoyed", "bored", "curious", "excited", "happy", "sad", "scared", "sleepy", "surprised"]);
   });
   test("반응이 오면 몸이 한 번 톡 튀고 금방 내려온다", () => {
     expect(reactionHop("excited", 0)).toBe(0);

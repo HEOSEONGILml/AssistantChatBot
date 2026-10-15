@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { judgementLines, stateSections } from "../src/shared/status-view";
 import type { BrainState, Judgement } from "../src/shared/brain-protocol";
 
-const MOODS = { 심심함: 0.6, 졸림: 0.3, 들뜸: 0.4, 시무룩: 0.2, 분노: 0.1, 궁금함: 0.5, 놀람: 0.1, 무서움: 0.1 };
+const MOODS = { 심심함: 0.6, 졸림: 0.3, 들뜸: 0.4, 시무룩: 0.2, 분노: 0.1, 궁금함: 0.5, 놀람: 0.1, 무서움: 0.1, 행복: 0.4 };
 const state: BrainState = {
   dog: { personality: { baseline: MOODS, sensitivity: { ...MOODS, 분노: 0.8 }, whim: 0.55, temperament: { ...MOODS, 들뜸: 0.3 } },
          mood: { ...MOODS, 분노: 0.75 }, intimacy: 0.42, habit: { poke: 0.5, pet: 0, throw: 0 } },

@@ -81,7 +81,7 @@ describe("state·log 조회", () => {
 
 describe("반응 어휘 v3", () => {
   it("기분 8개의 반응을 모두 읽는다", () => {
-    for (const r of ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared"])
+    for (const r of ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared", "happy"])
       expect(parseBrainMessage(msg({ type: "reaction", reaction: r }))).toEqual({ type: "reaction", reaction: r });
   });
 });

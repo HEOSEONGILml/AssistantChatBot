@@ -10,7 +10,7 @@ export type EventKind = (typeof EVENT_KINDS)[number];
 export type EventContext = Record<string, string | number>;
 
 // 반응 = 가장 크게 오른 기분의 표출 (기분 8개 스펙). 평온(calm)은 반응이 아니라 기분 상태에만 쓴다
-const REACTIONS = ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared"] as const;
+const REACTIONS = ["bored", "sleepy", "excited", "sad", "annoyed", "curious", "surprised", "scared", "happy"] as const;
 export type BrainReaction = (typeof REACTIONS)[number];
 
 export const ACTION_TO_DOG = {

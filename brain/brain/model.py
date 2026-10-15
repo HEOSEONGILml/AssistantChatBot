@@ -120,7 +120,7 @@ def dog_from_dict(data: dict) -> Dog:
 REACTIONS = (*MOOD_REACTION_ID.values(), "none")
 ACTIONS = ("stand", "sit", "lie_down", "sleep", "beg", "bark", "none")
 REACTION_NAMES = {"bored": "지루함", "sleepy": "하품", "excited": "신남", "sad": "서운함", "annoyed": "짜증",
-                  "curious": "궁금함", "surprised": "놀람", "scared": "무서움", "none": "없음"}
+                  "curious": "궁금함", "surprised": "놀람", "scared": "무서움", "happy": "행복", "none": "없음"}
 ACTION_NAMES = {"stand": "서기", "sit": "앉기", "lie_down": "엎드리기", "sleep": "잠", "beg": "조르기", "bark": "짖기", "none": "없음"}
 
 

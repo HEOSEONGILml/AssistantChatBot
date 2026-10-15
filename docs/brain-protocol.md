@@ -73,6 +73,7 @@ sequenceDiagram
 | `curious` 궁금함 | `bark` 짖기 | `explore` 구경하기 |
 | `surprised` 놀람 | | |
 | `scared` 무서움 | | |
+| `happy` 행복 | | |
 
 - `run`: 돌아다닐 때 달리는 비율(0~1). `idle_scale`: 한 움직임에 머무는 시간 배율(양수).
 - 모든 화면이 위 어휘를 모두 표현해야 한다. "없음"은 보내지 않는다.

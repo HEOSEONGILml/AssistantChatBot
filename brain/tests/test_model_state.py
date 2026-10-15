@@ -122,10 +122,10 @@ def test_saved_dog_missing_habit_keys_gets_defaults():
     assert dog.habit == {"poke": 0.5, "pet": 0.0, "throw": 0.0}
 
 
-def test_eight_moods():
+def test_nine_moods():
     dog = model.default_dog(ts())
-    assert list(dog.mood) == ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움"]
-    assert dog.mood["궁금함"] == 0.5
+    assert list(dog.mood) == ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움", "행복"]
+    assert dog.mood["궁금함"] == 0.5 and dog.mood["행복"] == 0.4
 
 
 def test_old_saved_dog_with_five_moods_gets_new_moods():

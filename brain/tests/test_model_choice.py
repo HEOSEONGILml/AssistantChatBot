@@ -48,6 +48,7 @@ def test_typing_always_reacts():
 
 def test_every_mood_has_a_reaction():
     assert set(model.MOOD_REACTION_ID) == set(MOODS)
+    assert model.MOOD_REACTION_ID["행복"] == "happy"
     assert set(model.REACTIONS) == set(model.MOOD_REACTION_ID.values()) | {"none"}
 
 
