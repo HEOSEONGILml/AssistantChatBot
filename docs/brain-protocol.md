@@ -35,6 +35,7 @@ sequenceDiagram
 | `event` | `kind`, `context` | 일어난 일 (아래 표) |
 | `set_key` | `name`: `typesafe`·`gemini`, `value` | API 키 저장. 두뇌가 OS 자격 저장소에 보관한다 |
 | `clear_history` | | 이벤트 기록 전체 삭제 (강아지 성격·기분·친밀도는 남는다) |
+| `reset` | | 초기화: 강아지가 새 성격으로 다시 태어나고 이벤트 기록·판단 로그를 지운다. API 키는 남는다. 두뇌는 새 `movement`를 보낸다 |
 | `get_state` | | 강아지 상태 조회 → `state` |
 | `get_log` | | 판단 로그 조회 → `log` |
 

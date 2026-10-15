@@ -183,6 +183,7 @@ async function main() {
   }, 100);
   listen<{ name: "typesafe" | "gemini"; value: string }>("brain-set-key", (e) => { brain.send({ type: "set_key", ...e.payload }); });
   listen("brain-clear-history", () => { brain.send({ type: "clear_history" }); });
+  listen("brain-reset", () => { brain.send({ type: "reset" }); });
   listen("brain-status-request", () => { emit("brain-status", aiStatus); });
   listen("brain-state-request", () => { brain.send({ type: "get_state" }); });
   listen("brain-log-request", () => { brain.send({ type: "get_log" }); });

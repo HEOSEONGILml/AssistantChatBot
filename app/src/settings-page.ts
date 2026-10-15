@@ -54,6 +54,14 @@ $("clear-history").addEventListener("click", async () => {
   msg.textContent = "대화 기록을 지웠습니다.";
 });
 
+// 초기화: 강아지가 새 성격으로 다시 태어나고 기록도 지운다. 앱 설정과 API 키는 남는다
+$("reset").addEventListener("click", async () => {
+  if (!confirm("강아지를 초기화할까요? 지금 강아지의 성격·기분·친밀도와 대화 기록이 모두 사라지고 새 강아지가 태어나요. 되돌릴 수 없어요.")) return;
+  if (aiStatus === null) { msg.textContent = "두뇌에 연결되지 않아 초기화하지 못했어요"; return; }
+  await emit("brain-reset");
+  msg.textContent = "새 강아지가 태어났습니다.";
+});
+
 // 상태·로그 탭 (두뇌 스펙 v2 3.1): 열려 있는 동안 2초마다 두뇌에 조회한다. 캐릭터 창이 두뇌와 이어 준다
 type Tab = "settings" | "status" | "log";
 let tab: Tab = "settings";

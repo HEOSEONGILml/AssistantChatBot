@@ -55,6 +55,7 @@ export type Outgoing =
   | { type: "event"; kind: EventKind; context: EventContext }
   | { type: "set_key"; name: "typesafe" | "gemini"; value: string }
   | { type: "clear_history" }
+  | { type: "reset" }
   | { type: "get_state" }
   | { type: "get_log" };
 

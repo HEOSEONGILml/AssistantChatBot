@@ -95,6 +95,21 @@ class Brain:
     async def clear_history(self) -> None:
         self._store.clear_events()
 
+    async def reset(self) -> None:
+        """설정 창 초기화: 강아지가 새 성격으로 다시 태어나고 이벤트 기록·판단 로그를 지운다. 키와 연결은 그대로다.
+        사용자가 고른 일이므로 읽지 못한 저장본도 덮어쓴다."""
+        self._cancel()
+        self._pending.clear()
+        self._streak, self._waiting = 0, False
+        self._store.clear_events()
+        self._judgements.clear()
+        self._dog = model.birth(self._rng, self._clock())
+        self._can_save = True
+        self._save()
+        log.info("초기화: 강아지가 새로 태어났다")
+        self._sent_movement = None
+        await self._push_movement()
+
     async def aclose(self) -> None:
         self._cancel()
         await self._close_clients()

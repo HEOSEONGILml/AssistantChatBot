@@ -92,6 +92,8 @@ class Link:
             await self.brain.set_keys(config.read_keys())
         elif kind == "clear_history":
             await self.brain.clear_history()
+        elif kind == "reset":      # 설정 창 초기화: 강아지 새로 태어남
+            await self.brain.reset()
         elif kind == "get_state":  # 설정 창 상태 탭 (스펙 3.1)
             await self.send({"type": "state", **self.brain.state_snapshot()})
         elif kind == "get_log":    # 설정 창 로그 탭

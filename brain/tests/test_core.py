@@ -283,3 +283,35 @@ async def test_typing_always_shows_a_reaction(make):
     await env.brain.handle_event("typing", {"text": "오늘은"})
     await env.brain.drain()
     assert env.out == [{"type": "reaction", "reaction": "curious"}]  # 오른 기분이 없어도 타이핑엔 궁금함
+
+
+async def test_reset_gives_birth_to_a_new_dog(make):
+    # 설정 창 초기화: 새 성격으로 다시 태어나고 기록도 지운다. 키·연결은 그대로 (사용자 결정 2026-10-15)
+    env = await make()
+    await env.brain.handle_event("message", {"text": "안녕"})
+    await env.brain.drain()
+    old = model.dog_to_dict(env.brain.dog)
+    env.clock.t += 100
+    env.out.clear()
+    await env.brain.reset()
+    new = model.dog_to_dict(env.brain.dog)
+    assert new["personality"] != old["personality"]
+    assert new["updated_at"] == env.clock.t
+    assert env.store.recent(5) == []
+    assert env.store.load_dog() == new
+    assert env.brain.log_snapshot()["judgements"] == []
+    assert [m["type"] for m in env.out] == ["movement"]  # 새 강아지의 움직임 경향을 바로 보낸다
+    await env.brain.handle_event("message", {"text": "또 안녕"})
+    await env.brain.drain()
+    assert len(env.jev.calls) == 2  # 계속 판단한다
+
+
+async def test_reset_overwrites_a_malformed_saved_dog():
+    # 읽지 못한 저장본은 평소엔 덮어쓰지 않지만, 사용자가 초기화하면 새 강아지로 덮어쓴다
+    from .conftest import build
+    store = Store(None)
+    store.save_dog({"broken": True})
+    env = await build(store=store)
+    await env.brain.reset()
+    assert env.store.load_dog() == model.dog_to_dict(env.brain.dog)
+    await env.brain.aclose()

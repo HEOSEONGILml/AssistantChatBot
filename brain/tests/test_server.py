@@ -30,6 +30,9 @@ class FakeBrain:
     async def clear_history(self):
         self.events.append(("clear",))
 
+    async def reset(self):
+        self.events.append(("reset",))
+
     def state_snapshot(self):
         return {"dog": {"mood": {}}, "talkativeness": 0.1, "movement": {}}
 
@@ -129,6 +132,8 @@ async def test_set_key_and_clear_history(server, monkeypatch):
         await ws.send(json.dumps({"v": 3, "type": "set_key", "name": "gemini", "value": "g"}))
         await ws.send(json.dumps({"v": 3, "type": "clear_history"}))
         await wait_for(lambda: ("clear",) in link.brain.events)
+        await ws.send(json.dumps({"v": 3, "type": "reset"}))
+        await wait_for(lambda: ("reset",) in link.brain.events)
     assert written == {"gemini": "g"}
     assert ("keys", {"typesafe": None, "gemini": "g"}) in link.brain.events
 
