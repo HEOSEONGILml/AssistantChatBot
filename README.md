@@ -19,7 +19,7 @@ PC·모바일 배경화면에 사는 캐릭터(예: 강아지)와 대화하는 �
 | [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. 현재: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
-| [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md), [Jev speak_now 실측](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정 실측](docs/spikes/2026-10-15-brain-v2-assumptions.md) |
+| [`docs/spikes/`](docs/spikes/) | 스파이크(기술 검증) 결과. [배경 모드](docs/spikes/background-mode.md), [Jev speak_now 실측](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정 실측](docs/spikes/2026-10-15-brain-v2-assumptions.md), [성격 유형 실측](docs/spikes/2026-10-15-personality-types.md) |
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
 | [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32 동작 수동 확인 체크리스트 |
 
