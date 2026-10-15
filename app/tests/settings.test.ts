@@ -17,3 +17,9 @@ test("이전 단축키가 없으면(앱 시작 시) 기본 단축키로 되돌�
   const attempted = { ...DEFAULT_SETTINGS, houseShortcut: "Alt+Tab" };
   expect(shortcutFallback(attempted, null)).toEqual({ ...attempted, houseShortcut: DEFAULT_SETTINGS.houseShortcut });
 });
+
+test("예전 움직임 정도 설정은 쉬기 켜기/끄기로 옮긴다", () => {
+  expect(withDefaults({ activity: "rest" } as never).rest).toBe(true);
+  expect(withDefaults({ activity: "lively" } as never).rest).toBe(false);
+  expect("activity" in withDefaults({ activity: "calm" } as never)).toBe(false);
+});

@@ -25,6 +25,7 @@ export type Dog = {
   pounceStart: number; fromX: number; fromY: number;       // pounce: 점프 시작 시각과 출발점
   hop: number;                                             // 점프 높이 (그림만 위로 띄운다)
   clickSeenAt: number;                                     // 마지막으로 반응을 검토한 클릭 시각 (같은 클릭에 두 번 반응하지 않게)
+  nap: boolean;                                            // 기분(졸림)이 고른 낮잠: 사용자가 있어도 정해진 시간까지 잔다
 };
 
 // width·height: 다닐 수 있는 영역(작업 영역) 크기. houseX·houseY: 집 앞에 선 강아지의 왼쪽 위
@@ -39,11 +40,10 @@ export type Movement = { weights: Record<Move, number>; run: number; idleScale: 
 // 기본 경향은 예전 "보통" 프로필과 같은 값이다 (두뇌 tuning.MOVE_BASE와 같게 유지)
 export const DEFAULT_MOVEMENT: Movement = { weights: { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 }, run: 0.2, idleScale: 1 };
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
-// activity: 설정의 움직임 정도. 성격과 무관하게 사용자가 고정한 값이다 (vision)
-export type Activity = "rest" | "calm" | "normal" | "lively";
+// rest: 설정의 쉬기(켜면 그 자리에서 잔다). movement: 두뇌가 보낸 평소 움직임 경향 (vision 2026-10-15)
 // click: 가장 최근 마우스 클릭 위치와 지난 시간 (다른 창에서 난 클릭 포함)
-export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; activity: Activity; click: { x: number; y: number; ageMs: number } | null; rand: () => number };
-export type Behavior = "approach" | "follow" | "hunt" | "perch" | "watch" | "idle" | "walk";
+export type Senses = { cursor: { x: number; y: number } | null; userIdleMs: number; windows: Win[]; rest: boolean; movement: Movement; click: { x: number; y: number; ageMs: number } | null; rand: () => number };
+export type Behavior = "approach" | "follow" | "hunt" | "perch" | "watch" | "idle" | "sleep" | "walk";
 
 // 잠정값들 (사용자 체감으로 조정)
 export const SLEEP_IDLE_MS = 3 * 60 * 1000;   // mochi와 같이 3분 무입력이면 잔다
@@ -53,15 +53,18 @@ const WALK_MIN_PX = 80, WALK_MAX_PX = 400;
 const LOOK_RADIUS = 300;                      // 이 안에 커서가 있으면 바라본다
 const CURSOR_RADIUS = 450;                    // 이 안에 커서가 있으면 커서 관련 행동이 후보가 된다
 const APPROACH_STOP_PX = 60;                  // 커서 바로 앞이 아니라 조금 떨어져 멈춘다
-// 움직임 정도별 프로필: 다음 행동 가중치(조건이 맞지 않거나 0인 행동은 후보에서 빠진다), 대기 시간, 달리기 확률.
-// 쉬기는 이동하는 행동을 모두 뺀다 (집중하고 싶지만 강아지를 집에 넣고 싶지는 않을 때, vision)
-type Profile = { weights: Record<Behavior, number>; idleMin: number; idleMax: number; runChance: number };
-const PROFILES: Record<Activity, Profile> = {
-  rest:   { weights: { approach: 0,    follow: 0,    hunt: 0,    perch: 0,    watch: 0,    idle: 1,   walk: 0   }, idleMin: 8000, idleMax: 20000, runChance: 0 },
-  calm:   { weights: { approach: 0.05, follow: 0.02, hunt: 0.02, perch: 0.08, watch: 0.08, idle: 0.8, walk: 0.2 }, idleMin: 5000, idleMax: 15000, runChance: 0.1 },
-  normal: { weights: { approach: 0.12, follow: 0.06, hunt: 0.06, perch: 0.1,  watch: 0.1,  idle: 0.6, walk: 0.4 }, idleMin: 3000, idleMax: 10000, runChance: 0.2 },
-  lively: { weights: { approach: 0.15, follow: 0.12, hunt: 0.12, perch: 0.12, watch: 0.1,  idle: 0.4, walk: 0.6 }, idleMin: 1500, idleMax: 5000,  runChance: 0.35 },
-};
+// 대기 시간 (예전 "보통" 프로필). 두뇌가 보낸 경향의 idleScale을 곱한다
+const POSE_IDLE_MIN_MS = 3000, POSE_IDLE_MAX_MS = 10000;
+// 쉬기·낮잠 시간
+const REST_IDLE_MIN_MS = 8000, REST_IDLE_MAX_MS = 20000;
+
+// 다음 행동 가중치: 두뇌의 움직임 경향(범주)을 이 화면의 구체 행동으로 나눈다 (두뇌 스펙 v2 6.5절).
+// 쉬기는 이동하는 행동을 모두 뺀다 (vision)
+function behaviorWeights(s: Senses): Record<Behavior, number> {
+  if (s.rest) return { approach: 0, follow: 0, hunt: 0, perch: 0, watch: 0, idle: 1, sleep: 0, walk: 0 };
+  const m = s.movement.weights;
+  return { approach: (m.approach * 2) / 3, follow: m.approach / 3, hunt: m.play, perch: m.explore / 2, watch: m.explore / 2, idle: m.rest, sleep: m.sleep, walk: m.roam };
+}
 // 근처 클릭: 최근 이 거리·시간 안에 클릭이 있으면 커서 관련 행동 가중치를 높이고, 대기 중이면 바로 반응할 수 있다 (사용자 제안)
 const CLICK_RADIUS = 450, CLICK_RECENT_MS = 3000, CLICK_BOOST = 4, CLICK_REACT_CHANCE = 0.5;
 const FOLLOW_MIN_MS = 5000, FOLLOW_MAX_MS = 10000;
@@ -86,7 +89,7 @@ export function newDog(x: number, y: number): Dog {
   return {
     x, y, dir: 1, mode: "idle", pose: "idle_stand", until: 0, targetX: x, targetY: y, running: false,
     action: "idle_stand", actionEnd: 0, houseSince: null, vx: 0, vy: 0, impact: 0, bounces: 0, thrownAt: 0,
-    targetWin: null, perchFx: 0.5, pounceStart: 0, fromX: x, fromY: y, hop: 0, clickSeenAt: -1,
+    targetWin: null, perchFx: 0.5, pounceStart: 0, fromX: x, fromY: y, hop: 0, clickSeenAt: -1, nap: false,
   };
 }
 
@@ -126,7 +129,7 @@ function pickPose(r: number): DogAction {
 export function pickBehavior(d: Dog, w: World, s: Senses, r: number): Behavior {
   const cursorNear = cursorDistance(d, w, s) < CURSOR_RADIUS && !cursorOver(d, w, s);
   const hasWin = eligibleWindows(w, s).length > 0;
-  const base = PROFILES[s.activity].weights;
+  const base = behaviorWeights(s);
   const boost = clickNear(d, w, s) ? CLICK_BOOST : 1;
   const weights = { ...base, approach: base.approach * boost, follow: base.follow * boost, hunt: base.hunt * boost };
   const options = (Object.keys(weights) as Behavior[]).filter((b) => weights[b] > 0 &&
@@ -158,7 +161,7 @@ function watchPoint(d: Dog, win: Win, w: World) {
 }
 
 const idleFor = (d: Dog, now: number, ms: number, pose: DogAction = "idle_stand"): Dog =>
-  ({ ...d, mode: "idle", pose, until: now + ms, targetWin: null, hop: 0 });
+  ({ ...d, mode: "idle", pose, until: now + ms, targetWin: null, hop: 0, nap: false });
 
 export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
   const b = pickBehavior(d, w, s, s.rand());
@@ -182,10 +185,15 @@ export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
     }
     case "watch":
       return { ...d, mode: "watch_to", targetWin: pickWindow(w, s).id };
-    case "idle":
+    case "idle": {
       // 쉬기에서는 자세를 고르지 않고 그 자리에 엎드려 잔다 (vision)
-      const pose = s.activity === "rest" ? "sleep" : pickPose(s.rand());
-      return { ...d, mode: "idle", pose, until: now + between(s.rand(), PROFILES[s.activity].idleMin, PROFILES[s.activity].idleMax) };
+      const pose = s.rest ? "sleep" : pickPose(s.rand());
+      const [min, max] = s.rest ? [REST_IDLE_MIN_MS, REST_IDLE_MAX_MS] : [POSE_IDLE_MIN_MS, POSE_IDLE_MAX_MS];
+      return { ...d, mode: "idle", pose, nap: false, until: now + between(s.rand(), min, max) * (s.rest ? 1 : s.movement.idleScale) };
+    }
+    case "sleep":
+      // 낮잠: 두뇌의 경향(졸림)이 고른 잠. 사용자가 있어도 정해진 시간까지 잔다
+      return { ...d, mode: "idle", pose: "sleep", nap: true, until: now + between(s.rand(), REST_IDLE_MIN_MS, REST_IDLE_MAX_MS) * s.movement.idleScale };
     case "walk": {
       const angle = s.rand() * 2 * Math.PI; // 화면 좌표: 0=오른쪽, π/2=아래
       const dist = between(s.rand(), WALK_MIN_PX, WALK_MAX_PX);
@@ -193,7 +201,7 @@ export function decide(d: Dog, w: World, now: number, s: Senses): Dog {
         ...d, mode: "walk_to",
         targetX: clampX(d.x + Math.cos(angle) * dist, w),
         targetY: clampY(d.y + Math.sin(angle) * dist, w),
-        running: s.rand() < PROFILES[s.activity].runChance,
+        running: s.rand() < s.movement.run,
       };
     }
   }
@@ -220,12 +228,12 @@ export function step(d: Dog, w: World, now: number, dtMs: number, s: Senses): Do
   switch (d.mode) {
     case "idle": {
       // 자리 비움으로 잠들었다가 사용자가 돌아왔으면 깬다. 쉬기에서는 깨지 않는다
-      if (d.pose === "sleep" && s.activity !== "rest") return decide(d, w, now, s);
+      if (d.pose === "sleep" && !s.rest && !d.nap) return decide(d, w, now, s);
       let n = d;
       if (cursorDistance(d, w, s) < LOOK_RADIUS && !cursorOver(d, w, s)) n = { ...n, dir: s.cursor!.x >= center(d, w).x ? 1 : -1 };
       // 근처에서 새 클릭이 나면 대기를 끊고 바로 다음 행동을 고를 수 있다 (쉬기 제외)
       const clickAt = s.click ? now - s.click.ageMs : -1;
-      if (s.activity !== "rest" && clickNear(d, w, s) && clickAt > n.clickSeenAt) {
+      if (!s.rest && clickNear(d, w, s) && clickAt > n.clickSeenAt) {
         n = { ...n, clickSeenAt: clickAt };
         if (s.rand() < CLICK_REACT_CHANCE) return decide(n, w, now, s);
       }

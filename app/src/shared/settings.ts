@@ -1,18 +1,21 @@
 import { Store } from "@tauri-apps/plugin-store";
-import type { Activity } from "../body/dog";
 
-export type Settings = { activity: Activity; inputAlwaysVisible: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
+export type Settings = { rest: boolean; inputAlwaysVisible: boolean; hideHouseWhenInside: boolean; inputShortcut: string; houseShortcut: string };
 
 export const DEFAULT_SETTINGS: Settings = {
-  activity: "normal",
+  rest: false,
   inputAlwaysVisible: false,
   hideHouseWhenInside: false,
   inputShortcut: "CommandOrControl+Shift+Space",
   houseShortcut: "CommandOrControl+Shift+H",
 };
 
-export function withDefaults(partial: Partial<Settings> | null | undefined): Settings {
-  return { ...DEFAULT_SETTINGS, ...(partial ?? {}) };
+// 움직임 정도는 쉬기 켜기/끄기만 남았다 (vision 2026-10-15). 예전 4단계 설정은 "쉬기"만 옮긴다
+export function withDefaults(partial: (Partial<Settings> & { activity?: string }) | null | undefined): Settings {
+  const { activity, ...others } = partial ?? {};
+  const merged = { ...DEFAULT_SETTINGS, ...others };
+  if (others.rest === undefined && activity !== undefined) merged.rest = activity === "rest";
+  return merged;
 }
 
 export async function loadSettings(): Promise<Settings> {

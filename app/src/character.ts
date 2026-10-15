@@ -3,7 +3,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
-import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, type Activity } from "./body/dog";
+import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, DEFAULT_MOVEMENT, type Movement } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
 import { exposeTopEdges } from "./body/windows";
 import { showBubble, tickBubble, type Bubble } from "./body/bubble";
@@ -93,7 +93,7 @@ async function main() {
   let dog: Dog = newDog(area.width / 3, area.height - dogH);
   let bubble: Bubble = null;
   let hideHouseWhenInside = false;
-  let activity: Activity = "normal";
+  let rest = false;
   let dogHouseSince: number | null = null;
   let inputOpen = false;
   let userActive = true, userIdleMs = 0;
@@ -126,10 +126,11 @@ async function main() {
 
   // 두뇌 연결 (프로토콜 v2). 두뇌가 없거나 끊겨도 강아지는 평소대로 움직인다 (두뇌 스펙 v2 8절)
   let aiStatus: AiStatus | null = null; // null: 두뇌에 연결되지 않음
+  let movement: Movement = DEFAULT_MOVEMENT; // 두뇌가 보낸 최신 평소 움직임 경향
   const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
   const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
   const onBrain = (m: BrainMessage) => {
-    if (m.type === "movement") return; // 평소 움직임 경향은 Task 11에서 반영한다
+    if (m.type === "movement") { movement = m.movement; return; }
     const home = dog.mode === "in_house" || dog.mode === "to_house"; // 집에서는 완전히 조용 (vision)
     if (m.type === "status") {
       setStatus(m.ai);
@@ -273,7 +274,7 @@ async function main() {
     last = now;
     const wasInside = dog.mode === "in_house";
     const wasThrown = dog.mode === "thrown";
-    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, activity,
+    dog = step(dog, world, Date.now(), dt, { cursor: cursorCss, userIdleMs, windows: wins, rest, movement,
       click: lastClick ? { x: lastClick.x, y: lastClick.y, ageMs: Date.now() - lastClick.t } : null, rand: Math.random });
     if (!wasInside && dog.mode === "in_house") { dogHouseSince = dog.houseSince; sendEvent("house_in"); }
     if (wasThrown && dog.mode !== "thrown") {
@@ -349,11 +350,11 @@ async function main() {
 
   const s0 = await loadSettings();
   hideHouseWhenInside = s0.hideHouseWhenInside;
-  activity = s0.activity;
+  rest = s0.rest;
   await enqueue(s0);
   listen<Settings>("settings-changed", (e) => {
     hideHouseWhenInside = e.payload.hideHouseWhenInside;
-    activity = e.payload.activity;
+    rest = e.payload.rest;
     enqueue(e.payload);
   });
 }

@@ -15,7 +15,7 @@ listen<AiStatus | null>("brain-status", (e) => {
 
 async function init() {
   const s = await loadSettings();
-  ($("activity") as HTMLSelectElement).value = s.activity;
+  ($("rest") as HTMLInputElement).checked = s.rest;
   ($("inputAlwaysVisible") as HTMLInputElement).checked = s.inputAlwaysVisible;
   ($("hideHouseWhenInside") as HTMLInputElement).checked = s.hideHouseWhenInside;
   ($("inputShortcut") as HTMLInputElement).value = s.inputShortcut;
@@ -26,7 +26,7 @@ async function init() {
 $("save").addEventListener("click", async () => {
   msg.textContent = "";
   const s: Settings = {
-    activity: ($("activity") as HTMLSelectElement).value as Settings["activity"],
+    rest: ($("rest") as HTMLInputElement).checked,
     inputAlwaysVisible: ($("inputAlwaysVisible") as HTMLInputElement).checked,
     hideHouseWhenInside: ($("hideHouseWhenInside") as HTMLInputElement).checked,
     inputShortcut: ($("inputShortcut") as HTMLInputElement).value.trim(),

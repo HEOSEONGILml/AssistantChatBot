@@ -1,13 +1,13 @@
 import { describe, test, expect } from "vitest";
 import {
   newDog, step, playAction, toggleHouse, currentAnimation, decide, grab, holdAt, release, poke, pickBehavior,
-  SLEEP_IDLE_MS, type World, type Senses, type Dog, type Win,
+  SLEEP_IDLE_MS, DEFAULT_MOVEMENT, type Movement, type World, type Senses, type Dog, type Win,
 } from "../src/body/dog";
 
 // 강아지 크기 100×80, 움직일 수 있는 영역은 강아지 왼쪽 위 기준 x 0~900, y 0~520
 const w: World = { width: 1000, height: 600, dogWidth: 100, dogHeight: 80, houseX: 800, houseY: 520, walkSpeed: 100, runSpeed: 250 };
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
-const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], activity: "normal", click: null, rand: seq(0.99), ...o });
+const senses = (o: Partial<Senses> = {}): Senses => ({ cursor: null, userIdleMs: 0, windows: [], rest: false, movement: DEFAULT_MOVEMENT, click: null, rand: seq(0.99), ...o });
 const at = (x: number, y: number, o: Partial<Dog> = {}): Dog => ({ ...newDog(x, y), ...o });
 
 describe("idle", () => {
@@ -287,33 +287,52 @@ describe("주변 관찰", () => {
     expect(step(at(100, 400, { mode: "watching", targetWin: 1, until: 99999 }), w, 0, 16, senses()).mode).toBe("idle"));
 });
 
-describe("움직임 정도", () => {
+describe("평소 움직임 경향과 쉬기", () => {
   const busy = senses({ cursor: cursorNear, windows: [win()] });
-  const count = (activity: Senses["activity"], b: string) => {
+  const count = (o: Partial<Senses>, b: string) => {
     let n = 0;
-    for (let i = 0; i < 100; i++) if (pickBehavior(at(300, 200), w, { ...busy, activity }, i / 100) === b) n++;
+    for (let i = 0; i < 100; i++) if (pickBehavior(at(300, 200), w, { ...busy, ...o }, i / 100) === b) n++;
     return n;
   };
-  test("쉬기는 커서·창이 있어도 대기만 고른다", () => expect(count("rest", "idle")).toBe(100));
-  test("차분 < 보통 < 활발 순서로 걷기가 잦다", () => {
-    expect(count("calm", "walk")).toBeLessThan(count("normal", "walk"));
-    expect(count("normal", "walk")).toBeLessThan(count("lively", "walk"));
+  const tilt = (weights: Partial<Movement["weights"]>, o: Partial<Movement> = {}): Movement =>
+    ({ ...DEFAULT_MOVEMENT, ...o, weights: { ...DEFAULT_MOVEMENT.weights, ...weights } });
+
+  test("두뇌가 없으면 기본 경향으로 움직인다", () => expect(count({}, "walk")).toBeGreaterThan(0));
+  test("경향의 가중치를 따른다", () => {
+    expect(count({ movement: tilt({ roam: 2 }) }, "walk")).toBeGreaterThan(count({}, "walk"));
+    expect(count({ movement: tilt({ play: 1 }) }, "hunt")).toBeGreaterThan(count({}, "hunt"));
   });
+  test("잠 가중치가 크면 낮잠을 고르고, 사용자가 있어도 정해진 시간까지 잔다", () => {
+    const onlySleep = tilt({ rest: 0, sleep: 1, roam: 0, approach: 0, play: 0, explore: 0 });
+    const d = decide(at(300, 200), w, 0, senses({ movement: onlySleep, rand: seq(0.0, 0.5) }));
+    expect(currentAnimation(d)).toBe("sleep");
+    expect(currentAnimation(step(d, w, 1000, 16, senses({ movement: onlySleep, userIdleMs: 0 })))).toBe("sleep");
+  });
+  test("달리기 비율을 따른다", () => {
+    const walk = (run: number) => decide(at(300, 200), w, 0, senses({ movement: tilt({}, { run }), rand: seq(0.99, 0.5, 0.5, 0.5) }));
+    expect(walk(1).running).toBe(true);
+    expect(walk(0).running).toBe(false);
+  });
+  test("머무는 시간 배율을 따른다", () => {
+    const idle = (idleScale: number) => decide(at(300, 200), w, 0, senses({ movement: tilt({}, { idleScale }), rand: seq(0.0, 0.5, 0.5) }));
+    expect(idle(2).until).toBeGreaterThan(idle(1).until);
+  });
+  test("쉬기는 커서·창이 있어도 대기만 고른다", () => expect(count({ rest: true }, "idle")).toBe(100));
   test("쉬기에서는 그 자리에 엎드려 잔다", () => {
-    const d = decide(at(300, 200), w, 0, senses({ activity: "rest", rand: seq(0.1, 0.0, 0) }));
+    const d = decide(at(300, 200), w, 0, senses({ rest: true, rand: seq(0.1, 0.0, 0) }));
     expect(d.mode).toBe("idle");
     expect(currentAnimation(d)).toBe("sleep");
   });
   test("쉬기에서는 사용자가 PC를 쓰고 있어도 깨지 않는다", () => {
-    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "rest", userIdleMs: 0 }));
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ rest: true, userIdleMs: 0 }));
     expect(currentAnimation(d)).toBe("sleep");
   });
   test("쉬기를 풀면 깨어난다", () => {
-    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "normal", userIdleMs: 0, rand: seq(0.1, 0.0, 0) }));
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ userIdleMs: 0, rand: seq(0.1, 0.0, 0) }));
     expect(currentAnimation(d)).toBe("idle_stand");
   });
   test("쉬기에서는 던져진 뒤에도 걸어 다니지 않는다", () => {
-    const d = step(at(300, 200, { until: 0 }), w, 1000, 16, senses({ activity: "rest", rand: seq(0.99) }));
+    const d = step(at(300, 200, { until: 0 }), w, 1000, 16, senses({ rest: true, rand: seq(0.99) }));
     expect(d.mode).toBe("idle");
   });
 });
@@ -345,7 +364,7 @@ describe("근처 클릭", () => {
     expect(d.mode).toBe("idle");
   });
   test("쉬기에서는 클릭에 반응하지 않는다", () => {
-    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ activity: "rest", cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.1, 0.01) }));
+    const d = step(at(300, 200, { pose: "sleep", until: 99999 }), w, 1000, 16, senses({ rest: true, cursor: cursorNear, click: { x: 360, y: 250, ageMs: 0 }, rand: seq(0.1, 0.01) }));
     expect(currentAnimation(d)).toBe("sleep");
   });
 });
