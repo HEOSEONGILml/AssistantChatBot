@@ -2,10 +2,14 @@ export type Animation = { row: number; col?: number; frames: number; fps: number
 export type Manifest = {
   image: string; frameWidth: number; frameHeight: number; scale: number; facing?: "left" | "right";
   animations: Record<string, Animation>;
+  moods?: Record<string, string>; // 기분 id → 그 기분 얼굴을 덧그린 시트 (기분별 그림 스펙)
 };
 
 export const DOG_ACTIONS = ["walk", "run", "idle_stand", "idle_sit", "idle_lay", "sleep", "beg", "bark"] as const;
 export type DogAction = (typeof DOG_ACTIONS)[number];
+
+// 기분별 시트가 있으면 그 시트, 없으면 원본 시트
+export const sheetImage = (m: Manifest, mood: string): string => m.moods?.[mood] ?? m.image;
 
 export function frameAt(m: Manifest, anim: string, elapsedMs: number) {
   const a = m.animations[anim] ?? m.animations["walk"];

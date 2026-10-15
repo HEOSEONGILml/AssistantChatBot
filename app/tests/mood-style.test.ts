@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { EMOTES, REACTION_MS, moodStyle, reactionHop } from "../src/body/mood-style";
+import { EMOTES, faceMood, REACTION_MS, moodStyle, reactionHop } from "../src/body/mood-style";
 
 describe("기분 스타일", () => {
   test("평온은 아무 변형이 없다", () => {
@@ -28,5 +28,12 @@ describe("반응 표시", () => {
     expect(reactionHop("excited", 400)).toBe(0);
     expect(reactionHop("surprised", 120)).toBeGreaterThan(reactionHop("bored", 120));
     expect(REACTION_MS).toBeGreaterThanOrEqual(1000);
+  });
+});
+
+describe("얼굴 기분", () => {
+  test("반응을 보여 주는 동안은 반응의 기분, 아니면 두드러진 기분", () => {
+    expect(faceMood("calm", "surprised")).toBe("surprised");
+    expect(faceMood("sad", null)).toBe("sad");
   });
 });

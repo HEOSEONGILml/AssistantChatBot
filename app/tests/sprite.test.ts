@@ -1,5 +1,5 @@
-import { test, expect } from "vitest";
-import { frameAt, type Manifest } from "../src/body/sprite";
+import { describe, test, expect } from "vitest";
+import { frameAt, sheetImage, type Manifest } from "../src/body/sprite";
 
 const m: Manifest = {
   image: "sheet.png", frameWidth: 64, frameHeight: 48, scale: 2,
@@ -38,4 +38,14 @@ test("프레임 안에서 처음으로 그림이 있는 줄을 찾는다", () =>
 test("다른 칸의 픽셀은 보지 않는다", () => {
   const a = sheetAlpha([[0, 1]]); // 왼쪽 위 칸에만 그림
   expect(opaqueTop(a, 4, { sx: 2, sy: 0, sw: 2, sh: 2 })).toBe(2); // 빈 칸이면 높이(sh)
+});
+
+describe("기분별 시트", () => {
+  const m = { image: "/base.png", frameWidth: 64, frameHeight: 48, scale: 1.5, animations: {}, moods: { happy: "/happy.png" } };
+  test("기분 시트가 있으면 그 시트, 없으면 원본", () => {
+    expect(sheetImage(m, "happy")).toBe("/happy.png");
+    expect(sheetImage(m, "sad")).toBe("/base.png");
+    expect(sheetImage(m, "calm")).toBe("/base.png");
+    expect(sheetImage({ ...m, moods: undefined }, "happy")).toBe("/base.png");
+  });
 });

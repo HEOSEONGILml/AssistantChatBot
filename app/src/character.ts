@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-import { frameAt, opaqueTop, type Manifest } from "./body/sprite";
+import { frameAt, opaqueTop, sheetImage, type Manifest } from "./body/sprite";
 import { newDog, step, playAction, toggleHouse, currentAnimation, grab, holdAt, release, poke, type Dog, type World, type Win, DEFAULT_MOVEMENT, listenTo, type Movement } from "./body/dog";
 import { newPetting, feedPetting } from "./body/petting";
 import { exposeTopEdges } from "./body/windows";
@@ -13,7 +13,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { loadSettings, saveSettings, shortcutFallback, type Settings } from "./shared/settings";
 import { ACTION_TO_DOG, statusText, type AiStatus, type BrainMessage, type EventContext, type EventKind } from "./shared/brain-protocol";
 import { newTyping, feedTyping, tickTyping, quietDue, impactOf } from "./body/events";
-import { EMOTES, REACTION_MS, moodStyle, reactionHop, type MoodId, type ReactionId } from "./body/mood-style";
+import { EMOTES, MOOD_IDS, REACTION_MS, faceMood, moodStyle, reactionHop, type MoodId, type ReactionId } from "./body/mood-style";
 import { connectBrain } from "./brain-link";
 import "./styles.css";
 
@@ -37,25 +37,29 @@ async function main() {
   // 프레임을 한 칸씩 잘라 따로 보관한다. 시트에서 바로 늘려 그리면 1.5배 같은 배율에서
   // 바로 위 칸의 픽셀이 섞여 칸 위쪽에 희미한 줄이 생긴다. 칸마다 그림이 시작되는 높이도 함께 잰다.
   type Frame = { canvas: HTMLCanvasElement; top: number };
+  // 기분별 시트도 같은 방식으로 잘라 둔다. 키는 "시트 경로|sx,sy". 아직 못 읽은 시트는 원본 프레임으로 그린다.
   const frames = new Map<string, Frame>();
-  const sheet = new Image();
-  sheet.onload = () => {
-    const full = document.createElement("canvas");
-    full.width = sheet.width; full.height = sheet.height;
-    const fctx = full.getContext("2d")!;
-    fctx.drawImage(sheet, 0, 0);
-    const alpha = fctx.getImageData(0, 0, sheet.width, sheet.height).data;
-    for (const a of Object.values(manifest.animations)) {
-      for (let i = 0; i < a.frames; i++) {
-        const r = { sx: ((a.col ?? 0) + i) * manifest.frameWidth, sy: a.row * manifest.frameHeight, sw: manifest.frameWidth, sh: manifest.frameHeight };
-        const c = document.createElement("canvas");
-        c.width = r.sw; c.height = r.sh;
-        c.getContext("2d")!.drawImage(full, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
-        frames.set(`${r.sx},${r.sy}`, { canvas: c, top: opaqueTop(alpha, sheet.width, r) });
+  const loadSheet = (src: string) => {
+    const sheet = new Image();
+    sheet.onload = () => {
+      const full = document.createElement("canvas");
+      full.width = sheet.width; full.height = sheet.height;
+      const fctx = full.getContext("2d")!;
+      fctx.drawImage(sheet, 0, 0);
+      const alpha = fctx.getImageData(0, 0, sheet.width, sheet.height).data;
+      for (const a of Object.values(manifest.animations)) {
+        for (let i = 0; i < a.frames; i++) {
+          const r = { sx: ((a.col ?? 0) + i) * manifest.frameWidth, sy: a.row * manifest.frameHeight, sw: manifest.frameWidth, sh: manifest.frameHeight };
+          const c = document.createElement("canvas");
+          c.width = r.sw; c.height = r.sh;
+          c.getContext("2d")!.drawImage(full, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
+          frames.set(`${src}|${r.sx},${r.sy}`, { canvas: c, top: opaqueTop(alpha, sheet.width, r) });
+        }
       }
-    }
+    };
+    sheet.src = src;
   };
-  sheet.src = manifest.image;
+  for (const src of new Set(MOOD_IDS.map((id) => sheetImage(manifest, id)))) loadSheet(src);
   let headTop = 0; // 지금 그린 프레임에서 그림이 시작되는 높이 (CSS px, 강아지 칸 위쪽 기준)
 
   const mon = await primaryMonitor();
@@ -324,10 +328,11 @@ async function main() {
       // 평소 모습은 두드러진 기분으로, 반응은 머리 위 아이콘과 톡 튐으로 (기분 8개 스펙 6절, 임시 표현)
       const style = moodStyle(mood);
       const f = frameAt(manifest, anim, (now - animStart) * style.speed);
-      const fr = frames.get(`${f.sx},${f.sy}`);
-      const b = dogBox();
       const nowMs = Date.now();
       const react = shownReaction && nowMs - shownReaction.at < REACTION_MS ? shownReaction : null;
+      const face = sheetImage(manifest, faceMood(mood, react ? react.id : null));
+      const fr = frames.get(`${face}|${f.sx},${f.sy}`) ?? frames.get(`${manifest.image}|${f.sx},${f.sy}`);
+      const b = dogBox();
       const hopR = react ? reactionHop(react.id, nowMs - react.at) : 0;
       const moving = dog.mode === "walk_to" || dog.mode === "follow" || dog.mode === "hunt";
       const bounce = moving && style.bounce ? Math.abs(Math.sin(now / 90)) * style.bounce : 0;

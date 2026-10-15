@@ -24,6 +24,9 @@ const STYLES: Record<MoodId, MoodStyle> = {
 
 export const moodStyle = (m: MoodId): MoodStyle => STYLES[m] ?? CALM;
 
+// 얼굴(기분별 시트)은 반응을 보여 주는 동안 반응의 기분으로, 그 밖에는 두드러진 기분으로 그린다
+export const faceMood = (mood: MoodId, reaction: ReactionId | null): MoodId => reaction ?? mood;
+
 export const REACTION_MS = 1500; // 반응 아이콘을 보여 주는 시간 (잠정값)
 export const EMOTES: Record<ReactionId, string> = {
   excited: "🎵", annoyed: "💢", curious: "❓", surprised: "❗", sad: "💧", sleepy: "💤", bored: "💭", scared: "😨", happy: "💕",

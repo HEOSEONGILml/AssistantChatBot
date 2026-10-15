@@ -13,5 +13,16 @@
     "walk":       { "row": 4, "frames": 8, "fps": 8, "loop": true },
     "beg":        { "row": 7, "frames": 6, "fps": 6, "loop": true },
     "sleep":      { "row": 8, "frames": 4, "fps": 3, "loop": true }
+  },
+  "moods": {
+    "happy": "/sprites/dog/dog-02-happy.png",
+    "excited": "/sprites/dog/dog-02-excited.png",
+    "sad": "/sprites/dog/dog-02-sad.png",
+    "annoyed": "/sprites/dog/dog-02-annoyed.png",
+    "sleepy": "/sprites/dog/dog-02-sleepy.png",
+    "bored": "/sprites/dog/dog-02-bored.png",
+    "curious": "/sprites/dog/dog-02-curious.png",
+    "surprised": "/sprites/dog/dog-02-surprised.png",
+    "scared": "/sprites/dog/dog-02-scared.png"
   }
 }

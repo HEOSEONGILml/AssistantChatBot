@@ -85,8 +85,8 @@ flowchart TB
 
 | 층 | 표현 | 무엇이 바꾸나 |
 |---|---|---|
-| **반응** | 기분의 즉각 표출(가장 크게 오른 기분). 화면은 머리 위 아이콘과 톡 튐으로 보인다 | 이벤트로 기분이 0.02 이상 오르면 그 기분의 반응. 타이핑 판단은 늘 하나(없으면 궁금함) |
-| **기분** | 수치 9개(0~1): 심심함·졸림·들뜸·시무룩·분노·궁금함·놀람·무서움·행복. 두드러진 기분이 평소 모습(속도·처짐·색·떨림·갸웃)을 정한다 | ① 시간: 평균 회귀(기준값으로 돌아가며 흔들림. 반감기 = 기본 × (0.5 + 기준값)) ② 이벤트: Δ = k·(P↑−P↓)·민감도 × (1 − 습관화) |
+| **반응** | 기분의 즉각 표출(가장 크게 오른 기분). 화면은 머리 위 아이콘, 톡 튐, 1.5초 동안 그 기분의 얼굴로 보인다 | 이벤트로 기분이 0.02 이상 오르면 그 기분의 반응. 타이핑 판단은 늘 하나(없으면 궁금함) |
+| **기분** | 수치 9개(0~1): 심심함·졸림·들뜸·시무룩·분노·궁금함·놀람·무서움·행복. 두드러진 기분이 평소 모습(기분별 얼굴 시트, 속도·처짐·색·떨림·갸웃)을 정한다 | ① 시간: 평균 회귀(기준값으로 돌아가며 흔들림. 반감기 = 기본 × (0.5 + 기준값)) ② 이벤트: Δ = k·(P↑−P↓)·민감도 × (1 − 습관화) |
 | **친밀도** | 수치 1개 | 이벤트마다 아주 조금. 오래 안 보면 2주에 걸쳐 식음 |
 | **성격** | 기준값·민감도(기분마다), 변덕 | 탄생 때 무작위(기본 성격 "호기심 많고 수다스러운 강아지"를 평균으로). 기준값만 하루 한 번: 어제 기분 평균 쪽으로 2.5%, 타고난 기질 쪽으로 2.5% (경험과 기질의 중간에 자리 잡아 개성이 남는다) |
 | **습관화** | 자극마다 0~1 | 같은 자극이 반복되면 오르고(민감할수록 천천히) 1시간 반감기로 회복 |
@@ -226,7 +226,7 @@ flowchart LR
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
 | [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분×동작별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
 | [`docs/spikes/`](docs/spikes/) | 실측·기술 검증. [배경 모드](docs/spikes/background-mode.md), [Jev speak_now](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정](docs/spikes/2026-10-15-brain-v2-assumptions.md), [성격 유형](docs/spikes/2026-10-15-personality-types.md), [질문 문구](docs/spikes/2026-10-15-question-wording.md), [시뮬레이션](docs/spikes/2026-10-15-simulation.md) |
 | [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32·실제 키 동작 수동 확인 체크리스트 |
