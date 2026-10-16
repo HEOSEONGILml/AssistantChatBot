@@ -34,6 +34,8 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "같은 상황이라도 매번 다르게 말한다. '깡총'처럼 다른 동물의 의성어나 '쿨럭' 같은 말을 쓰지 않는다. 주인이 하지 않은 행동을 지어내지 않는다. "
          "말투는 '지금 기분'에 맞춘다. 반기는 말에 '드디어'·'목 빠지게' 같은 틀을 쓰지 않는다. "
          "대화 기록에서 내가 이미 고른 것이 있으면 다시 물어도 그것을 말한다. "
+         "너는 사용자 컴퓨터의 바탕화면 위에 산다. 현관·문·창밖·무릎·발밑·소파처럼 화면 밖 장소에 있다고 하지 않는다. "
+         "'최근에 너무 자주 쓴 표현'은 쓰지 않는다. "
          "화면의 너는 서기·앉기·엎드리기·잠·조르기·짖기·걷기·달리기만 할 수 있다. '이번에 뽑힌 동작'과 다른 행동을 하는 중이라고 말하지 않고, "
          "공·간식·키보드처럼 화면에 없는 물건을 쓰거나 만진다고 하지 않는다. "
          "놀라거나 무섭거나 화난 직후에는 기분이 벌써 풀렸다고 스스로 해설하지 않는다. "
@@ -106,6 +108,20 @@ def date_facts(messages: list[tuple[float, str]], now: float) -> list[str]:
     return []
 
 
+_SOUNDS = {"멍", "멍멍", "왈", "왈왈", "킁킁", "킁", "헥헥", "낑낑", "끙"}
+
+
+def frequent_phrases(lines: list[str], top: int = 6) -> list[str]:
+    """최근 대사에서 두 줄 이상에 나온 두 어절 표현. 같은 틀의 되풀이를 대사 지시로 막는다 (검수 009: 위로 12/14가 "옆에 있을게").
+    규칙 문구만으로는 틀이 줄지 않아, 실제로 되풀이된 표현을 우리 모형이 찾아 준다."""
+    counts: dict[str, int] = {}
+    for line in lines:
+        words = [w for w in re.findall(r"[가-힣]+", line) if w not in _SOUNDS]
+        for pair in {f"{a} {b}" for a, b in zip(words, words[1:])}:
+            counts[pair] = counts.get(pair, 0) + 1
+    return [p for p, n in sorted(counts.items(), key=lambda x: -x[1]) if n >= 2][:top]
+
+
 def _span(seconds: float) -> str:
     s = int(max(0, seconds))
     if s < 60:
@@ -118,7 +134,7 @@ def _span(seconds: float) -> str:
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
                     alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False,
-                    facts: list[str] | None = None, mood_now: str = "") -> str:
+                    facts: list[str] | None = None, mood_now: str = "", overused: list[str] | None = None) -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -137,6 +153,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
     away = [e.get("맥락", {}).get("떠나 있던 시간(초)") for e in state.get("이번 이벤트들", []) if e.get("종류") == "사용자가 돌아옴"]
     if kinds and kinds[-1] == "returned" and away and away[-1]:
         data["비운 시간"] = _span(float(away[-1]))
+    if overused:
+        data["최근에 너무 자주 쓴 표현(쓰지 않는다)"] = overused
     if mood_now in MOOD_TONE:
         data["지금 기분"] = MOOD_TONE[mood_now]
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
@@ -146,6 +164,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
 
+_BANNED = re.compile(r"창밖|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지")
+_NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
 _STOCK_OPENING = re.compile(r"드디어\s*,?\s*")  # 어디에 있든 (검수 008: "우와, 드디어 왔네")
 _QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
 _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
@@ -157,5 +177,7 @@ def trim_line(text: str, max_sentences: int = 2) -> str:
     t = " ".join(line.strip() for line in text.splitlines() if line.strip())
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
     t = _STOCK_OPENING.sub("", t).strip()  # 반기는 말이 늘 "드디어"로 시작하던 틀을 걷는다 (검수 008, 규칙만으로는 안 지켜짐)
-    parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip()]
+    t = _NON_WORD.sub("", t).strip()
+    # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
+    parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p)]
     return " ".join(parts[:max_sentences])

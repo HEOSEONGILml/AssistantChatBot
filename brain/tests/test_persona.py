@@ -151,3 +151,28 @@ def test_rules_against_invented_actions_and_self_commentary():
     s = system_instruction()
     for rule in ("화면의 너는", "공·간식", "풀렸다고"):
         assert rule in s
+
+
+# ---- 검수 009 대사 ----
+
+from brain.persona import frequent_phrases
+
+
+def test_frequent_phrases_finds_repeated_templates():
+    lines = ["많이 힘들었지, 내가 옆에 있을게.", "괜찮아, 옆에 있을게 멍.", "목 빠지는 줄 알았어!", "기다리느라 목 빠지는 줄 알았어", "오늘 날씨 좋다"]
+    found = frequent_phrases(lines)
+    assert "옆에 있을게" in found and "목 빠지는" in found
+    assert all("날씨" not in f for f in found)
+
+
+def test_prompt_lists_overused_phrases_and_screen_rule():
+    p = dialogue_prompt({}, "sad", "none", ["message"], [], 0, [], "", False, [], "", ["옆에 있을게"])
+    assert json.loads(p.split("\n")[0])["최근에 너무 자주 쓴 표현(쓰지 않는다)"] == ["옆에 있을게"]
+    s = system_instruction()
+    assert "바탕화면" in s and "현관" in s and "무릎" in s
+
+
+def test_trim_drops_sentences_with_offscreen_places_and_banned_words():
+    assert trim_line("언제 오려나... 창밖만 계속 보게 되네. 나랑 놀자!") == "언제 오려나... 나랑 놀자!"
+    assert trim_line("짖! 우울한 공기는 털어내자.") == "우울한 공기는 털어내자."
+    assert trim_line("목 빠지는 줄 알았어! 밥은 먹었어?") == "밥은 먹었어?"

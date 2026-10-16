@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, date_facts, dialogue_prompt, system_instruction, trim_line, voice
+from .persona import annotate_dates, date_facts, dialogue_prompt, frequent_phrases, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -291,6 +291,7 @@ class Brain:
                             + (f"사용자: {annotate_dates(e.data.get('text', ''), e.ts)}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
                             for e in talk]
             v = voice(dog, t)  # 성격에서 나온 말투 (검수 004)
+            lines40 = [e.data["utterance"] for e in self._store.recent(500) if e.kind == "dog" and "utterance" in e.data][-40:]
             # 지금 상황 사실: 주인이 곁에 있는지, 집에서 나온 쪽이 누구인지 (검수 005: 지어냄)
             facts = ["주인은 자리를 비웠다. 아직 돌아오지 않았다" if self._user_away else
                      ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
@@ -309,7 +310,8 @@ class Brain:
                     facts.append(f"방금 네가 한 말: {just[-1]} — 이 말과 어긋나지 않게 이어 간다")
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
                                                                                           conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts,
-                                                                                          _MOOD_KO.get(model.dominant_mood(dog, t), ""))), v["문장 수"])
+                                                                                          _MOOD_KO.get(model.dominant_mood(dog, t), ""),
+                                                                                          frequent_phrases(lines40))), v["문장 수"])
         except AuthError:
             await self._set_ai("bad_key")
             return
