@@ -282,7 +282,7 @@ async def test_typing_always_shows_a_reaction(make):
     env.jev.readout = Readout({"none": 1.0}, 0.5, {"변화없음": 1.0})
     await env.brain.handle_event("typing", {"text": "오늘은"})
     await env.brain.drain()
-    assert env.out == [{"type": "reaction", "reaction": "curious"}]  # 오른 기분이 없어도 타이핑엔 궁금함
+    assert [m for m in env.out if m["type"] == "reaction"] == [{"type": "reaction", "reaction": "curious"}]  # 오른 기분이 없어도 타이핑엔 궁금함
 
 
 async def test_reset_gives_birth_to_a_new_dog(make):

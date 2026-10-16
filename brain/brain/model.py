@@ -264,14 +264,20 @@ MOVES = tuple(MOVE_BASE)
 
 
 def movement(dog: Dog, t: Tuning) -> dict:
+    """평소 움직임 경향. 기분은 기준값 대비(하루 리듬 포함)로 크게, 성격은 기준값으로 작게 (검수 001, K-5)."""
     m, b = dog.mood, dog.personality.baseline
+    dev = {d: m[d] - b[d] for d in MOODS}
+
+    def mood_term(row):
+        return sum(w * dev[d] for d, w in row.items())
     weights = {}
     for c in MOVES:
-        x = _affinity(MOVE_MOOD[c], m) + _affinity(MOVE_BASELINE.get(c, {}), b) + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5)
-        weights[c] = round(MOVE_BASE[c] * math.exp(t.move_scale * x), 4)
+        x = (t.move_scale * mood_term(MOVE_MOOD[c]) + t.move_personality * _affinity(MOVE_BASELINE.get(c, {}), b)
+             + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5))
+        weights[c] = round(MOVE_BASE[c] * math.exp(x), 4)
     return {"weights": weights, "mood": dominant_mood(dog, t),
-            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * _affinity(RUN_MOOD, m)), 4),
-            "idle_scale": round(math.exp(t.move_scale * _affinity(IDLE_MOOD, m)), 4)}
+            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * mood_term(RUN_MOOD)), 4),
+            "idle_scale": round(math.exp(t.move_scale * mood_term(IDLE_MOOD)), 4)}
 
 
 def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:

@@ -87,7 +87,7 @@ MOVE_MOOD = {"rest": {"졸림": 1, "시무룩": 1, "들뜸": -1, "무서움": 1}
 MOVE_BASELINE = {"rest": {"졸림": 1}, "sleep": {"졸림": 1}, "roam": {"심심함": 1},
                  "approach": {"심심함": 1, "들뜸": 1, "행복": 1}, "play": {"들뜸": 1}, "explore": {"심심함": 1}}
 MOVE_INTIMACY = {"approach": 1, "play": 1}
-RUN_BASE, RUN_MOOD = 0.2, {"들뜸": 1, "졸림": -1}
+RUN_BASE, RUN_MOOD = 0.2, {"들뜸": 1.5, "행복": 0.5, "졸림": -1, "무서움": -0.5}
 IDLE_MOOD = {"졸림": 1, "시무룩": 1, "들뜸": -1}
 
 
@@ -102,7 +102,7 @@ class Tuning:
     # 평균 강아지 실제 반감기: 분노 6분, 놀람 36초, 무서움 3분, 궁금함 3분, 들뜸 5분, 행복·시무룩·심심함 15~20분, 졸림 48분
     half_life_s: dict = field(default_factory=lambda: {"심심함": 1800.0, "졸림": 3600.0, "들뜸": 600.0, "시무룩": 1800.0, "분노": 600.0,
                                                        "궁금함": 300.0, "놀람": 60.0, "무서움": 300.0, "행복": 1800.0})
-    mood_noise: float = 0.05            # 오래 두었을 때 기준값 주변 흔들림 표준편차
+    mood_noise: float = 0.03            # 오래 두었을 때 기준값 주변 흔들림 표준편차. 움직임 효과를 키우며(×4) 0.05는 경향이 너무 출렁여 줄였다
     intimacy_half_life_s: float = 14 * 86400.0
     change_k: float = 0.3               # 메시지의 강한 내용 (P↑−P↓) ±0.6 → 평균 강아지 ±0.18
     change_noise: float = 0.01          # 0.02는 Jev 신호와 같은 크기라 반응이 잡음으로 뽑혔다 (검수 001)
@@ -125,11 +125,12 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -3.28, "message": -0.58, "dog_spoke": -2.04, "quiet": -2.63})
+                                                     "typing": -3.02, "message": -0.68, "dog_spoke": -1.89, "quiet": -2.45})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
-    move_scale: float = 1.0
+    move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
+    move_personality: float = 1.0       # 성격(기준값) 효과. 성격끼리 차이는 이미 보였다(검수 001)
     clock_s: float = 30.0               # 기분 반감기가 20분 이상이라 30초 갱신이면 충분
-    send_weight_ratio: float = 0.10     # 움직임 경향 전송 기준
-    send_run_delta: float = 0.05
-    send_idle_ratio: float = 0.10
+    send_weight_ratio: float = 0.30     # 움직임 경향 전송 기준. 사람 눈에 보일 만한 30% 변화. 0.10이면 시간당 95번 보냈다
+    send_run_delta: float = 0.10
+    send_idle_ratio: float = 0.30
