@@ -41,7 +41,7 @@ CIRCADIAN_PEAK_HOUR = 3
 
 
 # 기분 변화 = 우리 평가 사전값 + Jev 조정 (스펙 2026-10-16, 0015). 사전값은 평균 강아지가 느끼는 크기(잠정값)
-def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0) -> dict[str, float]:
+def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiting: bool = False) -> dict[str, float]:
     """이벤트 하나가 기분에 주는 충격. 뜻이 정해진 이벤트는 우리가 정한다(Jev가 던지기를 행복으로 읽는 등 틀리기 때문).
     habit: 이 자극에 익숙한 정도(찌르기는 익숙할수록 짜증이 쌓인다). wary: 지금 화나거나 무서운 정도(쓰다듬기를 경계한다)."""
     if kind == "poke":
@@ -55,7 +55,8 @@ def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0) -> di
         return {"놀람": 0.05 + 0.25 * i, "무서움": 0.30 * i, "분노": 0.05 * i, "행복": -0.10 * i, "졸림": -0.10 * i}
     if kind == "quiet":
         m = min(float(ctx.get("seconds") or 600) / 600, 3.0)
-        return {"심심함": 0.04 * m, "시무룩": 0.01 * m}
+        # 물어봤는데 답이 없으면 서운하다 (검수 002: 3시간 무시당해도 시무룩 그대로)
+        return {"심심함": 0.04 * m, "시무룩": (0.07 if waiting else 0.01) * m}
     if kind == "returned":
         return {"행복": 0.15, "들뜸": 0.12, "심심함": -0.10, "시무룩": -0.08}
     if kind == "house_out":
@@ -74,6 +75,10 @@ def appraisal_intimacy(kind: str, ctx: dict) -> float:
         return -0.01 * float(ctx.get("impact", 0.5) or 0.0)
     return 0.0
 
+
+# 관계 해석: Jev는 거절하는 말("저리 가")에 친밀도↓를, 다정한 말에 친밀도↑를 주로 준다. 우리 모형은 그것을 기분으로도 읽는다.
+# 거절은 서운함, 다정함은 행복 (검수 002: 욕을 들어도 서운해하지 않음). 값은 Jev 같은 기분↑ 대비 비율
+RELATION_MOOD = {"친밀도↓": {"시무룩": 0.8}, "친밀도↑": {"행복": 0.5}}
 
 # Jev 변화 분포를 얼마나 믿나: 글 내용이 중요한 메시지는 크게, 뜻이 정해진 이벤트는 작게, 자기 말은 0
 JEV_WEIGHT = {"message": 1.0, "typing": 0.5, "dog_spoke": 0.0}
@@ -127,7 +132,7 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -3.06, "message": -0.5, "dog_spoke": -0.33, "quiet": -2.05})
+                                                     "typing": -2.85, "message": -0.28, "dog_spoke": -0.14, "quiet": -1.86})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)

@@ -219,7 +219,7 @@ class Brain:
             rd = Readout({}, 0.0, {})
         kinds = [e.kind for e in batch]
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
-        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t)
+        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, waiting=self._waiting)
         reaction = model.reaction_from(deltas, kinds, t)
         a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
         action = model.pick(a_scores, self._rng)

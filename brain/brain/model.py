@@ -3,7 +3,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from .tuning import (CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
+from .tuning import (RELATION_MOOD, CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
                      IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
                      MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
                      TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
@@ -240,7 +240,8 @@ def _combine(xs: list[float]) -> float:
     return up - down
 
 
-def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning) -> Change:
+def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
+                 waiting: bool = False) -> Change:
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
@@ -252,13 +253,16 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     parts: dict[str, list[float]] = {d: [] for d in MOODS}
     for k, ctx in events:
         h = dog.habit.get(k, 0.0)
-        for d, v in appraisal(k, ctx or {}, h, wary).items():
+        for d, v in appraisal(k, ctx or {}, h, wary, waiting).items():
             parts[d].append(v * 2 * sens[d] * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
         if k in HABIT_KINDS:  # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정). 묶음 안에서도 쌓인다
             lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
             dog.habit[k] += lam * (1 - dog.habit[k])
-    signal = {d: _combine(parts[d]) + t.change_k * w * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0)) * 2 * sens[d] * damp
-              for d in MOODS}
+    jev = {d: change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0) for d in MOODS}
+    for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
+        for d, r in moods.items():
+            jev[d] += r * change.get(rel, 0.0)
+    signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * damp for d in MOODS}
     rises = dict(signal)
     for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
         signal[c] -= t.inhibit * max(rises[a], 0.0)

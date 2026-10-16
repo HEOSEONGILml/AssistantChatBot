@@ -278,3 +278,27 @@ def test_noise_alone_never_makes_a_reaction():
     for seed in range(200):
         d = model.apply_change(calm_dog(), {"분노↑": 0.9}, [("dog_spoke", {"text": "멍?"})], random.Random(seed), noisy)
         assert model.reaction_from(d, ["dog_spoke"], T) == "none"
+
+
+# ---- 거절·무시는 서운함 (검수 002) ----
+
+
+def test_rejection_hurts():
+    # Jev는 "저리 가 귀찮아"에 친밀도↓를 주로 준다(0.66). 우리 모형은 그것을 서운함으로 읽는다
+    dog = calm_dog()
+    d = model.apply_change(dog, {"친밀도↓": 0.66, "분노↑": 0.24}, [("message", {"text": "저리 가 귀찮아"})], random.Random(0), QUIET)
+    assert model.reaction_from(d, ["message"], T) == "sad"
+    assert d["시무룩"] > 0.05
+
+
+def test_warm_words_make_happy():
+    dog = calm_dog()
+    d = model.apply_change(dog, {"친밀도↑": 0.78, "행복↑": 0.11}, [("message", {"text": "너 좋아해"})], random.Random(0), QUIET)
+    assert model.reaction_from(d, ["message"], T) == "happy"
+
+
+def test_ignored_question_makes_sad():
+    plain, ignored = calm_dog(), calm_dog()
+    a = model.apply_change(plain, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET).signal["시무룩"]
+    b = model.apply_change(ignored, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, waiting=True).signal["시무룩"]
+    assert b > a + 0.1
