@@ -533,3 +533,10 @@ def test_words_ease_sadness_but_fear_needs_touch():
     model.apply_change(petted, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
     assert 0.4 - said.mood["무서움"] < 0.06
     assert 0.4 - said.mood["시무룩"] > 0.08
+
+
+def test_startled_dog_rarely_adds_a_follow_up():
+    dog = calm_dog()
+    calm = model.chain_probability(dog, 1, T)
+    dog.mood["놀람"] = dog.personality.baseline["놀람"] + 0.3
+    assert model.chain_probability(dog, 1, T) < 0.5 * calm

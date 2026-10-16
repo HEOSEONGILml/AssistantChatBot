@@ -249,7 +249,9 @@ def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
         return 0.0
     ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
     first = min(t.chain_cap, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
-    hush = max(0.0, 1 - 2 * max(0.0, dog.mood["무서움"] - dog.personality.baseline["무서움"]))  # 겁먹으면 덧말이 없다
+    b = dog.personality.baseline
+    jolt = max(0.0, dog.mood["무서움"] - b["무서움"], dog.mood["놀람"] - b["놀람"])
+    hush = max(0.0, 1 - 3 * jolt)  # 겁먹거나 놀란 직후에는 덧말이 거의 없다("이제 괜찮아졌어" 해설, 검수 008)
     return first * hush * t.chain_decay ** max(0, streak - 1)
 
 

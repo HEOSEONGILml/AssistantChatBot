@@ -134,3 +134,20 @@ def test_return_greeting_knows_how_long_and_avoids_stock_words():
     assert json.loads(p.split("\n")[0])["비운 시간"] == "1시간 30분"
     s = system_instruction()
     assert "드디어" in s and "목 빠지" in s
+
+
+# ---- 검수 008 대사 ----
+
+from brain.persona import trim_line
+
+
+def test_trim_drops_stock_opening_finally():
+    assert trim_line("드디어 왔네! 밥은 먹었어?") == "왔네! 밥은 먹었어?"
+    assert trim_line("드디어, 나왔다!") == "나왔다!"
+    assert trim_line("우와, 드디어 왔네!") == "우와, 왔네!"
+
+
+def test_rules_against_invented_actions_and_self_commentary():
+    s = system_instruction()
+    for rule in ("화면의 너는", "공·간식", "풀렸다고"):
+        assert rule in s
