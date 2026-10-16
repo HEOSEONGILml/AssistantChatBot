@@ -188,3 +188,12 @@ def test_rule_spoken_action_matches_picked_action():
 
 def test_trim_replaces_system_word_user():
     assert trim_line("나는 사용자랑 노는 게 좋아.") == "나는 너랑 노는 게 좋아."
+
+
+def test_instructions_have_no_template_examples():
+    # 지시 속 예시 문장이 그대로 틀이 됐다 (검수 010: 집 = "좁고 답답" 9/9, 위로 = "옆에 있을게")
+    s = system_instruction()
+    house = dialogue_prompt({}, "happy", "none", ["house_out"], [])
+    for example in ("집 안 답답했어", "내가 옆에 있을게"):
+        assert example not in s and example not in house
+    assert "먹을 것" in s and "갇혀" in house
