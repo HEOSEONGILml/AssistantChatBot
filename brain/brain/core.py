@@ -245,7 +245,7 @@ class Brain:
             last = batch[-1]
             asked = last.kind == "message" and "?" in str(last.data.get("text", ""))
             hurting = last.kind == "message" and deltas.signal.get("시무룩", 0.0) >= 0.05
-            p_speak = model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting)
+            p_speak = model.chain_probability(dog, self._streak, t) if kinds[-1] == "dog_spoke" else                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting)
         speak = self._rng.random() < p_speak
         entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},

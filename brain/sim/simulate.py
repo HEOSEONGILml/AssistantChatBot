@@ -97,7 +97,8 @@ class World:
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
         hurting = kind == "message" and deltas.signal.get("시무룩", 0.0) >= 0.05
-        spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting)
+        p = model.chain_probability(dog, self.streak, t) if kind == "dog_spoke" else             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting)
+        spoke = self.rng.random() < p
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
         self.last = self.now
@@ -191,18 +192,24 @@ def fit(rec: Recording, t: Tuning, days: int = 10, seed: int = 1, rounds: int = 
              ("message", lambda s: s.rate("message"), TARGETS["message"]),
              ("quiet", lambda s: s.rate("quiet"), TARGETS["quiet"]),
              ("dog_spoke", lambda s: s.chain2plus(), TARGETS["chain2plus"])]
+    chain = t.chain_base
     for _ in range(rounds):
         for kind, metric, target in goals:
-            lo, hi = -10.0, 10.0
+            # 이어 말하기는 kind_bias가 아니라 chain_base로 맞춘다 (검수 005)
+            lo, hi = (0.01, 0.9) if kind == "dog_spoke" else (-10.0, 10.0)
             for _ in range(14):
                 mid = (lo + hi) / 2
-                v = metric(run(archetype_dog("평균"), rec, replace(t, kind_bias={**bias, kind: mid}), days, seed).stats)
+                tt = replace(t, chain_base=mid, kind_bias=bias) if kind == "dog_spoke" else replace(t, chain_base=chain, kind_bias={**bias, kind: mid})
+                v = metric(run(archetype_dog("평균"), rec, tt, days, seed).stats)
                 if math.isnan(v) or v < target:
                     lo = mid
                 else:
                     hi = mid
-            bias[kind] = round((lo + hi) / 2, 2)
-    return bias
+            if kind == "dog_spoke":
+                chain = round((lo + hi) / 2, 3)
+            else:
+                bias[kind] = round((lo + hi) / 2, 2)
+    return {**bias, "chain_base": chain}
 
 
 def _row(name: str, s: Stats) -> str:
@@ -251,7 +258,10 @@ def main() -> None:
     args = ap.parse_args()
     rec, t = Recording.load(), Tuning()
     if args.fit:
-        t = replace(t, kind_bias=fit(rec, t))
+        f = fit(rec, t)
+        chain = f.pop("chain_base")
+        t = replace(t, kind_bias=f, chain_base=chain)
+        print(f"chain_base = {chain}")
     print(report(rec, t, args.days, args.dogs))
 
 

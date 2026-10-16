@@ -418,3 +418,15 @@ def test_sleepy_reaction_at_night_can_be_sleep():
     dog.mood["졸림"] += 0.3
     p = model.probabilities(model.action_scores(STAND, dog, "sleepy", ["quiet"], T))
     assert p["sleep"] > 0.2
+
+
+# ---- 이어 말하기는 우리 모형: 성격 따라, 갈수록 줄어든다 (검수 005) ----
+
+
+def test_chain_probability_by_personality_and_depth():
+    from sim.simulate import archetype_dog
+    quiet, avg, lively = (archetype_dog(n) for n in ("과묵·차분", "평균", "활발·변덕쟁이"))
+    q1, a1, l1 = (model.chain_probability(d, 1, T) for d in (quiet, avg, lively))
+    assert q1 < 0.15 and q1 < a1 < l1
+    assert model.chain_probability(lively, 2, T) < 0.6 * l1
+    assert model.chain_probability(lively, 3, T) == 0.0

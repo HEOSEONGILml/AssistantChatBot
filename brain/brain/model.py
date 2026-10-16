@@ -237,6 +237,15 @@ def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: b
     return _sigmoid(x)
 
 
+def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
+    """방금 한 말에 한마디 더 할 확률 (검수 005). Jev는 이어 말하기를 잘 판단하지 못해(실사용 44% vs 녹화 시뮬레이션 28%)
+    우리 모형이 정한다: 말수가 적으면 거의 한 마디, 이어 갈수록 줄어든다."""
+    if streak >= t.max_streak:
+        return 0.0
+    ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
+    return min(0.9, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)) * t.chain_decay ** max(0, streak - 1))
+
+
 # ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----
 
 def habit_level(dog: Dog, kinds: list[str]) -> float:
