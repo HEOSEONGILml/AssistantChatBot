@@ -1,0 +1,7 @@
+{"name": "probe-excited-loop", "description": "활발한 강아지를 찌르고 쓰다듬은 뒤 30분: 자기 말로 들뜸이 1에 붙는가, 같은 말 반복, 얼마 만에 풀리나", "personality": "활발·변덕쟁이", "seed": 6, "start": "2026-10-19T15:00",
+ "steps": [
+  {"event": "poke"},
+  {"event": "pet", "context": {"seconds": 3.0}},
+  {"event": "poke"},
+  {"wait": 1800, "quiet": true}
+ ]}

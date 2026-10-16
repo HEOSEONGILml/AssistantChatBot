@@ -1,0 +1,6 @@
+{"name": "probe-night-alone", "description": "밤 11시에 자리에 있으나 조용히 둠(조용함 이벤트), 새벽까지: 졸림·잠, 먼저 말 걸기 빈도, 외로움 반응", "personality": "평균", "seed": 4, "start": "2026-10-19T23:00",
+ "steps": [
+  {"say": "나 이제 일 좀 할게"},
+  {"wait": 10800, "quiet": true},
+  {"get_state": true}
+ ]}
