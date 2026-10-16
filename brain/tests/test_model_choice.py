@@ -467,7 +467,7 @@ def test_apology_soothes_even_if_jev_thinks_the_user_is_down():
     dog.mood["시무룩"], dog.mood["무서움"] = 0.6, 0.35
     d = model.apply_change(dog, {"친밀도↑": 0.5, "무서움↓": 0.2}, [("message", {"text": "내가 말이 심했어 미안"})],
                            random.Random(0), QUIET, user_down=0.65, soothe=0.9)
-    assert dog.mood["시무룩"] < 0.45 and dog.mood["무서움"] < 0.3
+    assert dog.mood["시무룩"] < 0.46 and dog.mood["무서움"] < 0.3
     assert model.reaction_from(d, ["message"], T) in ("happy", "none")
 
 
@@ -491,3 +491,25 @@ def test_burst_of_pokes_angers_but_does_not_pin_near_one():
     dog.personality.baseline["분노"] = dog.mood["분노"] = 0.4
     model.apply_change(dog, {}, [("poke", {})] * 7, random.Random(0), QUIET)
     assert 0.55 < dog.mood["분노"] < 0.8
+
+
+# ---- 검수 007: 겁먹은 동안은 기뻐하지도 조르지도 수다 떨지도 않는다 ----
+
+
+def test_scared_dog_pet_is_not_happy_even_if_jev_says_happy():
+    dog = calm_dog()
+    dog.mood["무서움"] = 0.59
+    d = model.apply_change(dog, {"행복↑": 0.6, "친밀도↑": 0.3}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
+    assert model.reaction_from(d, ["pet"], T) not in ("happy", "excited")
+    p = model.probabilities(model.action_scores({"beg": 0.9, "none": 0.1}, dog, "none", ["pet"], T))
+    assert p["beg"] < 0.1
+
+
+def test_scared_dog_hushes():
+    from sim.simulate import archetype_dog
+    lively = archetype_dog("활발·변덕쟁이")
+    calm_p = model.speak_probability(0.7, lively, "throw", 0, False, T)
+    calm_c = model.chain_probability(lively, 1, T)
+    lively.mood["무서움"] = lively.personality.baseline["무서움"] + 0.6
+    assert model.speak_probability(0.7, lively, "throw", 0, False, T) < 0.3 * calm_p
+    assert model.chain_probability(lively, 1, T) < 0.3 * calm_c

@@ -483,7 +483,7 @@ async def test_requests_without_question_mark_count_as_asked(make):
     await env.brain.handle_event("message", {"text": "아까 네가 뭐 골랐는지 다시 말해 줘"})
     await env.brain.drain()
     asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    assert asked > flat + 0.2
+    assert asked > flat and asked > 0.95
 
 
 async def test_ignored_dog_speaks_up_less_and_less(make):

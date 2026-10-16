@@ -21,7 +21,7 @@ MOOD_REACTION_ID = {"심심함": "bored", "졸림": "sleepy", "들뜸": "excited
 # 동작 선택 (스펙 2026-10-16 동작 모형): 우리 모형 중심, Jev는 약하게. 기분은 기준값 대비로 본다
 MOOD_ACTION = {"stand": {"궁금함": 0.5, "놀람": 0.3}, "sit": {"행복": 0.3, "궁금함": 0.5, "졸림": 0.3},
                "lie_down": {"졸림": 0.7, "시무룩": 1, "무서움": 1}, "sleep": {"졸림": 1.5, "들뜸": -1, "무서움": -1},
-               "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
+               "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5, "무서움": -2}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
 ACTION_BASE = {"stand": 0.3, "sit": 0.3, "lie_down": 0.0, "sleep": -1.5, "beg": -0.5, "bark": -0.5, "none": 0.3}
 EVENT_ACTION = {"poke": {"bark": 0.8, "stand": 0.3}, "pet": {"beg": 0.8, "sit": 0.8, "lie_down": 0.3},
                 "throw": {"bark": 0.6, "lie_down": 0.6}, "quiet": {"lie_down": 0.8, "sit": 0.5, "sleep": 0.3},
@@ -147,11 +147,13 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.59, "message": -0.72, "dog_spoke": -0.11, "quiet": -1.96})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -2.51, "message": -0.29, "dog_spoke": -0.11, "quiet": -1.65})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 성격(말수)에 따라, 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%, 과묵도 50%)
-    chain_base: float = 0.369           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 20%(검수 006에서 30% → 20%), 질문하면 기다리므로 절반가량은 막힌다)
+    chain_base: float = 0.443           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 20%(검수 006에서 30% → 20%), 질문하면 기다리므로 절반가량은 막힌다)
     chain_talk: float = 1.2             # 평균 강아지보다 말수가 1 많으면 ×e^1.2 (과묵하면 거의 한 마디)
+    scared_gate: float = 0.3            # 무서움이 기준값보다 이만큼 높으면 기쁨·신남 반응을 내지 않는다 (검수 007)
+    fear_hush: float = 8.0              # 무서움 초과분 1당 말하기 로짓에서 뺀다 (검수 007: 겁먹은 활발 강아지가 55초에 9마디)
     chain_cap: float = 0.6              # 아무리 수다스러워도 덧말은 가끔 (검수 006: 활발 0.9로 매번)
     ignored_penalty: float = 0.7        # 먼저 말을 걸었는데 대꾸가 없을 때마다 먼저 말 걸기 로짓에서 뺀다 (검수 006)
     chain_decay: float = 0.3            # 한 번 더 이어 갈 때마다 곱함. 세 마디는 드물게

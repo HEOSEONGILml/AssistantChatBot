@@ -171,7 +171,9 @@ def temperature(dog: Dog) -> float:
 def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
     """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다.
     apply_change의 결과를 받으면 잡음을 뺀 신호로 뽑는다(잡음만으로 반응이 뜨지 않게, 검수 002)."""
+    blocked = {"행복", "들뜸"} if getattr(deltas, "scared", 0.0) >= t.scared_gate else set()
     deltas = getattr(deltas, "signal", deltas)
+    deltas = {d: v for d, v in deltas.items() if d not in blocked}
     mood, rise = max(((d, deltas.get(d, 0.0)) for d in MOODS), key=lambda x: x[1])
     if rise >= t.react_threshold:
         return MOOD_REACTION_ID[mood]
@@ -234,7 +236,8 @@ def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: b
     x = (_logit(p_jev) + talkativeness(dog, t) + t.kind_bias.get(kind, 0.0)
          - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0)
          + (t.ask_bonus if asked else 0.0) + (t.comfort_bonus if hurting else 0.0)
-         - (t.ignored_penalty * unanswered if kind == "quiet" else 0.0))  # 대꾸 없으면 점점 덜 조른다
+         - (t.ignored_penalty * unanswered if kind == "quiet" else 0.0)  # 대꾸 없으면 점점 덜 조른다
+         - t.fear_hush * max(0.0, dog.mood["무서움"] - dog.personality.baseline["무서움"]))  # 겁먹으면 입을 다문다 (검수 007)
     return _sigmoid(x)
 
 
@@ -245,7 +248,8 @@ def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
         return 0.0
     ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
     first = min(t.chain_cap, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
-    return first * t.chain_decay ** max(0, streak - 1)
+    hush = max(0.0, 1 - 2 * max(0.0, dog.mood["무서움"] - dog.personality.baseline["무서움"]))  # 겁먹으면 덧말이 없다
+    return first * hush * t.chain_decay ** max(0, streak - 1)
 
 
 # ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----
@@ -255,8 +259,10 @@ def habit_level(dog: Dog, kinds: list[str]) -> float:
 
 
 class Change(dict):
-    """기분 변화(실제로 움직인 양). .signal은 잡음을 뺀 신호(사전값 + Jev)로 반응을 뽑는 데 쓴다 (검수 002)."""
+    """기분 변화(실제로 움직인 양). .signal은 잡음을 뺀 신호(사전값 + Jev)로 반응을 뽑는 데 쓴다 (검수 002).
+    .scared는 판단 뒤 무서움이 기준값보다 높은 정도: 겁먹은 동안은 기쁨·신남 반응을 내지 않는다 (검수 007)."""
     signal: dict[str, float]
+    scared: float = 0.0
 
 
 def _combine(xs: list[float]) -> float:
@@ -302,6 +308,9 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     jev["궁금함"] *= 1 - u
     jev["행복"] = min(jev["행복"], 0.0) if u >= 0.5 else jev["행복"]
     jev["시무룩"] += t.empathy * u
+    for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)
+        if jev[d] > 0:
+            jev[d] *= 1 - wary
     for d in ("시무룩", "무서움", "분노"):
         jev[d] -= t.soothe_k * s
     signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
@@ -316,6 +325,7 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
         m[d] = clip(before + (x * (1 - before) if x > 0 else x * before))  # 끝에 가까울수록 덜 움직인다
         deltas[d] = m[d] - before
     deltas.signal = signal
+    deltas.scared = max(0.0, m["무서움"] - b["무서움"])
     delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0))
              + sum(appraisal_intimacy(k, ctx or {}) for k, ctx in events)) * damp
     dog.intimacy = clip(dog.intimacy + delta)
