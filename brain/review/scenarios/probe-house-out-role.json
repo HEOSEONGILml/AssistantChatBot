@@ -1,0 +1,11 @@
+{"name": "probe-house-out-role", "description": "강아지를 집에 20분 넣었다 꺼냄(네 성격): 집에 있던 쪽이 강아지인데 '드디어 나왔네·기다렸어'처럼 주인이 나온 것처럼 말하나, 꺼낸 뒤 질문에 맞게 답하나", "personality": "all", "seed": 31, "start": "2026-10-22T10:00",
+ "steps": [
+  {"say": "잠깐 집에 들어가 있어"},
+  {"wait": 5, "quiet": false},
+  {"event": "house_in"},
+  {"wait": 1200, "quiet": false},
+  {"event": "house_out", "context": {"away_seconds": 1200}},
+  {"wait": 20, "quiet": false},
+  {"say": "집에서 잘 쉬었어?"},
+  {"wait": 30, "quiet": false}
+ ]}
