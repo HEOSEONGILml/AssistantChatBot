@@ -380,3 +380,24 @@ def test_annoyed_dog_does_not_only_bark():
     dog.mood["분노"] += 0.4
     p = model.probabilities(model.action_scores(STAND, dog, "annoyed", ["poke"], T))
     assert 0.3 < p["bark"] < 0.75
+
+
+# ---- 검수 004: 성마른 강아지는 잘 안 풀리고, 무서울 때 쓰다듬어도 행복 반응이 아니다 ----
+
+
+def test_irritable_dog_is_harder_to_please():
+    calm, touchy = calm_dog(), calm_dog()
+    for d in model.MOODS:
+        touchy.personality.sensitivity[d] = 0.8
+    touchy.personality.baseline["분노"] = 0.4
+    touchy.mood["분노"] = 0.47
+    a = model.apply_change(calm, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET).signal["행복"]
+    b = model.apply_change(touchy, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET).signal["행복"]
+    assert b < a
+
+
+def test_scared_dog_is_not_happy_from_a_pet():
+    dog = calm_dog()
+    dog.mood["무서움"] = 0.84
+    d = model.apply_change(dog, {"행복↑": 0.3}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
+    assert model.reaction_from(d, ["pet"], T) != "happy"

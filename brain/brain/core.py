@@ -40,6 +40,7 @@ class Brain:
         self._phase: str | None = None     # judging / speaking
         self._streak = 0                   # 사용자 입력 없이 강아지가 연달아 말한 횟수
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
+        self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
         self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
         self._in_house = False             # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002)
         self._sent_movement: dict | None = None
@@ -141,6 +142,7 @@ class Brain:
         # 연달아 말하기는 한 흐름(말풍선이 뜨고 이어 말하기) 안에서만 센다. 다른 일이 생기면 새 흐름이다
         if kind != "dog_spoke":
             self._streak = 0
+            self._flow = kind  # 이 흐름을 연 이벤트
             self._hold = False
         if kind in ("message", "typing"):
             self._waiting = False
@@ -276,7 +278,9 @@ class Brain:
         self._store.add(Event(self._clock(), "dog", "dog", {"utterance": line}))
         self._streak += 1
         self._hold = kinds[-1] == "typing" or (kinds[-1] == "message" and rd.change.get("친밀도↓", 0.0) >= 0.4)
-        self._waiting = "?" in line  # "…? 멍!"도 질문이다 (검수 002)
+        # "…? 멍!"도 질문이다 (검수 002). 다만 사용자와 말을 주고받는 흐름의 질문만 답을 기다린다.
+        # 조용함·몸 이벤트에서 나온 혼잣말 질문은 기다리지 않는다 (검수 004: 혼잣말 질문마다 서운함)
+        self._waiting = "?" in line and self._flow in ("message", "typing")
 
     async def _push_movement(self) -> None:
         if not self._connected or self._in_house:

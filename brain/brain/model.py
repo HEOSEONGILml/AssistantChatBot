@@ -64,10 +64,11 @@ def circadian(hour: float) -> float:
     return 0.5 * math.cos(2 * math.pi * (hour - CIRCADIAN_PEAK_HOUR) / 24)
 
 
-def rest_point(dog: "Dog", mood: str, ts: float) -> float:
-    """기분이 돌아가는 자리: 기준값 + 하루 리듬 (시간 모형 스펙)."""
+def rest_point(dog: "Dog", mood: str, ts: float, push: float = 0.0) -> float:
+    """기분이 돌아가는 자리: 기준값 + 하루 리듬 (시간 모형 스펙) − 반대 기분이 누르는 만큼(push, 검수 004)."""
     dt = datetime.fromtimestamp(ts)
-    return clip(dog.personality.baseline[mood] + CIRCADIAN.get(mood, 0.0) * circadian(dt.hour + dt.minute / 60))
+    base = clip(dog.personality.baseline[mood] + CIRCADIAN.get(mood, 0.0) * circadian(dt.hour + dt.minute / 60))
+    return max(0.25 * base, base - push)  # 눌려도 자리의 4분의 1 아래로는 내려가지 않는다(0에 붙지 않게)
 
 
 def half_life(t: Tuning, mood: str, baseline: float) -> float:
@@ -79,10 +80,19 @@ def advance(dog: Dog, now: float, rng, t: Tuning) -> None:
     """지난 갱신 뒤로 흐른 시간만큼 기분·친밀도·습관화를 평균 회귀시키고, 날이 바뀌었으면 기준값을 옮긴다."""
     dt = now - dog.updated_at
     if dt > 0:
+        b, m0 = dog.personality.baseline, dict(dog.mood)
+        lam = {d: LN2 / half_life(t, d, b[d]) for d in MOODS}
+        # 반대 기분이 기준값보다 높은 만큼 돌아갈 자리를 누른다: 겁먹은 동안 들뜸도 가라앉는다 (검수 004).
+        # 그 높은 정도도 이 시간 동안 풀리므로 구간 평균(1 − e^−λΔt)/(λΔt)을 쓴다
+        avg = {d: (1 - math.exp(-lam[d] * dt)) / (lam[d] * dt) for d in MOODS}
+        push = {d: 0.0 for d in MOODS}
+        for a, c in OPPOSITES:
+            push[c] += t.rest_inhibit * max(0.0, m0[a] - b[a]) * avg[a]
+            push[a] += t.rest_inhibit * max(0.0, m0[c] - b[c]) * avg[c]
         for d in MOODS:
-            mu = rest_point(dog, d, now)
-            e = math.exp(-LN2 / half_life(t, d, dog.personality.baseline[d]) * dt)
-            dog.mood[d] = clip(mu + (dog.mood[d] - mu) * e + t.mood_noise * math.sqrt(1 - e * e) * rng.gauss(0, 1))
+            mu = rest_point(dog, d, now, push[d])
+            e = math.exp(-lam[d] * dt)
+            dog.mood[d] = clip(mu + (m0[d] - mu) * e + t.mood_noise * math.sqrt(1 - e * e) * rng.gauss(0, 1))
         e = math.exp(-LN2 / t.intimacy_half_life_s * dt)
         dog.intimacy = clip(INTIMACY_START + (dog.intimacy - INTIMACY_START) * e)
         e = math.exp(-LN2 / t.habit_half_life_s * dt)
@@ -253,7 +263,8 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     w = JEV_WEIGHT.get(kinds[-1], JEV_WEIGHT_OTHER) if kinds else JEV_WEIGHT_OTHER
     sens = dog.personality.sensitivity
     m, b = dog.mood, dog.personality.baseline
-    wary = min(1.0, 2 * max(0.0, m["분노"] - b["분노"], m["무서움"] - b["무서움"]))
+    # 화나거나 무서운 정도(절대 수준): 성마른 강아지(분노 기준값이 높음)는 평소에도 잘 안 풀린다 (검수 004)
+    wary = min(1.0, 2 * max(0.0, max(m["분노"], m["무서움"]) - 0.15))
     parts: dict[str, list[float]] = {d: [] for d in MOODS}
     for k, ctx in events:
         h = dog.habit.get(k, 0.0)

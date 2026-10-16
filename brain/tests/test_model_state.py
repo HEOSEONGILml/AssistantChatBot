@@ -168,3 +168,12 @@ def test_circadian_does_not_shift_the_daily_mean():
     hours = [model.circadian(h) for h in range(24)]
     assert sum(hours) / 24 == pytest.approx(0.0, abs=1e-9)
     assert max(hours) == model.circadian(3) and min(hours) == model.circadian(15)
+
+
+def test_fear_pulls_excitement_down_over_time():
+    # 반대 기분은 시간 위에서도 서로 누른다: 겁먹은 동안 들뜸이 돌아갈 자리도 내려간다 (검수 004)
+    dog = model.default_dog(ts())
+    dog.personality.baseline["들뜸"] = dog.mood["들뜸"] = 0.7
+    dog.mood["무서움"] = 0.8
+    model.advance(dog, ts() + 600, random.Random(0), QUIET)
+    assert dog.mood["들뜸"] < 0.5

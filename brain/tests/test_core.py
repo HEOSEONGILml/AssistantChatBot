@@ -422,3 +422,15 @@ async def test_dialogue_gets_the_conversation_even_after_many_events(make):
     await env.brain.drain()
     prompt = env.talker.calls[-1][1]
     assert "내일이 내 생일이야 기억해 줘" in prompt and "대화 기록" in prompt
+
+
+async def test_rhetorical_question_outside_a_conversation_does_not_wait(make):
+    # 조용함에서 나온 혼잣말 질문("놀아 줄 사람 없나?")은 답을 기다리지 않는다. 대화 중 질문만 기다린다 (검수 004)
+    env = await make(tuning=SPEAK)
+    env.talker.line = "놀아 줄 사람 없나?"
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert not env.brain._waiting
+    await env.brain.handle_event("message", {"text": "안녕"})
+    await env.brain.drain()
+    assert env.brain._waiting

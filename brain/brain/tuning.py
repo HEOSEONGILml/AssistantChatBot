@@ -46,7 +46,7 @@ def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiti
     """이벤트 하나가 기분에 주는 충격. 뜻이 정해진 이벤트는 우리가 정한다(Jev가 던지기를 행복으로 읽는 등 틀리기 때문).
     habit: 이 자극에 익숙한 정도(찌르기는 익숙할수록 짜증이 쌓인다). wary: 지금 화나거나 무서운 정도(쓰다듬기를 경계한다)."""
     if kind == "poke":
-        return {"놀람": 0.20, "분노": 0.06 + 0.15 * habit, "궁금함": 0.03}
+        return {"놀람": 0.20, "분노": 0.06 + 0.10 * habit, "궁금함": 0.03 * (1 - habit)}  # 익숙하면 궁금하지 않다 (검수 004)
     if kind == "pet":
         s = min(float(ctx.get("seconds") or 3.0), 5.0) / 3.0
         g = 1 - wary
@@ -124,6 +124,7 @@ class Tuning:
     change_k: float = 0.3               # 메시지의 강한 내용 (P↑−P↓) ±0.6 → 평균 강아지 ±0.18
     change_noise: float = 0.01          # 0.02는 Jev 신호와 같은 크기라 반응이 잡음으로 뽑혔다 (검수 001)
     inhibit: float = 0.3                # 반대 기분 억제 비율. 0.6은 쓰다듬기 한 번에 나쁜 기분을 0으로 지웠다 (검수 002)
+    rest_inhibit: float = 1.5           # 반대 기분이 기준값보다 높은 만큼 돌아갈 자리를 낮춘다 (검수 004: 무서움·들뜸 함께 5분 30초)
     intimacy_k: float = 0.02            # 0.05는 첫 12분에 0.30 → 0.35로 빨랐다 (검수 001)
     # 기질로 되돌아가는 힘. drift_rate와 같으면 성격은 기질과 경험의 한가운데에 자리 잡는다.
     # 이 힘이 없으면 8주 시뮬레이션에서 모든 강아지가 같은 성격으로 수렴했다 (docs/spikes/2026-10-15-simulation.md)
@@ -142,7 +143,7 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -3.0, "message": -0.71, "dog_spoke": -0.47, "quiet": -2.02})
+                                                     "typing": -2.98, "message": -0.29, "dog_spoke": -0.15, "quiet": -1.99})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
