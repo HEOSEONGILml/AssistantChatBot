@@ -302,3 +302,22 @@ def test_ignored_question_makes_sad():
     a = model.apply_change(plain, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET).signal["시무룩"]
     b = model.apply_change(ignored, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, waiting=True).signal["시무룩"]
     assert b > a + 0.1
+
+
+# ---- 타이핑에 익숙해지면 글 내용이 드러난다 (검수 002) ----
+
+
+def test_used_to_typing_lets_the_content_show():
+    # 실측 Jev: 슬픈 글을 쓰는 동안에도 궁금함↑ 0.4~0.56, 시무룩↑ 0.14. 타이핑이 이어지면 궁금함만 무뎌진다
+    dog = calm_dog()
+    rng = random.Random(0)
+    reactions = [model.reaction_from(model.apply_change(dog, {"궁금함↑": 0.4, "시무룩↑": 0.15}, [("typing", {})], rng, QUIET), ["typing"], T)
+                 for _ in range(5)]
+    assert reactions[0] == "curious" and reactions[-1] == "sad"
+
+
+def test_habituation_only_dulls_its_target_mood_in_jev_part_too():
+    dog = calm_dog()
+    dog.habit["poke"] = 0.9
+    d = model.apply_change(dog, {"분노↑": 0.5}, [("poke", {})], random.Random(0), QUIET)
+    assert d.signal["분노"] > 0.15  # 찌르기에 익숙해도 Jev의 분노 신호는 줄지 않는다

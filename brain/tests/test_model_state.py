@@ -119,7 +119,7 @@ def test_saved_dog_missing_habit_keys_gets_defaults():
     data = model.dog_to_dict(model.default_dog(ts()))
     data["habit"] = {"poke": 0.5}
     dog = model.dog_from_dict(data)
-    assert dog.habit == {"poke": 0.5, "pet": 0.0, "throw": 0.0}
+    assert dog.habit == {"poke": 0.5, "pet": 0.0, "throw": 0.0, "typing": 0.0}
 
 
 def test_nine_moods():

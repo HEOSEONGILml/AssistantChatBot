@@ -5,7 +5,7 @@ export type Row = { label: string; value: number; note?: string }; // value: 막
 export type Section = { title: string; rows: Row[] };
 
 const MOODS = ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움", "행복"];
-const HABITS: Record<string, string> = { poke: "찌르기", pet: "쓰다듬기", throw: "던지기" };
+const HABITS: Record<string, string> = { poke: "찌르기", pet: "쓰다듬기", throw: "던지기", typing: "타이핑" };
 const MOVES: Record<string, string> = { rest: "쉬기", sleep: "잠", roam: "돌아다니기", approach: "사용자 곁으로", play: "놀기", explore: "구경하기" };
 export const REACTION_NAMES: Record<string, string> = { bored: "지루함", sleepy: "하품", excited: "신남", sad: "서운함", annoyed: "짜증", curious: "궁금함", surprised: "놀람", scared: "무서움", happy: "행복", none: "없음" };
 export const ACTION_NAMES: Record<string, string> = { stand: "서기", sit: "앉기", lie_down: "엎드리기", sleep: "잠", beg: "조르기", bark: "짖기", none: "없음" };

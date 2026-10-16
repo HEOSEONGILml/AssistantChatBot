@@ -245,7 +245,9 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
-    damp = 1 - habit_level(dog, kinds)   # Jev 조정에 쓰는 습관화 (묶음 시작 때)
+    damp = 1 - habit_level(dog, kinds)   # 친밀도 조정에 쓰는 습관화 (묶음 시작 때)
+    # Jev 조정도 습관화 대상 기분만 줄인다 (검수 002: 타이핑의 궁금함만 무뎌지고 글 내용의 기분은 남게)
+    jev_damp = {d: 1 - max((dog.habit[k] for k in kinds if HABIT_KINDS.get(k) == d), default=0.0) for d in MOODS}
     w = JEV_WEIGHT.get(kinds[-1], JEV_WEIGHT_OTHER) if kinds else JEV_WEIGHT_OTHER
     sens = dog.personality.sensitivity
     m, b = dog.mood, dog.personality.baseline
@@ -262,7 +264,7 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
         for d, r in moods.items():
             jev[d] += r * change.get(rel, 0.0)
-    signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * damp for d in MOODS}
+    signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
     rises = dict(signal)
     for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
         signal[c] -= t.inhibit * max(rises[a], 0.0)

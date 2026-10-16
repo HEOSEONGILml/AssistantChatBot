@@ -20,10 +20,17 @@ def test_prompt_lists_own_recent_lines_and_why_speaking():
     p = dialogue_prompt({"기분": {}}, "happy", "beg", ["typing"], ["멍! 또 찔렀다!", "왈, 심심해"])
     data = json.loads(p.split("\n")[0])
     assert data["내가 최근에 한 말"] == ["멍! 또 찔렀다!", "왈, 심심해"]
-    assert "타이핑" in data["지금 말하는 상황"]
+    assert "끼어든다" in data["지금 말하는 상황"]
     assert "같은 말" in p
 
 
 def test_prompt_for_chained_line_says_continue_not_repeat():
     p = dialogue_prompt({}, "none", "none", ["dog_spoke"], ["멍, 놀자!"])
     assert "이어" in json.loads(p.split("\n")[0])["지금 말하는 상황"]
+
+
+def test_interjection_reacts_to_what_is_being_typed():
+    state = {"이번 이벤트들": [{"종류": "타이핑", "맥락": {"글": "오늘 팀장님이 내 발표를"}}]}
+    data = json.loads(dialogue_prompt(state, "sad", "sit", ["typing"], []).split("\n")[0])
+    assert data["쓰는 중인 글"] == "오늘 팀장님이 내 발표를"
+    assert "무슨 글" in data["지금 말하는 상황"]  # '무슨 글 써?'처럼 모르는 척 묻지 말라는 지시

@@ -33,7 +33,7 @@ REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 1}, "surprised": {
 TALK_MOOD = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
 TALK_BASELINE = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
 # 습관화 (스펙 4.5): 대상 자극과 그 자극이 주로 건드리는 기분
-HABIT_KINDS = {"poke": "놀람", "pet": "행복", "throw": "무서움"}  # 반복해서 던지면 덜 무서워한다
+HABIT_KINDS = {"poke": "놀람", "pet": "행복", "throw": "무서움", "typing": "궁금함"}  # 타이핑에 익숙해지면 글 내용이 드러난다 (검수 002)  # 반복해서 던지면 덜 무서워한다
 # 하루 리듬 (시간 모형 스펙): 기분이 돌아가는 자리(기준값)가 시각에 따라 이만큼 × 리듬값(새벽 3시 +0.5, 오후 3시 −0.5) 움직인다.
 # 하루 평균은 0이라 성격(기준값)과 하루 평균 기분은 그대로다. 검수 001: 새벽 2시에 졸리지 않고 놀자고 조름
 CIRCADIAN = {"졸림": 0.6, "들뜸": -0.2, "심심함": -0.2}
@@ -81,7 +81,7 @@ def appraisal_intimacy(kind: str, ctx: dict) -> float:
 RELATION_MOOD = {"친밀도↓": {"시무룩": 0.8}, "친밀도↑": {"행복": 0.5}}
 
 # Jev 변화 분포를 얼마나 믿나: 글 내용이 중요한 메시지는 크게, 뜻이 정해진 이벤트는 작게, 자기 말은 0
-JEV_WEIGHT = {"message": 1.0, "typing": 0.5, "dog_spoke": 0.0}
+JEV_WEIGHT = {"message": 1.0, "typing": 0.8, "dog_spoke": 0.0}  # 타이핑도 글 내용이 중요 (검수 002: 0.5 → 0.8)
 JEV_WEIGHT_OTHER = 0.3
 # 함께 높으면 어색한 반대 기분 쌍: 한쪽이 오르면 다른 쪽이 내린다 (검수 001)
 OPPOSITES = (("무서움", "행복"), ("무서움", "들뜸"), ("분노", "행복"), ("시무룩", "들뜸"), ("시무룩", "행복"), ("졸림", "들뜸"))
@@ -132,7 +132,7 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.85, "message": -0.28, "dog_spoke": -0.14, "quiet": -1.86})
+                                                     "typing": -2.78, "message": -0.27, "dog_spoke": -0.28, "quiet": -1.86})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)

@@ -14,6 +14,10 @@ describe("stateSections", () => {
   test("기분·관계·성격·습관화·움직임 순서로 보여 준다", () => {
     expect(stateSections(state).map((s) => s.title)).toEqual(["기분", "관계·말수", "성격 (기준값 / 기질)", "민감도·변덕", "습관화", "평소 움직임 경향"]);
   });
+  test("습관화는 타이핑까지 네 가지를 보여 준다", () => {
+    const habit = stateSections(state).find((s) => s.title === "습관화")!;
+    expect(habit.rows.map((r) => r.label)).toEqual(["찌르기", "쓰다듬기", "던지기", "타이핑"]);
+  });
   test("기분 8개를 모두 보여 준다", () => {
     expect(stateSections(state)[0].rows.map((r) => r.label)).toEqual(Object.keys(MOODS));
   });

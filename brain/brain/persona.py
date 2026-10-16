@@ -27,7 +27,7 @@ def system_instruction() -> str:
             f"기본 성격: {PERSONA}\n말투: {STYLE}\n{EVENT_MEANING}\n{RULES}")
 
 
-SITUATION = {"typing": "사용자가 타이핑하는 중에 끼어든다", "message": "사용자의 말에 답한다",
+SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')의 내용에 짧게 반응하며 끼어든다. '무슨 글 써?'처럼 내용을 모르는 척 묻지 않는다", "message": "사용자의 말에 답한다",
              "dog_spoke": "방금 한 내 말에 이어 한마디 더 한다(새 내용으로)", "quiet": "한동안 조용해서 먼저 말을 건다",
              "returned": "돌아온 사용자를 맞이한다", "house_out": "집에서 나와 말을 건다",
              "poke": "찔린 것에 반응한다", "pet": "쓰다듬어 준 것에 반응한다", "throw": "던져진 것에 반응한다"}
@@ -37,6 +37,9 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
     data = {**state, "이번에 뽑힌 반응": REACTION_NAMES[reaction], "이번에 뽑힌 동작": ACTION_NAMES[action],
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
             "내가 최근에 한 말": own_lines}
+    typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
+    if kinds and kinds[-1] == "typing" and typing and typing[-1]:
+        data["쓰는 중인 글"] = typing[-1]
     return (json.dumps(data, ensure_ascii=False)
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
