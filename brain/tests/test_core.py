@@ -133,12 +133,17 @@ async def test_auth_error_then_new_keys_recover(make):
     assert len(env.jev.calls) == 2
 
 
-async def test_jev_call_error_skips(make):
-    env = await make()
+async def test_jev_call_error_still_reacts_by_our_appraisal(make):
+    # Jev가 실패해도 찔리면 놀란다: 사전값은 우리 모형 몫이다. 대사는 없다 (검수 002)
+    env = await make(tuning=SPEAK)
     env.jev.error = CallError("timeout")
-    await env.brain.handle_event("message", {"text": "a"})
+    before = env.brain.dog.mood["놀람"]
+    await env.brain.handle_event("poke", {})
     await env.brain.drain()
-    assert [m for m in env.out if m["type"] == "reaction"] == []
+    reactions = [m for m in env.out if m["type"] == "reaction"]
+    assert reactions and reactions[0]["reaction"] == "surprised" and "utterance" not in reactions[0]
+    assert env.brain.dog.mood["놀람"] > before
+    assert env.talker.calls == []
 
 
 async def test_talker_error_keeps_reaction(make):

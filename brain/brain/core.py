@@ -8,7 +8,7 @@ from collections import deque
 from typing import Awaitable, Callable
 
 from . import model
-from .clients import AuthError, CallError, Jev, Talker
+from .clients import AuthError, CallError, Jev, Readout, Talker
 from .persona import dialogue_prompt, system_instruction, trim_line
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
@@ -213,9 +213,10 @@ class Brain:
             await self._set_ai("bad_key")
             return
         except CallError as e:
+            # Jev 없이도 우리 평가 사전값으로 기분·반응·동작은 낸다. 대사는 없다 (검수 002)
             entry["error"] = f"Jev 실패: {e}"
-            log.warning("Jev 실패(%s). 이번 판단은 건너뛴다", e)
-            return
+            log.warning("Jev 실패(%s). 우리 모형만으로 반응하고 말하지 않는다", e)
+            rd = Readout({}, 0.0, {})
         kinds = [e.kind for e in batch]
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t)
@@ -224,7 +225,7 @@ class Brain:
         action = model.pick(a_scores, self._rng)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
-        if kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and self._interjected):
+        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and self._interjected):
             p_speak = 0.0
         else:
             p_speak = model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)

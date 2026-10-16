@@ -159,7 +159,9 @@ def temperature(dog: Dog) -> float:
 
 
 def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
-    """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다."""
+    """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다.
+    apply_change의 결과를 받으면 잡음을 뺀 신호로 뽑는다(잡음만으로 반응이 뜨지 않게, 검수 002)."""
+    deltas = getattr(deltas, "signal", deltas)
     mood, rise = max(((d, deltas.get(d, 0.0)) for d in MOODS), key=lambda x: x[1])
     if rise >= t.react_threshold:
         return MOOD_REACTION_ID[mood]
@@ -226,35 +228,52 @@ def habit_level(dog: Dog, kinds: list[str]) -> float:
     return max((dog.habit[k] for k in kinds if k in HABIT_KINDS), default=0.0)
 
 
-def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning) -> dict[str, float]:
-    """기분 변화 (스펙 2026-10-16): 우리 평가 사전값 + Jev 조정 × 민감도 × (1 − 습관화) + 흔들림, 그리고 반대 기분 억제."""
+class Change(dict):
+    """기분 변화(실제로 움직인 양). .signal은 잡음을 뺀 신호(사전값 + Jev)로 반응을 뽑는 데 쓴다 (검수 002)."""
+    signal: dict[str, float]
+
+
+def _combine(xs: list[float]) -> float:
+    """같은 기분에 온 충격들을 확률의 합처럼 합친다: 연타가 몇 배로 쌓이지 않는다 (검수 002)."""
+    up = 1.0 - math.prod(1 - min(x, 0.99) for x in xs if x > 0)
+    down = 1.0 - math.prod(1 - min(-x, 0.99) for x in xs if x < 0)
+    return up - down
+
+
+def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning) -> Change:
+    """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
+    Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
-    damp = 1 - habit_level(dog, kinds)
+    damp = 1 - habit_level(dog, kinds)   # Jev 조정에 쓰는 습관화 (묶음 시작 때)
     w = JEV_WEIGHT.get(kinds[-1], JEV_WEIGHT_OTHER) if kinds else JEV_WEIGHT_OTHER
     sens = dog.personality.sensitivity
-    impulse = {d: 0.0 for d in MOODS}
+    m, b = dog.mood, dog.personality.baseline
+    wary = min(1.0, 2 * max(0.0, m["분노"] - b["분노"], m["무서움"] - b["무서움"]))
+    parts: dict[str, list[float]] = {d: [] for d in MOODS}
     for k, ctx in events:
-        for d, v in appraisal(k, ctx or {}).items():
-            impulse[d] += v
-    deltas = {}
+        h = dog.habit.get(k, 0.0)
+        for d, v in appraisal(k, ctx or {}, h, wary).items():
+            parts[d].append(v * 2 * sens[d] * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
+        if k in HABIT_KINDS:  # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정). 묶음 안에서도 쌓인다
+            lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
+            dog.habit[k] += lam * (1 - dog.habit[k])
+    signal = {d: _combine(parts[d]) + t.change_k * w * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0)) * 2 * sens[d] * damp
+              for d in MOODS}
+    rises = dict(signal)
+    for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
+        signal[c] -= t.inhibit * max(rises[a], 0.0)
+        signal[a] -= t.inhibit * max(rises[c], 0.0)
+    deltas = Change()
     for d in MOODS:
-        jev = t.change_k * w * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0))
-        deltas[d] = (impulse[d] + jev) * 2 * sens[d] * damp + rng.gauss(0, t.change_noise)
-    rises = dict(deltas)
-    for a, b in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
-        deltas[b] -= t.inhibit * max(rises[a], 0.0)
-        deltas[a] -= t.inhibit * max(rises[b], 0.0)
-    for d in MOODS:
-        before = dog.mood[d]
-        dog.mood[d] = clip(before + deltas[d])
+        x = signal[d] + rng.gauss(0, t.change_noise)
+        before = m[d]
+        m[d] = clip(before + (x * (1 - before) if x > 0 else x * before))  # 끝에 가까울수록 덜 움직인다
+        deltas[d] = m[d] - before
+    deltas.signal = signal
     delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0))
              + sum(appraisal_intimacy(k, ctx or {}) for k, ctx in events)) * damp
     dog.intimacy = clip(dog.intimacy + delta)
     deltas["친밀도"] = delta
-    # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정)
-    for k in set(kinds) & set(HABIT_KINDS):
-        lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
-        dog.habit[k] += lam * (1 - dog.habit[k])
     return deltas
 
 

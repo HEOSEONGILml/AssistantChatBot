@@ -110,7 +110,7 @@ def test_change_moves_mood_by_sensitivity_and_clips():
     dog = neutral()
     dog.personality.sensitivity["분노"] = 0.8
     model.apply_change(dog, {"분노↑": 1.0}, [("message", {})], random.Random(0), replace(T, change_noise=0.0))
-    assert dog.mood["분노"] == pytest.approx(0.5 + 0.3 * 2 * 0.8)  # 메시지는 Jev 가중치 1, 민감도 0.5가 배율 1
+    assert dog.mood["분노"] == pytest.approx(0.5 + 0.3 * 2 * 0.8 * 0.5)  # 메시지는 Jev 가중치 1, 민감도 0.5가 배율 1, 남은 여유 0.5만큼
     model.apply_change(dog, {"분노↑": 1.0}, [("message", {})], random.Random(0), replace(T, change_noise=0.0, change_k=5.0))
     assert dog.mood["분노"] == 1.0
 
@@ -182,7 +182,7 @@ def test_rising_anger_pushes_happiness_down():
     dog = calm_dog()
     before = dog.mood["행복"]
     model.apply_change(dog, {"분노↑": 1.0}, [("message", {"text": "저리 가"})], random.Random(0), QUIET)
-    assert dog.mood["행복"] < before - 0.1
+    assert dog.mood["행복"] < before - 0.03  # 억제 ρ 0.3, 지금 값에 비례해 내린다 (검수 002)
 
 
 def test_quiet_is_boring_not_scary():
@@ -229,3 +229,52 @@ def test_high_baseline_alone_does_not_force_sleep():
     dog = calm_dog()
     dog.personality.baseline["졸림"] = dog.mood["졸림"] = 0.8
     assert model.probabilities(model.action_scores(STAND, dog, "none", ["message"], T))["sleep"] < 0.1
+
+
+# ---- 기분 갱신 수식 (스펙 2026-10-16 mood-update-math, 검수 002) ----
+
+
+def test_one_pet_does_not_wipe_bad_moods():
+    dog = calm_dog()
+    model.apply_change(dog, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
+    for d in ("시무룩", "분노", "무서움"):
+        assert dog.mood[d] > 0.5 * model.BIRTH_BASELINE[d]
+
+
+def test_moods_do_not_stick_at_the_top():
+    dog = calm_dog()
+    dog.mood["놀람"] = 0.95
+    deltas = model.apply_change(dog, {}, [("poke", {})], random.Random(0), QUIET)
+    assert 0 < deltas["놀람"] < 0.02 and dog.mood["놀람"] < 1.0
+
+
+def test_burst_of_pokes_saturates_and_habituates_inside_the_batch():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {}, [("poke", {})] * 7, random.Random(0), QUIET)
+    assert deltas.signal["놀람"] < 1.0
+    assert dog.habit["poke"] > 0.8
+
+
+def test_repeated_pokes_turn_surprise_into_annoyance():
+    dog = calm_dog()
+    rng = random.Random(0)
+    first = model.apply_change(dog, {}, [("poke", {})], rng, QUIET).signal
+    for _ in range(5):
+        later = model.apply_change(dog, {}, [("poke", {})], rng, QUIET).signal
+    assert later["놀람"] < first["놀람"] and later["분노"] > first["분노"]
+    assert model.reaction_from(later, ["poke"], T) == "annoyed"
+
+
+def test_angry_dog_is_wary_of_the_first_pet():
+    calm, angry = calm_dog(), calm_dog()
+    angry.mood["분노"] = 0.6
+    a = model.apply_change(calm, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET).signal["행복"]
+    b = model.apply_change(angry, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET).signal["행복"]
+    assert b < 0.3 * a
+
+
+def test_noise_alone_never_makes_a_reaction():
+    noisy = replace(T, change_noise=0.05)
+    for seed in range(200):
+        d = model.apply_change(calm_dog(), {"분노↑": 0.9}, [("dog_spoke", {"text": "멍?"})], random.Random(seed), noisy)
+        assert model.reaction_from(d, ["dog_spoke"], T) == "none"
