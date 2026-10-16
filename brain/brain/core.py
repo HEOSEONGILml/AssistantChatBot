@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, date_facts, dialogue_prompt, frequent_phrases, system_instruction, trim_line, voice
+from .persona import annotate_dates, date_facts, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -303,6 +303,15 @@ class Brain:
                 facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
             elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
                 facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 밖에 있었다")
+            # 집에 넣은 쪽은 주인이고, 넣기 직전 주인 말이 이유일 수 있다 (검수 011: "왜 집에 있었는지 알아?" → "밖이 조용해서")
+            put_in = [e for e in recent if e.kind == "house_in" and now - e.ts < 1800]
+            if put_in:
+                before = [e.data.get("text", "") for e in recent if e.kind == "message" and 0 <= put_in[-1].ts - e.ts < 120]
+                facts.append("주인이 나를 집에 넣었다(내가 들어간 게 아니다)" + (f". 넣기 직전 주인이 한 말: {before[-1]}" if before else ""))
+            if kinds[-1] == "message":
+                said_now = talk[-1].data.get("text", "") if talk and talk[-1].kind == "message" else ""
+                facts.append(f"주인이 방금 '{said_now}'라고 했다. 이것은 주인 자신의 일이다. 주인이 이미 했다고 한 일은 했느냐고 되묻지 않는다. "
+                             "나는 먹거나 마시거나 냄새 맡지 않았다")
             facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
             if kinds[-1] == "message":  # 끼어들며 한 말도 내 말이다: 메시지에 답할 때 뒤집지 않는다 (검수 006)
                 said = [e.data["utterance"] for e in talk[:-1] if e.kind == "dog"]
@@ -310,10 +319,14 @@ class Brain:
                 just = [e.data["utterance"] for e in talk[prev_msg + 1:-1] if e.kind == "dog"]
                 if just and said:
                     facts.append(f"방금 네가 한 말: {just[-1]} — 이 말과 어긋나지 않게 이어 간다")
+            topic = ""
+            if kinds[-1] == "quiet":  # 혼자 둘 때 말의 실마리를 우리 모형이 뽑는다 (검수 011)
+                heard = [e.data.get("text", "") for e in talk if e.kind == "message" and now - e.ts < 6 * 3600]
+                topic = self._rng.choice(quiet_topics(heard, _MOOD_KO.get(model.dominant_mood(dog, t), ""), model.ACTION_NAMES.get(action, "")))
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
                                                                                           conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts,
                                                                                           _MOOD_KO.get(model.dominant_mood(dog, t), ""),
-                                                                                          frequent_phrases(lines40))), v["문장 수"])
+                                                                                          frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:])
         except AuthError:
             await self._set_ai("bad_key")
             return

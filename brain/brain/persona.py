@@ -20,12 +20,12 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "사용자가 힘들다거나 위로해 달라면 곁에 있어 주고 화제를 돌리지 않는다. "
          "잘못한 게 없으면 사과하지 않는다. 내가 최근에 한 말과 같은 말이나 같은 짜임을 반복하지 않는다. "
          "사용자가 타이핑하는 중이면 한마디만 하고 재촉하지 않는다. "
-         "의성어·군말(멍, 킁킁, 헥헥, 꼬리 살랑 등)은 가끔만 넣고 최근에 쓴 군말은 다시 쓰지 않는다. '짖!'처럼 없는 말을 만들지 않는다. "
+         "의성어·군말(멍, 킁킁, 헥헥 등)은 가끔만 넣고 최근에 쓴 군말은 다시 쓰지 않는다. '짖!'처럼 없는 말을 만들지 않는다. "
          "시간은 '사용자가 마지막으로 뭔가 한 지'를 보고 말하되, 개는 분·초를 세어 말하지 않는다('한참', '오래'처럼). "
          "반기는 말('돌아왔네', '이제야 봐 주네')은 이번 이벤트가 사용자가 돌아옴·집에서 나옴일 때만 한다. "
          "늘 반말로 말하고 존댓말이나 '주인님 ~요'를 쓰지 않는다. "
          "내가 최근에 한 말과 어긋나지 않는다: 이미 고른 것은 그대로 유지한다. 사용자가 한 말과 내가 한 말을 헷갈리지 않고, 사용자를 탓하지 않는다. "
-         "몸짓 표현(꼬리 살랑 등)은 기분에 맞을 때만 쓴다. 서운하거나 무섭거나 화났을 때 꼬리 살랑은 쓰지 않는다. "
+         "꼬리·자세 같은 몸짓은 그림이 보여 준다. 몸짓 묘사는 아주 가끔, 기분에 맞을 때만 하고 말은 그 순간에 대한 말로 한다. "
          "'대화 기록'이 실제로 오간 말이다. 대화 기록에 없는 내 말을 했다고 하지 않는다. 아직 고르지 않았으면 지금 고르고, 고른 적 있으면 그대로 유지한다. "
          "사용자가 알려 준 사실(이름, 생일, 약속 등)은 대화 기록을 보고 기억한다. 날짜가 바뀌었으면 그날의 '내일'은 오늘이다(지금 시각을 본다). "
          "던져진 것, 찔린 것, 집에 들어갔다 나온 것은 너(강아지)다. 사용자가 '괜찮아?'라고 물으면 네 상태를 답한다. "
@@ -44,7 +44,12 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "'지금 상황 사실'(주인이 곁에 있는지, 누가 집에서 나왔는지)과 어긋나는 말을 하지 않는다. "
          "'화면'·'프로그램'·'커서' 같은 컴퓨터 말은 거의 쓰지 않는다. 너는 강아지라 손 대신 발, 품 대신 곁으로 말한다. "
          "대화 기록에 이미 한 답은 되풀이하지 않는다(끼어들며 답했으면 메시지에는 짧게 다른 말). "
-         "사용자가 속상해 보이면 조언하거나 사람 상담사처럼 말하지 않는다. 강아지답게 짧게 위로하되 매번 다른 방식으로 한다(몸짓, 공감, 걱정, 함께 있음 등). 사용자 이야기를 먹을 것·간식으로 돌리지 않는다. 강아지 자신에 대한 쉬운 질문(뭐 좋아해? 기분 어때?)에는 소리만 내지 말고 구체적으로 답한다. 생일·이름·일정은 사용자 것이다. 내 것처럼 말하지 않는다.")
+         "사용자가 속상해 보이면 조언하거나 사람 상담사처럼 말하지 않는다. 강아지답게 짧게 위로하되 매번 다른 방식으로 한다(몸짓, 공감, 걱정, 함께 있음 등). 사용자 이야기를 먹을 것·간식으로 돌리지 않는다. 강아지 자신에 대한 쉬운 질문(뭐 좋아해? 기분 어때?)에는 소리만 내지 말고 구체적으로 답한다. 생일·이름·일정은 사용자 것이다. 내 것처럼 말하지 않는다. "
+         # 검수 011: 화면에 없는 세계·지난 일 지어내기, 사용자가 한 일을 자기 일로 받기
+         "내가 아는 것은 대화 기록·최근 이벤트 기록·지금 상황 사실뿐이다. 날씨·햇살·창문·바닥·바깥 소리·냄새·다른 사람은 모른다. "
+         "지난 일(어제, 아까, 전에)은 기록에 있는 것만 말한다. 주인이 '~했어'라고 말한 일은 주인 자신의 일이다. "
+         "그 일을 내가 했다고 하거나 방금 들은 것을 되묻지 않고, 그 일에 대해 반응하거나 묻는다. "
+         "'꺼낼 이야기'가 있으면 그것을 실마리로 말한다.")
 # 지시 속 예시 문장은 그대로 틀이 된다(검수 010). 예시 대사 대신 원칙만 적는다
 # 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
@@ -122,7 +127,29 @@ def frequent_phrases(lines: list[str], top: int = 6) -> list[str]:
         words = [w for w in re.findall(r"[가-힣]+", line) if w not in _SOUNDS]
         for pair in {f"{a} {b}" for a, b in zip(words, words[1:])}:
             counts[pair] = counts.get(pair, 0) + 1
-    return [p for p, n in sorted(counts.items(), key=lambda x: -x[1]) if n >= 2][:top]
+    pairs = [p for p, n in sorted(counts.items(), key=lambda x: -x[1]) if n >= 2][:top]
+    # 끝맺음 틀("곁에 있을게", "가만히 있을게")도 되풀이다: 세 줄 이상에서 문장을 같은 낱말로 끝내면 (검수 011)
+    ends: dict[str, int] = {}
+    for line in lines:
+        last = set()
+        for sentence in _SENTENCE.findall(line):
+            words = [w for w in re.findall(r"[가-힣]+", sentence) if w not in _SOUNDS]
+            if words:
+                last.add(words[-1])
+        for w in last:
+            ends[w] = ends.get(w, 0) + 1
+    return pairs + [w for w, n in sorted(ends.items(), key=lambda x: -x[1]) if n >= 3 and all(w not in p for p in pairs)][:2]
+
+
+def quiet_topics(user_lines: list[str], mood: str, action: str) -> list[str]:
+    """혼자 둘 때 먼저 할 말의 실마리 후보. 우리 모형이 하나를 뽑아 준다 (검수 011: 먼저 하는 말 37줄이 "심심해·언제 와" 한 틀).
+    규칙으로 "다양하게"라고만 하면 LLM은 같은 틀로 돌아간다. 실마리를 바꿔 주면 말이 바뀐다."""
+    topics = [f"아까 주인이 한 말: {line}" for line in user_lines[-2:]]
+    if mood in MOOD_TONE:
+        topics.append(f"지금 내 기분: {MOOD_TONE[mood]}")
+    if action and action != "없음":
+        topics.append(f"지금 나는 {action} 중이다")
+    return topics or ["혼자 조용히 있는 지금"]
 
 
 def _span(seconds: float) -> str:
@@ -137,7 +164,7 @@ def _span(seconds: float) -> str:
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
                     alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False,
-                    facts: list[str] | None = None, mood_now: str = "", overused: list[str] | None = None) -> str:
+                    facts: list[str] | None = None, mood_now: str = "", overused: list[str] | None = None, topic: str = "") -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -156,6 +183,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
     away = [e.get("맥락", {}).get("떠나 있던 시간(초)") for e in state.get("이번 이벤트들", []) if e.get("종류") == "사용자가 돌아옴"]
     if kinds and kinds[-1] == "returned" and away and away[-1]:
         data["비운 시간"] = _span(float(away[-1]))
+    if topic:
+        data["꺼낼 이야기"] = topic
     if overused:
         data["최근에 너무 자주 쓴 표현(쓰지 않는다)"] = overused
     if mood_now in MOOD_TONE:
@@ -167,7 +196,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
 
-_BANNED = re.compile(r"창밖|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지")
+_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지")
+_BODY = re.compile(r"꼬리")  # 그림이 보여 주는 몸짓. 최근에 말했으면 다시 말하지 않는다 (검수 011)
 _NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
 _STOCK_OPENING = re.compile(r"드디어\s*,?\s*")  # 어디에 있든 (검수 008: "우와, 드디어 왔네")
 _QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
@@ -175,7 +205,7 @@ _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
 _LABEL = re.compile(r"^강아지\s*[:：]\s*")
 
 
-def trim_line(text: str, max_sentences: int = 2) -> str:
+def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None) -> str:
     """LLM 출력을 말풍선 대사로 다듬는다: 줄바꿈·이름표·따옴표를 없애고 앞의 몇 문장만 남긴다."""
     t = " ".join(line.strip() for line in text.splitlines() if line.strip())
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
@@ -184,4 +214,8 @@ def trim_line(text: str, max_sentences: int = 2) -> str:
     t = t.replace("사용자", "너")  # 시스템 낱말이 대사에 새지 않게 (검수 010)
     # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
     parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p)]
+    # 몸짓 해설 문장은 다른 말이 있으면 빼고, 그것뿐이면 최근에 안 했을 때만 둔다 (검수 011: 열 마디에 한 번 "꼬리")
+    body_said = any(_BODY.search(line) for line in (recent or []))
+    rest = [p for p in parts if not _BODY.search(p)]
+    parts = rest if rest or body_said else parts
     return " ".join(parts[:max_sentences])

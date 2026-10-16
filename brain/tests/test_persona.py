@@ -197,3 +197,47 @@ def test_instructions_have_no_template_examples():
     for example in ("집 안 답답했어", "내가 옆에 있을게"):
         assert example not in s and example not in house
     assert "먹을 것" in s and "갇혀" in house
+
+
+# ---- 검수 011 대사 ----
+
+from brain.persona import quiet_topics
+
+
+def test_frequent_phrases_includes_repeated_sentence_endings():
+    # "곁에 있을게", "여기 앉아 있을게", "가만히 있을게"처럼 끝맺음 틀도 되풀이다 (검수 011: 위로 12줄)
+    lines = ["곁에 있을게.", "여기 앉아 있을게 멍.", "가만히 있을게!", "놀자"]
+    assert "있을게" in frequent_phrases(lines)
+
+
+def test_trim_drops_repeated_body_narration():
+    # 꼬리·자세는 그림이 보여 준다. 최근에 이미 말했으면 그 문장을 뺀다 (검수 011: 306줄 중 26줄 "꼬리")
+    assert trim_line("심심해서 꼬리가 축 처져. 놀아 줘!", recent=["꼬리 살랑 흔들게"]) == "놀아 줘!"
+    assert trim_line("꼬리가 신나서 멈추질 않아!", recent=["안녕"]) == "꼬리가 신나서 멈추질 않아!"
+    assert trim_line("꼬리가 살랑거려. 공놀이 좋아!") == "공놀이 좋아!"  # 다른 말이 있으면 해설은 뺀다
+
+
+def test_trim_drops_invented_world():
+    # 바탕화면 강아지는 햇살·창문·냄새를 모른다 (검수 011)
+    assert trim_line("창문 틈 햇살이 따뜻해. 같이 놀자!") == "같이 놀자!"
+    assert trim_line("커피 냄새가 솔솔 나네. 맛있었어?") == "맛있었어?"
+
+
+def test_quiet_topics_offer_earlier_talk_mood_and_action():
+    # 혼자 둘 때 할 말의 거리: 아까 주인이 한 말, 지금 기분, 지금 동작 (검수 011: "심심해·언제 와" 한 틀)
+    topics = quiet_topics(["이따 같이 공놀이 하자"], "심심함", "엎드리기")
+    assert any("공놀이" in x for x in topics)
+    assert any("심심" in x for x in topics) and any("엎드리기" in x for x in topics)
+    assert len(quiet_topics([], "", "")) >= 1
+
+
+def test_prompt_carries_the_topic():
+    p = dialogue_prompt({}, "bored", "none", ["quiet"], [], 1800, topic="아까 주인이 한 말: 이따 같이 공놀이 하자")
+    assert "공놀이" in json.loads(p.split("\n")[0])["꺼낼 이야기"]
+
+
+def test_rules_for_known_world_body_and_roles():
+    s = system_instruction()
+    for rule in ("그림이 보여", "날씨", "냄새", "주인 자신의 일", "기록에 있는 것만"):
+        assert rule in s
+    assert "꼬리 살랑" not in s  # 지시에 쓴 몸짓 낱말이 틀이 된다

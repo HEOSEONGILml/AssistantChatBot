@@ -586,3 +586,28 @@ async def test_apology_gets_an_answer(make):
     await env.brain.handle_event("message", {"text": "아까 짜증낸 거 미안해"})
     await env.brain.drain()
     assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.9
+
+
+async def test_dialogue_facts_keep_roles_and_house_cause(make):
+    # 주인이 한 일은 주인 일이다, 집에 넣은 쪽은 주인이고 그 직전 말이 이유일 수 있다 (검수 011 역할 혼동)
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("message", {"text": "점심 먹었어"})
+    await env.brain.drain()
+    assert "주인 자신의 일" in env.talker.calls[-1][1] and "점심 먹었어" in env.talker.calls[-1][1]
+    await env.brain.handle_event("message", {"text": "너 좀 시끄러워"})
+    await env.brain.drain()
+    await env.brain.handle_event("house_in", {})
+    await env.brain.drain()
+    await env.brain.handle_event("house_out", {"away_seconds": 900})
+    await env.brain.drain()
+    prompt = env.talker.calls[-1][1]
+    assert "주인이 나를 집에 넣었다" in prompt and "너 좀 시끄러워" in prompt
+
+
+async def test_quiet_line_gets_a_topic(make):
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("message", {"text": "이따 같이 공놀이 하자"})
+    await env.brain.drain()
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert "꺼낼 이야기" in env.talker.calls[-1][1]
