@@ -467,7 +467,7 @@ def test_apology_soothes_even_if_jev_thinks_the_user_is_down():
     dog.mood["시무룩"], dog.mood["무서움"] = 0.6, 0.35
     d = model.apply_change(dog, {"친밀도↑": 0.5, "무서움↓": 0.2}, [("message", {"text": "내가 말이 심했어 미안"})],
                            random.Random(0), QUIET, user_down=0.65, soothe=0.9)
-    assert dog.mood["시무룩"] < 0.46 and dog.mood["무서움"] < 0.3
+    assert dog.mood["시무룩"] < 0.46 and dog.mood["무서움"] < 0.35  # 무서움은 조금만 준다(말보다 손길, 검수 008)
     assert model.reaction_from(d, ["message"], T) in ("happy", "none")
 
 
@@ -522,3 +522,14 @@ def test_hard_throw_in_a_mixed_burst_still_scares():
     b = model.apply_change(burst, {"무서움↓": 0.3}, [("poke", {}), ("throw", {"impact": 0.85}), ("pet", {"seconds": 2}), ("message", {"text": "괜찮아?"})],
                            random.Random(0), QUIET).signal["무서움"]
     assert b > 0.6 * a
+
+
+def test_words_ease_sadness_but_fear_needs_touch():
+    # 사과 한 마디는 서운함을 크게, 무서움은 조금만 던다. 무서움은 손길(쓰다듬기)이 더 푼다 (검수 008)
+    said, petted = calm_dog(), calm_dog()
+    for dog in (said, petted):
+        dog.mood["무서움"], dog.mood["시무룩"] = 0.4, 0.4
+    model.apply_change(said, {}, [("message", {"text": "미안해 괜찮아?"})], random.Random(0), QUIET, soothe=0.95)
+    model.apply_change(petted, {}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
+    assert 0.4 - said.mood["무서움"] < 0.06
+    assert 0.4 - said.mood["시무룩"] > 0.08

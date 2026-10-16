@@ -312,8 +312,8 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)
         if jev[d] > 0:
             jev[d] *= 1 - wary
-    for d in ("시무룩", "무서움", "분노"):
-        jev[d] -= t.soothe_k * s
+    for d, f in (("시무룩", 1.0), ("분노", 0.6), ("무서움", 0.25)):  # 말은 서운함을 크게, 무서움은 조금 던다 (검수 008)
+        jev[d] -= t.soothe_k * f * s
     signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
     rises = dict(signal)
     for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
