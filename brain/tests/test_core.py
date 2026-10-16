@@ -315,3 +315,18 @@ async def test_reset_overwrites_a_malformed_saved_dog():
     await env.brain.reset()
     assert env.store.load_dog() == model.dog_to_dict(env.brain.dog)
     await env.brain.aclose()
+
+
+async def test_interjection_while_typing_is_one_line(make):
+    # 타이핑 중 끼어들기는 한마디로 끝낸다. 사용자가 아직 치는 중이라 이어 재촉하지 않는다 (검수 001 사소)
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("typing", {"text": "오늘 회사에서 있잖아"})
+    await env.brain.drain()
+    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
+    await env.brain.drain()
+    assert utterances(env.out) == ["멍! 안녕"]
+    await env.brain.handle_event("message", {"text": "있잖아 그래서"})
+    await env.brain.drain()
+    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
+    await env.brain.drain()
+    assert len(utterances(env.out)) == 3  # 답한 뒤에는 이어 말할 수 있다

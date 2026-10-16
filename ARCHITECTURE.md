@@ -240,7 +240,7 @@ P(A = a) ∝ exp( [ base(a) + Σ_e EV[e,a] + 5·Σ_d B[a,d](m_d − μ_d) + 1.5�
          우리 모형 중심, Jev는 약하게 (동작 모형 스펙 2026-10-16, 0016)
 
 P(S = 1) = σ( logit p_S + L + β[e_last] − streak − 1[waiting] )
-         = 0   (streak ≥ 3 또는 e_last = house_in)
+         = 0   (streak ≥ 3 또는 e_last = house_in, 또는 타이핑 중 끼어든 직후의 이어 말하기: 사용자가 아직 치는 중)
 
 U ~ Gemini( · | X, E, 기록, R, A )            S = 1일 때만
 ```

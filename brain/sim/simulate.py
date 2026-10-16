@@ -105,6 +105,9 @@ class World:
         if not self._judge(kind, tag) or kind == "dog_spoke":
             return False
         length = 1
+        if kind == "typing":  # 두뇌 core와 같은 규칙: 타이핑 중 끼어들기는 한마디로 끝낸다 (검수 001)
+            self.stats.chains.append(length)
+            return True
         while True:
             self.now += 2
             if not self._judge("dog_spoke", None):

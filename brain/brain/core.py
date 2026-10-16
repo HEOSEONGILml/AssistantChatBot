@@ -39,6 +39,7 @@ class Brain:
         self._phase: str | None = None     # judging / speaking
         self._streak = 0                   # 사용자 입력 없이 강아지가 연달아 말한 횟수
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
+        self._interjected = False          # 타이핑 중에 끼어들었다: 사용자가 아직 치는 중이라 이어 말하지 않는다 (검수 001)
         self._sent_movement: dict | None = None
         self._can_save = True
         self._judgements: deque[dict] = deque(maxlen=200)  # 판단 로그: 설정 창 로그 탭용, 메모리에만 (스펙 3.1)
@@ -100,7 +101,7 @@ class Brain:
         사용자가 고른 일이므로 읽지 못한 저장본도 덮어쓴다."""
         self._cancel()
         self._pending.clear()
-        self._streak, self._waiting = 0, False
+        self._streak, self._waiting, self._interjected = 0, False, False
         self._store.clear_events()
         self._judgements.clear()
         self._dog = model.birth(self._rng, self._clock())
@@ -138,6 +139,7 @@ class Brain:
         # 연달아 말하기는 한 흐름(말풍선이 뜨고 이어 말하기) 안에서만 센다. 다른 일이 생기면 새 흐름이다
         if kind != "dog_spoke":
             self._streak = 0
+            self._interjected = False
         if kind in ("message", "typing"):
             self._waiting = False
         if kind == "house_in" or (kind == "message" and self._phase == "speaking"):
@@ -221,8 +223,11 @@ class Brain:
         a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
         action = model.pick(a_scores, self._rng)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
-        p_speak = 0.0 if kinds[-1] == "house_in" else \
-            model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
+        # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
+        if kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and self._interjected):
+            p_speak = 0.0
+        else:
+            p_speak = model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
         speak = self._rng.random() < p_speak
         entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
@@ -252,6 +257,7 @@ class Brain:
         entry["utterance"] = line
         self._store.add(Event(self._clock(), "dog", "dog", {"utterance": line}))
         self._streak += 1
+        self._interjected = kinds[-1] == "typing"
         self._waiting = line.rstrip().endswith("?")
 
     async def _push_movement(self) -> None:
