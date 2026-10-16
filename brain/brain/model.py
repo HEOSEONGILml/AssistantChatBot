@@ -309,7 +309,7 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
         for d, r in moods.items():
             jev[d] += r * change.get(rel, 0.0) * ((1 - u) if rel == "친밀도↑" else 1.0)
-    jev["궁금함"] *= 1 - u
+    jev["궁금함"] *= (1 - u) * (1 - s)  # 털어놓음·사과에는 궁금해하지 않는다 (검수 005·009)
     jev["행복"] = min(jev["행복"], 0.0) if u >= 0.5 else jev["행복"]
     jev["시무룩"] += t.empathy * u
     for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)

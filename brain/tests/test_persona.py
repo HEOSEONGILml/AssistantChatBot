@@ -176,3 +176,7 @@ def test_trim_drops_sentences_with_offscreen_places_and_banned_words():
     assert trim_line("언제 오려나... 창밖만 계속 보게 되네. 나랑 놀자!") == "언제 오려나... 나랑 놀자!"
     assert trim_line("짖! 우울한 공기는 털어내자.") == "우울한 공기는 털어내자."
     assert trim_line("목 빠지는 줄 알았어! 밥은 먹었어?") == "밥은 먹었어?"
+
+
+def test_rule_speak_only_feelings_that_happened():
+    assert "뽑힌 반응'에 없는" in system_instruction()

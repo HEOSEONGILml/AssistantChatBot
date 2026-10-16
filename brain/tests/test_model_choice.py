@@ -549,3 +549,10 @@ def test_ignored_or_hushed_dog_does_not_pile_on_follow_ups():
     base = model.chain_probability(dog, 1, T)
     assert model.chain_probability(dog, 1, T, ignored=2) < 0.25 * base
     assert model.chain_probability(dog, 1, T, hushed=True) == 0.0
+
+
+def test_apology_reaction_is_not_curiosity():
+    dog = calm_dog()
+    dog.mood["시무룩"] = 0.5
+    d = model.apply_change(dog, {"궁금함↑": 0.4, "친밀도↑": 0.4}, [("message", {"text": "아까는 미안해"})], random.Random(0), QUIET, soothe=0.9)
+    assert model.reaction_from(d, ["message"], T) != "curious"
