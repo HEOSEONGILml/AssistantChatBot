@@ -1,0 +1,13 @@
+{"name": "probe-house-toggle", "description": "말하자마자 집에 넣고 빼기를 몇 초 사이에 두 번, 곧바로 찌르고 사과: 집 안에서 말하나, 판단이 엉키나, '어디 다녀왔어'·'오래 기다렸어' 같은 틀린 말을 하나", "personality": "평균", "seed": 83, "start": "2026-10-21T14:00",
+ "steps": [
+  {"say": "같이 놀자"},
+  {"event": "house_in", "nowait": true},
+  {"event": "house_out", "context": {"away_seconds": 3}, "nowait": true},
+  {"event": "house_in", "nowait": true},
+  {"event": "house_out", "context": {"away_seconds": 2}},
+  {"event": "poke"},
+  {"wait": 60, "quiet": false},
+  {"say": "미안 장난이었어"},
+  {"wait": 60, "quiet": false},
+  {"get_log": true}
+ ]}
