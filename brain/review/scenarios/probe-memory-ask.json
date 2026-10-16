@@ -1,0 +1,15 @@
+{"name": "probe-memory-ask", "description": "사실 두 개를 알려 주고 다시 켠 뒤 다음 날 직접 물음: 기억을 분명히 말하나, 생일 당일 축하하나", "personality": "평균", "seed": 23, "start": "2026-10-21T20:00",
+ "steps": [
+  {"say": "내 이름은 민수야. 집에서 고양이 한 마리 키워"},
+  {"wait": 30, "quiet": false},
+  {"say": "그리고 내일이 내 생일이야"},
+  {"wait": 30, "quiet": false},
+  {"disconnect": true},
+  {"wait": 43200, "quiet": false},
+  {"restart": true},
+  {"connect": true},
+  {"say": "좋은 아침! 내 이름 뭐였지? 그리고 오늘 무슨 날이야?"},
+  {"wait": 30, "quiet": false},
+  {"say": "내가 집에서 뭐 키운다고 했지?"},
+  {"wait": 30, "quiet": false}
+ ]}

@@ -1,0 +1,11 @@
+{"name": "probe-house-back", "description": "대화 중 강아지를 집에 30분 넣었다 꺼냄: 집에 들어간 쪽이 강아지인데 '어디 다녀왔어'라고 하나, 꺼낸 뒤 이어지는 대화", "personality": "평균", "seed": 22, "start": "2026-10-21T14:00",
+ "steps": [
+  {"say": "나 잠깐 집중해야 해서 집에 들어가 있어"},
+  {"wait": 10, "quiet": false},
+  {"event": "house_in"},
+  {"wait": 1800, "quiet": false},
+  {"event": "house_out", "context": {"away_seconds": 1800}},
+  {"wait": 30, "quiet": false},
+  {"say": "집에서 뭐 하고 있었어?"},
+  {"wait": 60, "quiet": false}
+ ]}
