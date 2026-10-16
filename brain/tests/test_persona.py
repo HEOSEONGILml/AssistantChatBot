@@ -92,3 +92,9 @@ def test_each_archetype_gets_a_different_voice():
 def test_rules_ban_stock_phrases():
     s = system_instruction()
     assert "상투" in s and "앗, 깜짝이야" in s
+
+
+def test_prompt_tells_when_the_owner_looks_down():
+    p = dialogue_prompt({}, "sad", "beg", ["message"], [], 0, [], "", owner_down=True)
+    assert json.loads(p.split("\n")[0])["사용자 기분"] == "속상해 보인다"
+    assert "상담사" in system_instruction()

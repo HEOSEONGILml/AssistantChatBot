@@ -266,7 +266,7 @@ def _combine(xs: list[float]) -> float:
 
 
 def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
-                 waiting: bool = False, alone_s: float = 0.0) -> Change:
+                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0) -> Change:
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
@@ -287,9 +287,14 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
             lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
             dog.habit[k] += lam * (1 - dog.habit[k])
     jev = {d: change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0) for d in MOODS}
+    # 공감 (검수 005): 사용자가 글로 속상함을 털어놓으면 강아지도 시무룩해지고, 궁금함과 털어놓음을 친밀로 읽은 기쁨은 꺼진다
+    u = user_down if kinds and kinds[-1] in ("message", "typing") else 0.0
     for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
         for d, r in moods.items():
-            jev[d] += r * change.get(rel, 0.0)
+            jev[d] += r * change.get(rel, 0.0) * ((1 - u) if rel == "친밀도↑" else 1.0)
+    jev["궁금함"] *= 1 - u
+    jev["행복"] = min(jev["행복"], 0.0) if u >= 0.5 else jev["행복"]
+    jev["시무룩"] += t.empathy * u
     signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
     rises = dict(signal)
     for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다

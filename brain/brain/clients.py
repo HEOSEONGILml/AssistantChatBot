@@ -30,11 +30,12 @@ class Readout:
     action: dict[str, float]
     speak: float
     change: dict[str, float]
+    user_down: float = 0.0   # 사용자가 지금 속상해 보일 확률 (검수 005: 공감)
 
 
 def to_readout(resp) -> Readout:
     return Readout(dict(resp.choices["action"].probabilities), resp.nouls["speak"].noul,
-                   dict(resp.choices["change"].probabilities))
+                   dict(resp.choices["change"].probabilities), resp.nouls["user_down"].noul)
 
 
 class Jev(Protocol):

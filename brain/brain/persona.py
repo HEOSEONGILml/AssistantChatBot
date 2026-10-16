@@ -30,7 +30,8 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "던져진 것, 찔린 것, 집에 들어갔다 나온 것은 너(강아지)다. 사용자가 '괜찮아?'라고 물으면 네 상태를 답한다. "
          "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다. "
          "말투는 '말투' 지시(성격에서 나온다)를 따른다. 상투적인 문장('앗, 깜짝이야', '손길 따뜻해', 문장 끝마다 '헥헥')을 쓰지 않고, "
-         "같은 상황이라도 매번 다르게 말한다.")
+         "같은 상황이라도 매번 다르게 말한다. "
+         "사용자가 속상해 보이면 조언하거나 사람 상담사처럼 말하지 않는다. 강아지답게 곁에 붙어 짧게 위로한다('내가 옆에 있을게').")
 # 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
 
@@ -76,7 +77,7 @@ def _span(seconds: float) -> str:
 
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
-                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "") -> str:
+                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False) -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -88,6 +89,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             "대화 기록(오래된 것부터)": conversation or []}
     if tone:
         data["말투"] = tone
+    if owner_down:
+        data["사용자 기분"] = "속상해 보인다"
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
     if kinds and kinds[-1] == "typing" and typing and typing[-1]:
         data["쓰는 중인 글"] = typing[-1]

@@ -45,7 +45,7 @@ class Recording:
         preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
         intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
         r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
-        return Readout(r["action"], r["speak"], r["change"])
+        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0))
 
 
 @dataclass
@@ -88,7 +88,8 @@ class World:
         rd = self.rec.readout(kind, dog, self.streak)
         if kind in USER_KINDS:
             self.last_user = self.now
-        deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user)
+        deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user,
+                                    user_down=rd.user_down)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
         scores = model.action_scores(rd.action, dog, reaction, [kind], t)
@@ -96,7 +97,7 @@ class World:
         self.stats.judged += 1
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
-        hurting = kind == "message" and deltas.signal.get("시무룩", 0.0) >= 0.05
+        hurting = kind == "message" and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
         p = model.chain_probability(dog, self.streak, t) if kind == "dog_spoke" else             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting)
         spoke = self.rng.random() < p
         n, s = self.stats.counts.get(tag or kind, (0, 0))

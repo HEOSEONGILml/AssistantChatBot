@@ -430,3 +430,21 @@ def test_chain_probability_by_personality_and_depth():
     assert q1 < 0.15 and q1 < a1 < l1
     assert model.chain_probability(lively, 2, T) < 0.6 * l1
     assert model.chain_probability(lively, 3, T) == 0.0
+
+
+# ---- 주인의 슬픔에 공감 (검수 005) ----
+
+
+def test_owner_sadness_makes_dog_sympathetic_not_curious_or_happy():
+    # 실측 Jev: 슬픈 털어놓기에 궁금함↑·친밀도↑가 크고 시무룩↑는 작았다. user_down이 높으면 우리 모형이 공감으로 바꾼다
+    dog = calm_dog()
+    change = {"궁금함↑": 0.5, "친밀도↑": 0.3, "시무룩↑": 0.1}
+    d = model.apply_change(dog, change, [("message", {"text": "그냥 다 내 잘못 같아서 마음이 무거워"})], random.Random(0), QUIET, user_down=0.9)
+    assert model.reaction_from(d, ["message"], T) == "sad"
+    assert d.signal["행복"] <= 0.0 and d.signal["궁금함"] < d.signal["시무룩"]
+
+
+def test_owner_sadness_is_ignored_for_body_events():
+    dog = calm_dog()
+    d = model.apply_change(dog, {}, [("poke", {})], random.Random(0), QUIET, user_down=0.9)
+    assert model.reaction_from(d, ["poke"], T) == "surprised"
