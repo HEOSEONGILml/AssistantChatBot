@@ -110,22 +110,22 @@ def test_streak_cap():
 def test_change_moves_mood_by_sensitivity_and_clips():
     dog = neutral()
     dog.personality.sensitivity["분노"] = 0.8
-    model.apply_change(dog, {"분노↑": 1.0}, ["message"], random.Random(0), replace(T, change_noise=0.0))
-    assert dog.mood["분노"] == pytest.approx(0.5 + 0.3 * 0.8)
-    model.apply_change(dog, {"분노↑": 1.0}, ["message"], random.Random(0), replace(T, change_noise=0.0, change_k=5.0))
+    model.apply_change(dog, {"분노↑": 1.0}, [("message", {})], random.Random(0), replace(T, change_noise=0.0))
+    assert dog.mood["분노"] == pytest.approx(0.5 + 0.3 * 2 * 0.8)  # 메시지는 Jev 가중치 1, 민감도 0.5가 배율 1
+    model.apply_change(dog, {"분노↑": 1.0}, [("message", {})], random.Random(0), replace(T, change_noise=0.0, change_k=5.0))
     assert dog.mood["분노"] == 1.0
 
 
 def test_intimacy_change():
     dog = neutral()
-    model.apply_change(dog, {"친밀도↓": 1.0}, ["message"], random.Random(0), replace(T, change_noise=0.0))
-    assert dog.intimacy == pytest.approx(0.45)
+    model.apply_change(dog, {"친밀도↓": 1.0}, [("message", {})], random.Random(0), replace(T, change_noise=0.0))
+    assert dog.intimacy == pytest.approx(0.48)
 
 
 def test_repeated_stimulus_habituates():
     quiet = replace(T, change_noise=0.0)
     dog = neutral()
-    deltas = [model.apply_change(dog, {"놀람↑": 1.0}, ["poke"], random.Random(0), quiet)["놀람"] for _ in range(5)]
+    deltas = [model.apply_change(dog, {"놀람↑": 1.0}, [("poke", {})], random.Random(0), quiet)["놀람"] for _ in range(5)]
     assert deltas[0] > deltas[1] > deltas[2] > deltas[4] > 0
     assert model.habit_level(dog, ["poke"]) > 0.7
     assert model.habit_level(dog, ["message"]) == 0.0
@@ -136,11 +136,64 @@ def test_sensitive_dog_habituates_slower():
     calm, touchy = neutral(), neutral()
     calm.personality.sensitivity["놀람"], touchy.personality.sensitivity["놀람"] = 0.2, 0.9
     for dog in (calm, touchy):
-        model.apply_change(dog, {}, ["poke"], random.Random(0), quiet)
+        model.apply_change(dog, {}, [("poke", {})], random.Random(0), quiet)
     assert calm.habit["poke"] > touchy.habit["poke"]
 
 
 def test_message_has_no_habituation():
     dog = neutral()
-    model.apply_change(dog, {}, ["message", "message"], random.Random(0), T)
+    model.apply_change(dog, {}, [("message", {}), ("message", {})], random.Random(0), T)
     assert all(h == 0.0 for h in dog.habit.values())
+
+
+# ---- 평가 사전값 + Jev 조정 (스펙 2026-10-16, 검수 001) ----
+
+QUIET = replace(T, change_noise=0.0)
+
+
+def calm_dog():
+    """기분이 기준값(탄생 평균)에 있는 평균 강아지."""
+    dog = neutral()
+    dog.mood = dict(model.BIRTH_BASELINE)
+    dog.personality.baseline = dict(model.BIRTH_BASELINE)
+    return dog
+
+
+def test_throw_scares_even_if_jev_says_happy():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {"행복↑": 0.25, "분노↑": 0.2, "놀람↑": 0.17}, [("throw", {"impact": 0.9})], random.Random(0), QUIET)
+    assert model.reaction_from(deltas, ["throw"], T) in ("scared", "surprised")
+    assert deltas["무서움"] > 0.2 and deltas["행복"] < 0
+
+
+def test_pet_makes_happy():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {"궁금함↑": 0.3}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
+    assert model.reaction_from(deltas, ["pet"], T) == "happy"
+
+
+def test_own_words_do_not_move_mood():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {"분노↑": 0.9}, [("dog_spoke", {"text": "왈!"})], random.Random(0), QUIET)
+    assert max(abs(v) for v in deltas.values()) < 0.005
+    assert model.reaction_from(deltas, ["dog_spoke"], T) == "none"
+
+
+def test_rising_anger_pushes_happiness_down():
+    dog = calm_dog()
+    before = dog.mood["행복"]
+    model.apply_change(dog, {"분노↑": 1.0}, [("message", {"text": "저리 가"})], random.Random(0), QUIET)
+    assert dog.mood["행복"] < before - 0.1
+
+
+def test_quiet_is_boring_not_scary():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {"무서움↑": 0.4}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET)
+    assert model.reaction_from(deltas, ["quiet"], T) == "bored"
+    assert deltas["무서움"] < 0.05
+
+
+def test_return_is_welcome():
+    dog = calm_dog()
+    deltas = model.apply_change(dog, {"놀람↑": 0.5}, [("returned", {"away_seconds": 3600})], random.Random(0), QUIET)
+    assert model.reaction_from(deltas, ["returned"], T) in ("happy", "excited")

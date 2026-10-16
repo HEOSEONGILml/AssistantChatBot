@@ -27,6 +27,44 @@ TALK_MOOD = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노
 TALK_BASELINE = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
 # 습관화 (스펙 4.5): 대상 자극과 그 자극이 주로 건드리는 기분
 HABIT_KINDS = {"poke": "놀람", "pet": "들뜸", "throw": "무서움"}  # 반복해서 던지면 덜 무서워한다
+# 기분 변화 = 우리 평가 사전값 + Jev 조정 (스펙 2026-10-16, 0015). 사전값은 평균 강아지가 느끼는 크기(잠정값)
+def appraisal(kind: str, ctx: dict) -> dict[str, float]:
+    """이벤트 하나가 기분에 주는 충격. 뜻이 정해진 이벤트는 우리가 정한다(Jev가 던지기를 행복으로 읽는 등 틀리기 때문)."""
+    if kind == "poke":
+        return {"놀람": 0.20, "분노": 0.06, "궁금함": 0.03}
+    if kind == "pet":
+        s = min(float(ctx.get("seconds") or 3.0), 5.0) / 3.0
+        return {"행복": 0.12 * s, "들뜸": 0.04 * s, "분노": -0.06 * s, "시무룩": -0.06 * s, "무서움": -0.05 * s}
+    if kind == "throw":
+        i = float(ctx.get("impact", 0.5) or 0.0)
+        return {"놀람": 0.05 + 0.25 * i, "무서움": 0.30 * i, "분노": 0.05 * i, "행복": -0.10 * i, "졸림": -0.10 * i}
+    if kind == "quiet":
+        m = min(float(ctx.get("seconds") or 600) / 600, 3.0)
+        return {"심심함": 0.04 * m, "시무룩": 0.01 * m}
+    if kind == "returned":
+        return {"행복": 0.15, "들뜸": 0.12, "심심함": -0.10, "시무룩": -0.08}
+    if kind == "house_out":
+        return {"들뜸": 0.08, "행복": 0.06}
+    if kind == "typing":
+        return {"궁금함": 0.04}
+    if kind == "message":
+        return {"궁금함": 0.02, "심심함": -0.04}
+    return {}  # house_in, dog_spoke(자기 말은 자기 기분을 키우지 않는다)
+
+
+def appraisal_intimacy(kind: str, ctx: dict) -> float:
+    if kind == "pet":
+        return 0.005
+    if kind == "throw":
+        return -0.01 * float(ctx.get("impact", 0.5) or 0.0)
+    return 0.0
+
+
+# Jev 변화 분포를 얼마나 믿나: 글 내용이 중요한 메시지는 크게, 뜻이 정해진 이벤트는 작게, 자기 말은 0
+JEV_WEIGHT = {"message": 1.0, "typing": 0.5, "dog_spoke": 0.0}
+JEV_WEIGHT_OTHER = 0.3
+# 함께 높으면 어색한 반대 기분 쌍: 한쪽이 오르면 다른 쪽이 내린다 (검수 001)
+OPPOSITES = (("무서움", "행복"), ("무서움", "들뜸"), ("분노", "행복"), ("시무룩", "들뜸"), ("시무룩", "행복"), ("졸림", "들뜸"))
 # 평소 움직임 경향 (스펙 6.5). 기본값은 몸체 "보통" 프로필과 같다
 MOVE_BASE = {"rest": 0.6, "sleep": 0.02, "roam": 0.4, "approach": 0.18, "play": 0.06, "explore": 0.2}
 MOVE_MOOD = {"rest": {"졸림": 1, "시무룩": 1, "들뜸": -1, "무서움": 1}, "sleep": {"졸림": 1, "들뜸": -1, "심심함": -1},
@@ -51,9 +89,10 @@ class Tuning:
                                                        "궁금함": 900.0, "놀람": 180.0, "무서움": 1200.0, "행복": 3600.0})  # 놀람은 거의 순간적
     mood_noise: float = 0.05            # 오래 두었을 때 기준값 주변 흔들림 표준편차
     intimacy_half_life_s: float = 14 * 86400.0
-    change_k: float = 0.3               # 강한 내용 (P↑−P↓) ±0.6~0.7 × 민감도 0.5 → 한 이벤트에 ±0.1
-    change_noise: float = 0.02
-    intimacy_k: float = 0.05            # 강하게 좋은 일 약 20번에 +0.5
+    change_k: float = 0.3               # 메시지의 강한 내용 (P↑−P↓) ±0.6 → 평균 강아지 ±0.18
+    change_noise: float = 0.01          # 0.02는 Jev 신호와 같은 크기라 반응이 잡음으로 뽑혔다 (검수 001)
+    inhibit: float = 0.6                # 반대 기분 억제 비율
+    intimacy_k: float = 0.02            # 0.05는 첫 12분에 0.30 → 0.35로 빨랐다 (검수 001)
     # 기질로 되돌아가는 힘. drift_rate와 같으면 성격은 기질과 경험의 한가운데에 자리 잡는다.
     # 이 힘이 없으면 8주 시뮬레이션에서 모든 강아지가 같은 성격으로 수렴했다 (docs/spikes/2026-10-15-simulation.md)
     temperament_pull: float = 0.025
@@ -69,7 +108,7 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -3.19, "message": -0.8, "dog_spoke": -2.04, "quiet": -2.53})
+                                                     "typing": -3.05, "message": -0.57, "dog_spoke": -1.86, "quiet": -2.48})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 1.0

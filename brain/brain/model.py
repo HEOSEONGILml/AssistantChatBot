@@ -3,7 +3,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from .tuning import (BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
+from .tuning import (JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
                      IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
                      MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
                      TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
@@ -207,16 +207,29 @@ def habit_level(dog: Dog, kinds: list[str]) -> float:
     return max((dog.habit[k] for k in kinds if k in HABIT_KINDS), default=0.0)
 
 
-def apply_change(dog: Dog, change: dict[str, float], kinds: list[str], rng, t: Tuning) -> dict[str, float]:
+def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning) -> dict[str, float]:
+    """기분 변화 (스펙 2026-10-16): 우리 평가 사전값 + Jev 조정 × 민감도 × (1 − 습관화) + 흔들림, 그리고 반대 기분 억제."""
+    kinds = [k for k, _ in events]
     damp = 1 - habit_level(dog, kinds)
+    w = JEV_WEIGHT.get(kinds[-1], JEV_WEIGHT_OTHER) if kinds else JEV_WEIGHT_OTHER
     sens = dog.personality.sensitivity
+    impulse = {d: 0.0 for d in MOODS}
+    for k, ctx in events:
+        for d, v in appraisal(k, ctx or {}).items():
+            impulse[d] += v
     deltas = {}
     for d in MOODS:
-        delta = (t.change_k * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0)) * sens[d]
-                 + rng.gauss(0, t.change_noise)) * damp
-        dog.mood[d] = clip(dog.mood[d] + delta)
-        deltas[d] = delta
-    delta = t.intimacy_k * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0)) * damp
+        jev = t.change_k * w * (change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0))
+        deltas[d] = (impulse[d] + jev) * 2 * sens[d] * damp + rng.gauss(0, t.change_noise)
+    rises = dict(deltas)
+    for a, b in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
+        deltas[b] -= t.inhibit * max(rises[a], 0.0)
+        deltas[a] -= t.inhibit * max(rises[b], 0.0)
+    for d in MOODS:
+        before = dog.mood[d]
+        dog.mood[d] = clip(before + deltas[d])
+    delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0))
+             + sum(appraisal_intimacy(k, ctx or {}) for k, ctx in events)) * damp
     dog.intimacy = clip(dog.intimacy + delta)
     deltas["친밀도"] = delta
     # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정)

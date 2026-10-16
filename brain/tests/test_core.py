@@ -32,7 +32,7 @@ async def test_speaks_and_logs_utterance(make):
 async def test_none_picks_are_not_sent(make):
     env = await make()
     env.jev.readout = Readout({"none": 1.0}, 0.5, {"변화없음": 1.0})
-    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.handle_event("dog_spoke", {"text": "멍"})  # 자기 말은 기분을 바꾸지 않아 반응도 없다 (0015)
     await env.brain.drain()
     assert [m for m in env.out if m["type"] == "reaction"] == []
 
@@ -262,7 +262,7 @@ async def test_log_records_why_the_dog_acted(make):
     j = env.brain.log_snapshot()["judgements"][-1]
     assert j["events"] == [{"종류": "찌르기"}]
     assert j["jev"]["action"] == {"beg": 1.0} and j["jev"]["speak"] == 0.5 and j["jev"]["change"] == {"들뜸↑": 1.0}
-    assert j["picked"] == {"reaction": "excited", "action": "beg", "speak": True}
+    assert j["picked"] == {"reaction": "surprised", "action": "beg", "speak": True}  # 찌르기는 우리 평가로 놀람이 1위 (0015)
     assert 0 <= j["model"]["speak"] <= 1 and "beg" in j["model"]["action"]
     assert j["mood_change"]["들뜸"] > 0
     assert j["utterance"] == "멍! 안녕"

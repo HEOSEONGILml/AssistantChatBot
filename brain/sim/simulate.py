@@ -84,7 +84,7 @@ class World:
         if kind in ("message", "typing"):
             self.waiting = False
         rd = self.rec.readout(kind, dog, self.streak)
-        deltas = model.apply_change(dog, rd.change, [kind], self.rng, t)
+        deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
         scores = model.action_scores(rd.action, dog, reaction, t)
