@@ -1,0 +1,10 @@
+{"name": "probe-poke-active", "description": "활발·예민 강아지를 1분 간격으로 세 번 찌름: 찔렸는데 조르기 같은 반기는 동작이 나오나, 놀람→짜증 흐름",
+ "personality": "all", "seed": 23, "start": "2026-10-20T11:00",
+ "steps": [
+  {"event": "poke"},
+  {"wait": 60, "quiet": false},
+  {"event": "poke"},
+  {"wait": 60, "quiet": false},
+  {"event": "poke"},
+  {"wait": 300, "quiet": false}
+ ]}

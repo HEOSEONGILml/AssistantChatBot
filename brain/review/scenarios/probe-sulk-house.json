@@ -1,0 +1,12 @@
+{"name": "probe-sulk-house", "description": "가볍게 핀잔한 뒤 주인이 강아지를 집에 15분 넣었다 꺼냄: 집에 들어간 이유를 '삐져서 내가 들어갔다'처럼 지어내나, 서운함이 집 안에서 풀렸나",
+ "personality": "평균", "seed": 21, "start": "2026-10-20T14:00",
+ "steps": [
+  {"say": "너 좀 시끄러워"},
+  {"wait": 20, "quiet": false},
+  {"event": "house_in"},
+  {"wait": 900, "quiet": false},
+  {"event": "house_out", "context": {"away_seconds": 900}},
+  {"wait": 30, "quiet": false},
+  {"say": "왜 집에 들어가 있었는지 알아?"},
+  {"wait": 60, "quiet": false}
+ ]}
