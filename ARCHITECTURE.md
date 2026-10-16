@@ -55,7 +55,7 @@ flowchart LR
 | 행동 하나 (걷기, 앉기 등) | 3~20초 | 화면 |
 | 이벤트 사이 간격 | 0.6초(타이핑) ~ 30분(조용함) | 화면 |
 | 판단 한 번 | Jev ≤ 3초, 말하면 + Gemini ≤ 5초 | 두뇌 |
-| 기분이 절반 풀림 (평균 성격) | 놀람 36초, 무서움 3분, 궁금함 5분, 분노 6분, 들뜸 9분, 시무룩 21분, 행복 27분, 심심함 33분, 졸림 48분 | 두뇌 |
+| 기분이 절반 풀림 (평균 성격) | 놀람 36초, 궁금함 5분, 무서움 9분, 분노 6분, 들뜸 9분, 시무룩 21분, 행복 27분, 심심함 33분, 졸림 48분 | 두뇌 |
 | 습관화가 절반 풀림 | 1시간 | 두뇌 |
 | 친밀도가 절반 식음 | 14일 | 두뇌 |
 | 성격이 절반 옮겨 감 | 약 27일 (4.4) | 두뇌 |
@@ -104,15 +104,18 @@ m_d ← 자리 + (m_d − 자리) · e^(−λΔt)  +  흔들림          흔들�
 **이벤트가 올 때**: 우리가 정한 평가값에 Jev의 판단을 더하고, 강아지 개성으로 크기를 바꾼다 ([0015](docs/decisions/0015-appraisal-prior-mood-change.md)).
 
 ```text
-충격_d = ( 평가값_d + 0.3 · Jev가중치 · (P_Jev[d↑] − P_Jev[d↓]) ) × 2·민감도_d × (1 − 습관화) + 잡음(±0.01)
-그 뒤 반대 기분 억제: 한쪽이 오른 만큼의 60%를 반대쪽에서 뺀다
+신호_d = ⊕(평가값_d × 2·민감도_d × (습관화 대상이면 1 − 습관화))  +  0.3 · Jev가중치 · (P_Jev[d↑] − P_Jev[d↓]) × 2·민감도_d × (1 − 습관화)
+         ⊕: 묶음 안 같은 기분 충격은 확률의 합처럼 포화 합산(찌르기 7번 = 0.79, 1.4가 아님). 묶음 안에서도 이벤트마다 습관화가 쌓인다
+그 뒤 반대 기분 억제: 한쪽이 오른 만큼의 30%를 반대쪽에서 뺀다
+기분은 남은 여유만큼 움직인다: 오를 때 × (1 − m), 내릴 때 × m (잡음 ±0.01 포함) → 0·1에 붙지 않는다
+반응 = 잡음 없는 신호가 가장 크게 오른 기분 (0.03 이상)
 ```
 
 | 이벤트 | 우리 평가값 (평균 강아지 기준) | Jev 가중치 |
 |---|---|---|
-| 찌르기 | 놀람 +0.20, 분노 +0.06 | 0.3 |
+| 찌르기 | 놀람 +0.20, 분노 +0.06 + 0.15·습관화 (익숙할수록 짜증) | 0.3 |
 | 던지기 | 무서움 +0.30·충격, 놀람 +0.05~0.30, 행복·졸림 −0.10·충격 | 0.3 |
-| 쓰다듬기 (3초) | 행복 +0.12, 들뜸 +0.04, 분노·시무룩·무서움 −0.05~0.06 | 0.3 |
+| 쓰다듬기 (3초) | 행복 +0.12, 들뜸 +0.04 (화나거나 무서운 만큼 줄어듦), 분노·시무룩·무서움 −0.03 | 0.3 |
 | 돌아옴 | 행복 +0.15, 들뜸 +0.12, 심심함 −0.10 | 0.3 |
 | 조용함 (10분) | 심심함 +0.04 | 0.3 |
 | 메시지 | 궁금함 +0.02, 심심함 −0.04 | **1.0** (글 내용은 Jev가 판단) |
@@ -121,6 +124,7 @@ m_d ← 자리 + (m_d − 자리) · e^(−λΔt)  +  흔들림          흔들�
 
 - 뜻이 분명한 이벤트(찌르기, 던지기)는 우리가 정하고, 글 내용처럼 해석이 필요한 것은 Jev에 맡긴다. Jev가 던지기를 "행복"으로 읽는 등 틀린 적이 있어서다.
 - 반대 쌍: 무서움↔행복·들뜸, 분노↔행복, 시무룩↔들뜸·행복, 졸림↔들뜸. 함께 높으면 어색한 기분들이다.
+- 습관화 대상: 찌르기 → 놀람, 쓰다듬기 → 행복, 던지기 → 무서움. 대상 기분만 무뎌진다. Jev가 실패해도 평가값으로 반응·동작은 낸다(대사는 없음). 상세: [기분 갱신 수식](docs/superpowers/specs/2026-10-16-mood-update-math-design.md) (검수 002).
 - **숫자 감각**: 이벤트가 없으면 기분은 자리 ± 0.03에 머문다. 세게 던지면 무서움 +0.3, 찌르면 놀람 +0.2, 강한 메시지면 ±0.18 정도 튄다.
 - 계산은 값을 읽을 때(판단, 30초 시계, 상태 조회)만 위 식의 정확한 풀이로 한다. 읽는 간격과 상관없이 같은 결과가 나온다.
 
@@ -410,7 +414,7 @@ flowchart LR
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
 | [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분×동작별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md), [시간 모형](docs/superpowers/specs/2026-10-16-time-model-design.md) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분×동작별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md), [시간 모형](docs/superpowers/specs/2026-10-16-time-model-design.md), [기분 갱신 수식](docs/superpowers/specs/2026-10-16-mood-update-math-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 ([검수 하네스](docs/superpowers/plans/2026-10-16-review-harness.md) 등) |
 | [`brain/review/`](brain/review/README.md) | 검수 하네스: 시나리오 실행기, 상태 분석표, 커버리지 |
 | [`docs/review/`](docs/review/) | 검수 루프: [진행 상황](docs/review/progress.md), [루프 프롬프트](docs/review/loop-prompt.md), [검수자 정의](docs/review/reviewer.md), [아는 결함](docs/review/known-defects.md), 회차별 판정(`rounds/`) |
