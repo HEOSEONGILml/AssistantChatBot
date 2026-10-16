@@ -39,3 +39,25 @@ def test_interjection_reacts_to_what_is_being_typed():
 def test_rules_limit_filler_words():
     s = system_instruction()
     assert "군말" in s and "없는 말" in s
+
+
+# ---- 검수 003 대사 ----
+
+
+def test_rules_against_invented_returns_counted_minutes_formal_speech_and_flip_flops():
+    s = system_instruction()
+    for rule in ("돌아옴", "분·초를 세어", "존댓말", "이미 고른 것", "탓하지", "몸짓"):
+        assert rule in s
+
+
+def test_quiet_seconds_are_not_shown_to_the_dialogue():
+    # 조용함 이벤트의 '10분'을 실제 경과로 읊지 않게, 대사 프롬프트에서는 조용함의 초를 뺀다 (검수 003)
+    state = {"이번 이벤트들": [{"종류": "조용함", "맥락": {"시간(초)": 600}}], "최근 이벤트 기록": ["10분 전 · 조용함 (시간(초) 600)"]}
+    p = dialogue_prompt(state, "bored", "none", ["quiet"], [], 3 * 3600)
+    assert "600" not in p and "3시간" in p
+    assert state["이번 이벤트들"][0]["맥락"] == {"시간(초)": 600}  # Jev에 쓰는 원본은 그대로
+
+
+def test_quiet_situation_says_the_user_has_not_returned():
+    p = dialogue_prompt({}, "bored", "none", ["quiet"], [], 1800)
+    assert "돌아오지 않았" in json.loads(p.split("\n")[0])["지금 말하는 상황"]

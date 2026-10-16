@@ -20,7 +20,12 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "잘못한 게 없으면 사과하지 않는다. 내가 최근에 한 말과 같은 말이나 같은 짜임을 반복하지 않는다. "
          "사용자가 타이핑하는 중이면 한마디만 하고 재촉하지 않는다. "
          "의성어·군말(멍, 킁킁, 헥헥, 꼬리 살랑 등)은 가끔만 넣고 최근에 쓴 군말은 다시 쓰지 않는다. '짖!'처럼 없는 말을 만들지 않는다. "
-         "시간은 '사용자가 마지막으로 뭔가 한 지'를 보고 말한다.")
+         "시간은 '사용자가 마지막으로 뭔가 한 지'를 보고 말하되, 개는 분·초를 세어 말하지 않는다('한참', '오래'처럼). "
+         "반기는 말('돌아왔네', '이제야 봐 주네')은 이번 이벤트가 사용자가 돌아옴·집에서 나옴일 때만 한다. "
+         "늘 반말로 말하고 존댓말이나 '주인님 ~요'를 쓰지 않는다. "
+         "내가 최근에 한 말과 어긋나지 않는다: 이미 고른 것은 그대로 유지한다. 사용자가 한 말과 내가 한 말을 헷갈리지 않고, 사용자를 탓하지 않는다. "
+         "몸짓 표현(꼬리 살랑 등)은 기분에 맞을 때만 쓴다. 서운하거나 무섭거나 화났을 때 꼬리 살랑은 쓰지 않는다.")
+# 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
 
 def system_instruction() -> str:
@@ -30,7 +35,7 @@ def system_instruction() -> str:
 
 
 SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')의 내용에 짧게 반응하며 끼어든다. '무슨 글 써?'처럼 내용을 모르는 척 묻지 않는다", "message": "사용자의 말에 답한다",
-             "dog_spoke": "방금 한 내 말에 이어 한마디 더 한다(새 내용으로)", "quiet": "한동안 조용해서 먼저 말을 건다",
+             "dog_spoke": "방금 한 내 말에 이어 한마디 더 한다(새 내용으로)", "quiet": "한동안 조용해서 먼저 말을 건다. 사용자는 아직 돌아오지 않았다(혼잣말이나 부르는 말)",
              "returned": "돌아온 사용자를 맞이한다", "house_out": "집에서 나와 말을 건다",
              "poke": "찔린 것에 반응한다", "pet": "쓰다듬어 준 것에 반응한다", "throw": "던져진 것에 반응한다"}
 
@@ -47,7 +52,12 @@ def _span(seconds: float) -> str:
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
                     alone_s: float = 0.0) -> str:
-    data = {**state, "이번에 뽑힌 반응": REACTION_NAMES[reaction], "이번에 뽑힌 동작": ACTION_NAMES[action],
+    # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
+    events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
+    log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
+    data = {**state, **({"이번 이벤트들": events} if "이번 이벤트들" in state else {}),
+            **({"최근 이벤트 기록": log} if "최근 이벤트 기록" in state else {}),
+            "이번에 뽑힌 반응": REACTION_NAMES[reaction], "이번에 뽑힌 동작": ACTION_NAMES[action],
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
             "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s)}
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
@@ -57,6 +67,7 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
 
+_QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
 _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
 _LABEL = re.compile(r"^강아지\s*[:：]\s*")
 
