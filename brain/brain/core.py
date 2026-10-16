@@ -10,7 +10,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import dialogue_prompt, system_instruction, trim_line
+from .persona import dialogue_prompt, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -267,7 +267,9 @@ class Brain:
             conversation = [f"{datetime.fromtimestamp(e.ts):%m-%d(%a) %H:%M} · "
                             + (f"사용자: {e.data.get('text', '')}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
                             for e in talk]
-            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user, conversation)))
+            v = voice(dog, t)  # 성격에서 나온 말투 (검수 004)
+            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
+                                                                                          conversation, v["지시"])), v["문장 수"])
         except AuthError:
             await self._set_ai("bad_key")
             return

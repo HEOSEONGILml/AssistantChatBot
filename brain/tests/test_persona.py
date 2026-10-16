@@ -72,3 +72,23 @@ def test_rules_keep_the_dialogue_honest_and_roles_straight():
 def test_prompt_carries_the_conversation_log():
     p = dialogue_prompt({}, "none", "none", ["message"], [], 0, ["어제 19:02 · 사용자: 내일이 내 생일이야"])
     assert json.loads(p.split("\n")[0])["대화 기록(오래된 것부터)"] == ["어제 19:02 · 사용자: 내일이 내 생일이야"]
+
+
+# ---- 성격별 말투 (검수 004: 네 성격이 같은 말투) ----
+
+from brain.persona import voice
+from brain.tuning import Tuning
+from sim.simulate import archetype_dog
+
+
+def test_each_archetype_gets_a_different_voice():
+    t = Tuning()
+    voices = {n: voice(archetype_dog(n), t) for n in ("평균", "과묵·차분", "예민·성마름", "활발·변덕쟁이")}
+    assert len(set(v["지시"] for v in voices.values())) == 4
+    assert voices["과묵·차분"]["문장 수"] == 1 and voices["활발·변덕쟁이"]["문장 수"] == 2
+    assert "짧" in voices["과묵·차분"]["지시"] and "투덜" in voices["예민·성마름"]["지시"] and "들떠" in voices["활발·변덕쟁이"]["지시"]
+
+
+def test_rules_ban_stock_phrases():
+    s = system_instruction()
+    assert "상투" in s and "앗, 깜짝이야" in s

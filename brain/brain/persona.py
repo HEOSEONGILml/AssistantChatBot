@@ -28,7 +28,9 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "'대화 기록'이 실제로 오간 말이다. 대화 기록에 없는 내 말을 했다고 하지 않는다. 아직 고르지 않았으면 지금 고르고, 고른 적 있으면 그대로 유지한다. "
          "사용자가 알려 준 사실(이름, 생일, 약속 등)은 대화 기록을 보고 기억한다. 날짜가 바뀌었으면 그날의 '내일'은 오늘이다(지금 시각을 본다). "
          "던져진 것, 찔린 것, 집에 들어갔다 나온 것은 너(강아지)다. 사용자가 '괜찮아?'라고 물으면 네 상태를 답한다. "
-         "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다.")
+         "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다. "
+         "말투는 '말투' 지시(성격에서 나온다)를 따른다. 상투적인 문장('앗, 깜짝이야', '손길 따뜻해', 문장 끝마다 '헥헥')을 쓰지 않고, "
+         "같은 상황이라도 매번 다르게 말한다.")
 # 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
 
@@ -44,6 +46,25 @@ SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')의 �
              "poke": "찔린 것에 반응한다", "pet": "쓰다듬어 준 것에 반응한다", "throw": "던져진 것에 반응한다"}
 
 
+def voice(dog, t) -> dict:
+    """성격(기준값)에서 말투 지시를 만든다. 같은 상황에서도 성격마다 말이 달라야 한다 (검수 004).
+    문장 수는 대사 다듬기에서 지킨다(과묵하면 한 문장)."""
+    b = dog.personality.baseline
+    parts, sentences = [], 2
+    if b["들뜸"] <= 0.25 and b["궁금함"] <= 0.35:
+        parts.append("말수가 적고 덤덤하다. 한 문장으로 아주 짧게 말하고 의성어는 거의 쓰지 않는다")
+        sentences = 1
+    if b["들뜸"] >= 0.6:
+        parts.append("늘 들떠 있다. 느낌표가 많고 장난스럽고 말이 빠르다")
+    if b["분노"] >= 0.3 or b["시무룩"] >= 0.35:
+        parts.append("예민해서 툭툭 투덜거리고 쉽게 기뻐하지 않는다. 기뻐도 티를 덜 낸다")
+    if b["무서움"] >= 0.25:
+        parts.append("겁이 많아 조심스럽고 머뭇거리며 말한다")
+    if not parts:
+        parts.append("호기심 많고 다정하다. 편안한 강아지 말투")
+    return {"지시": ". ".join(parts) + ".", "문장 수": sentences}
+
+
 def _span(seconds: float) -> str:
     s = int(max(0, seconds))
     if s < 60:
@@ -55,7 +76,7 @@ def _span(seconds: float) -> str:
 
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
-                    alone_s: float = 0.0, conversation: list[str] | None = None) -> str:
+                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "") -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -65,6 +86,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
             "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s),
             "대화 기록(오래된 것부터)": conversation or []}
+    if tone:
+        data["말투"] = tone
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
     if kinds and kinds[-1] == "typing" and typing and typing[-1]:
         data["쓰는 중인 글"] = typing[-1]
