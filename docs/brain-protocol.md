@@ -60,7 +60,7 @@ sequenceDiagram
 |---|---|---|
 | `reaction` | `reaction?`, `action?`, `utterance?` | 강아지 반응. 반응은 이번에 가장 크게 오른 기분의 즉각 표출이다. 반응·동작과 대사는 따로 올 수 있다 |
 | `status` | `ai`: `ok`·`no_keys`·`bad_key` | AI 상태. `hello` 직후와 바뀔 때 |
-| `movement` | `weights`, `mood`, `run`, `idle_scale` | 평소 움직임 경향과 두드러진 기분(`mood`: 아래 반응 어휘 또는 `calm`). `hello` 직후와 바뀔 때. 화면은 최신 값으로 평소 움직임을 뽑고, `mood`로 평소 모습을 고른다 |
+| `movement` | `weights`, `mood`, `run`, `idle_scale` | 평소 움직임 경향과 두드러진 기분(`mood`: 아래 반응 어휘 또는 `calm`). `hello` 직후와 바뀔 때(강아지가 집에 있는 동안은 보내지 않고 `house_out` 뒤 바로 보낸다). 화면은 최신 값으로 평소 움직임을 뽑고, `mood`로 평소 모습을 고른다 |
 | `state` | `dog`, `talkativeness`, `movement` | `get_state`에 대한 답: 성격·기분·친밀도·습관화, 말수 계산값, 지금 경향 (설정 창 상태 탭용) |
 | `log` | `judgements`, `events`, `brain_log` | `get_log`에 대한 답: 최근 판단 50개(Jev 분포·보정 뒤 확률·뽑힌 결과·기분 변화·대사), 이벤트 기록 문장, 두뇌 실행 로그 30줄 (설정 창 로그 탭용) |
 

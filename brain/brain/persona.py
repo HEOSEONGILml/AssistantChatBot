@@ -18,7 +18,9 @@ EVENT_MEANING = ("이벤트 뜻: 찌르기 = 사용자가 너를 마우스로 �
 RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나를 고르라면 하나를 골라 말한다. "
          "사용자가 힘들다거나 위로해 달라면 곁에 있어 주고 화제를 돌리지 않는다. "
          "잘못한 게 없으면 사과하지 않는다. 내가 최근에 한 말과 같은 말이나 같은 짜임을 반복하지 않는다. "
-         "사용자가 타이핑하는 중이면 한마디만 하고 재촉하지 않는다.")
+         "사용자가 타이핑하는 중이면 한마디만 하고 재촉하지 않는다. "
+         "의성어·군말(멍, 킁킁, 헥헥, 꼬리 살랑 등)은 가끔만 넣고 최근에 쓴 군말은 다시 쓰지 않는다. '짖!'처럼 없는 말을 만들지 않는다. "
+         "시간은 '사용자가 마지막으로 뭔가 한 지'를 보고 말한다.")
 
 
 def system_instruction() -> str:
@@ -33,10 +35,21 @@ SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')의 �
              "poke": "찔린 것에 반응한다", "pet": "쓰다듬어 준 것에 반응한다", "throw": "던져진 것에 반응한다"}
 
 
-def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str]) -> str:
+def _span(seconds: float) -> str:
+    s = int(max(0, seconds))
+    if s < 60:
+        return "방금"
+    if s < 3600:
+        return f"{s // 60}분"
+    h, m = divmod(s // 60, 60)
+    return f"{h}시간" + (f" {m}분" if m else "")
+
+
+def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
+                    alone_s: float = 0.0) -> str:
     data = {**state, "이번에 뽑힌 반응": REACTION_NAMES[reaction], "이번에 뽑힌 동작": ACTION_NAMES[action],
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
-            "내가 최근에 한 말": own_lines}
+            "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s)}
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
     if kinds and kinds[-1] == "typing" and typing and typing[-1]:
         data["쓰는 중인 글"] = typing[-1]

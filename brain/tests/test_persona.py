@@ -34,3 +34,8 @@ def test_interjection_reacts_to_what_is_being_typed():
     data = json.loads(dialogue_prompt(state, "sad", "sit", ["typing"], []).split("\n")[0])
     assert data["쓰는 중인 글"] == "오늘 팀장님이 내 발표를"
     assert "무슨 글" in data["지금 말하는 상황"]  # '무슨 글 써?'처럼 모르는 척 묻지 말라는 지시
+
+
+def test_rules_limit_filler_words():
+    s = system_instruction()
+    assert "군말" in s and "없는 말" in s

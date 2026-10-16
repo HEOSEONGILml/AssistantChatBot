@@ -349,3 +349,39 @@ async def test_question_waits_for_an_answer_even_with_a_trailing_bark(make):
     await env.brain.handle_event("message", {"text": "맑아"})
     await env.brain.drain()
     assert len(utterances(env.out)) == 2  # 답이 오면 다시 말한다
+
+
+async def test_no_movement_while_in_house(make):
+    # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002 사소). 나오면 다시 보낸다
+    env = await make()
+    await env.brain.handle_event("house_in", {})
+    await env.brain.drain()
+    env.out.clear()
+    env.brain.dog.mood["졸림"] = 0.95
+    env.clock.t += 600
+    await env.brain.clock_tick()
+    assert [m for m in env.out if m["type"] == "movement"] == []
+    await env.brain.handle_event("house_out", {"away_seconds": 600})
+    await env.brain.drain()
+    assert [m for m in env.out if m["type"] == "movement"]
+
+
+async def test_after_a_rebuke_the_dog_does_not_keep_talking(make):
+    # 핀잔("시끄러워")을 들은 흐름에서는 이어 말하지 않는다 (검수 002 사소)
+    env = await make(tuning=SPEAK)
+    env.jev.readout = Readout({"none": 1.0}, 0.9, {"친밀도↓": 0.67, "분노↑": 0.16})
+    await env.brain.handle_event("message", {"text": "너 진짜 시끄러워"})
+    await env.brain.drain()
+    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
+    await env.brain.drain()
+    assert len(utterances(env.out)) == 1
+
+
+async def test_dialogue_knows_how_long_the_user_has_been_away(make):
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("message", {"text": "일 좀 할게"})
+    await env.brain.drain()
+    env.clock.t += 3600
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert "1시간" in env.talker.calls[-1][1]  # '십 분'이 아니라 실제로 혼자 있은 시간
