@@ -1,0 +1,13 @@
+{"name": "probe-apology-silence", "description": "거친 말 뒤, 세게 던진 뒤 물음표 없는 사과만 함(네 성격): 사과에 반응·대사가 아무것도 없어 무시당한 느낌인가, 사과로 서운함·무서움이 눈에 띄게 풀리나",
+ "personality": "all", "seed": 7, "start": "2026-10-20T10:00",
+ "steps": [
+  {"say": "너 진짜 짜증나"},
+  {"wait": 60, "quiet": false},
+  {"say": "아까 짜증낸 거 미안해"},
+  {"wait": 120, "quiet": false},
+  {"event": "throw", "context": {"impact": 0.95, "bounces": 3, "flight_seconds": 1.5}},
+  {"wait": 60, "quiet": false},
+  {"say": "던져서 미안해 다신 안 그럴게"},
+  {"wait": 300, "quiet": false},
+  {"get_state": true}
+ ]}
