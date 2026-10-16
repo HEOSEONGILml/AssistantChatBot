@@ -258,7 +258,7 @@ class Brain:
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
         # 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002). 조용함이 오면 다시 말을 걸 수 있다
         if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and (self._hold or self._waiting)) \
-                or (kinds[-1] == "typing" and self._interjected):
+                or (kinds[-1] == "typing" and (self._interjected or len(str(batch[-1].data.get("text", ""))) < t.interject_min_chars)):
             p_speak = 0.0
         else:
             last = batch[-1]

@@ -85,7 +85,7 @@ async def test_dog_spoke_chain_stops_at_cap(make):
         await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
         await env.brain.drain()
     assert len(utterances(env.out)) == 3  # 사용자 입력 없이 3번이면 멈춘다
-    await env.brain.handle_event("typing", {"text": "그래서"})
+    await env.brain.handle_event("typing", {"text": "그래서 오늘은 뭘 할 거냐면"})
     await env.brain.drain()
     assert len(utterances(env.out)) == 4  # 타이핑도 사용자 입력이라 다시 셀 수 있다
 
@@ -506,7 +506,7 @@ async def test_ignored_dog_speaks_up_less_and_less(make):
 
 async def test_one_interjection_per_message(make):
     env = await make(tuning=SPEAK)
-    for text in ("오늘 산책", "오늘 산책 갈까 말까", "오늘 산책 갈까 말까 고민"):
+    for text in ("오늘 산책 갈까 말까 고민", "오늘 산책 갈까 말까 고민 중이야", "오늘 산책 갈까 말까 고민 중이야 날씨가"):
         await env.brain.handle_event("typing", {"text": text})
         await env.brain.drain()
     assert len(utterances(env.out)) == 1
@@ -530,7 +530,7 @@ async def test_birthday_said_yesterday_is_today(make):
 async def test_reply_keeps_what_the_dog_just_said_while_interjecting(make):
     env = await make(tuning=SPEAK)
     env.talker.line = "바나나! 달콤해서 좋아"
-    await env.brain.handle_event("typing", {"text": "사과랑 바나나 중에"})
+    await env.brain.handle_event("typing", {"text": "사과랑 바나나 중에 뭐가 좋아"})
     await env.brain.drain()
     env.talker.line = "응"
     await env.brain.handle_event("message", {"text": "사과랑 바나나 중에 뭐가 좋아?"})
@@ -555,3 +555,14 @@ async def test_do_not_disturb_hushes_the_dog_for_an_hour(make):
     await env.brain.drain()
     later = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
     assert hushed < 0.05 and later > 3 * hushed
+
+
+async def test_no_interjection_on_a_short_fragment(make):
+    # 첫 10글자 조각에서는 끼어들지 않는다(귀만 쫑긋). 뜻이 드러난 뒤에 끼어든다 (검수 008: 끼어들기 80%가 첫 조각)
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("typing", {"text": "나 지금부터 한 시"})
+    await env.brain.drain()
+    assert utterances(env.out) == []
+    await env.brain.handle_event("typing", {"text": "나 지금부터 한 시간 집중해야 해서"})
+    await env.brain.drain()
+    assert len(utterances(env.out)) == 1
