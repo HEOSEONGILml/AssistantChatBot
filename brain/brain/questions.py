@@ -1,4 +1,4 @@
-"""Jev 질문 4개(동작·말하기·변화·사용자 속상함)와 선택지 정책 설명. 반응은 따로 묻지 않고 기분 변화에서 나온다(기분 8개 스펙), Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
+"""Jev 질문 5개(동작·말하기·변화·사용자 속상함·달램)와 선택지 정책 설명. 반응은 따로 묻지 않고 기분 변화에서 나온다(기분 8개 스펙), Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
 문구를 바꾸면 분포가 달라지므로 Jev를 다시 녹화하고 보정값을 다시 맞춘다 (brain/sim)."""
 from datetime import datetime
 
@@ -31,6 +31,8 @@ QUESTIONS = {
     "change": Choice(instructions="이번 이벤트(들) 자체로 강아지의 기분·친밀도는 어떻게 변하나?", criteria=CHANGE_TEXT),
     # 사용자의 감정은 Jev가 잘 판단한다. 강아지의 공감은 우리 모형이 정한다 (검수 005)
     "user_down": Noul(instructions="사용자가 이번에 쓴 글로 보아 지금 속상하거나 힘들거나 슬프다"),
+    # 사과·달램은 사용자 속상함과 헷갈리기 쉽다. 따로 묻고 강아지가 풀리는 쪽은 우리 모형이 정한다 (검수 006)
+    "soothe": Noul(instructions="사용자가 이번에 쓴 글로 강아지에게 사과하거나 강아지를 달래고 있다"),
 }
 
 EVENT_NAMES = {"typing": "타이핑", "message": "메시지 보냄", "dog_spoke": "강아지 말이 화면에 뜸", "quiet": "조용함",

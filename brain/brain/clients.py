@@ -31,11 +31,12 @@ class Readout:
     speak: float
     change: dict[str, float]
     user_down: float = 0.0   # 사용자가 지금 속상해 보일 확률 (검수 005: 공감)
+    soothe: float = 0.0      # 사용자가 강아지에게 사과하거나 달래는 확률 (검수 006)
 
 
 def to_readout(resp) -> Readout:
     return Readout(dict(resp.choices["action"].probabilities), resp.nouls["speak"].noul,
-                   dict(resp.choices["change"].probabilities), resp.nouls["user_down"].noul)
+                   dict(resp.choices["change"].probabilities), resp.nouls["user_down"].noul, resp.nouls["soothe"].noul)
 
 
 class Jev(Protocol):

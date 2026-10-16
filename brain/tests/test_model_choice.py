@@ -456,3 +456,23 @@ def test_long_alone_in_the_day_gets_sleepy_enough_to_nap():
     for _ in range(6):  # 자리를 비운 3시간, 30분마다 조용함
         model.apply_change(dog, {}, [("quiet", {"seconds": 1800})], rng, QUIET, alone_s=3 * 3600)
     assert dog.mood["졸림"] - dog.personality.baseline["졸림"] > 0.2
+
+
+# ---- 검수 006: 사과는 달램, 오래 비운 뒤 돌아오면 잠이 깬다 ----
+
+
+def test_apology_soothes_even_if_jev_thinks_the_user_is_down():
+    # 실측: "내가 말이 심했어 미안"에 Jev 사용자 속상함 0.61~0.67. 달램(soothe)이 높으면 공감보다 달램이 앞선다
+    dog = calm_dog()
+    dog.mood["시무룩"], dog.mood["무서움"] = 0.6, 0.35
+    d = model.apply_change(dog, {"친밀도↑": 0.5, "무서움↓": 0.2}, [("message", {"text": "내가 말이 심했어 미안"})],
+                           random.Random(0), QUIET, user_down=0.65, soothe=0.9)
+    assert dog.mood["시무룩"] < 0.45 and dog.mood["무서움"] < 0.3
+    assert model.reaction_from(d, ["message"], T) in ("happy", "none")
+
+
+def test_long_away_return_wakes_and_excites():
+    dog = calm_dog()
+    dog.mood["졸림"] = 0.55
+    model.apply_change(dog, {}, [("returned", {"away_seconds": 8 * 3600})], random.Random(0), QUIET)
+    assert dog.mood["졸림"] < 0.4 and dog.mood["들뜸"] > model.BIRTH_BASELINE["들뜸"] + 0.1

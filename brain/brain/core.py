@@ -238,7 +238,7 @@ class Brain:
             self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
-        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down,
+        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe,
                                     waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
         a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
@@ -253,11 +253,11 @@ class Brain:
             text = str(last.data.get("text", ""))
             # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
-            hurting = last.kind == "message" and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
+            hurting = last.kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
             p_speak = model.chain_probability(dog, self._streak, t) if kinds[-1] == "dog_spoke" else \
                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})
@@ -288,7 +288,7 @@ class Brain:
             elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
                 facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 밖에 있었다")
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], rd.user_down >= 0.5, facts)), v["문장 수"])
+                                                                                          conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts)), v["문장 수"])
         except AuthError:
             await self._set_ai("bad_key")
             return
