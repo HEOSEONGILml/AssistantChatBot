@@ -76,7 +76,7 @@ class World:
     def __init__(self, dog: model.Dog, rec: Recording, rng: random.Random, t: Tuning):
         self.dog, self.rec, self.rng, self.t = dog, rec, rng, t
         self.now = self.last = self.last_user = dog.updated_at
-        self.unanswered, self.interjected = 0, False
+        self.unanswered, self.interjected, self.flow = 0, False, ""
         self.streak, self.waiting = 0, False
         self.stats = Stats()
 
@@ -88,6 +88,8 @@ class World:
         if kind in ("message", "typing"):
             self.waiting = False
         rd = self.rec.readout(kind, dog, self.streak)
+        if kind != "dog_spoke":
+            self.flow = kind
         if kind in USER_KINDS:
             self.last_user = self.now
             self.unanswered = 0
@@ -103,7 +105,7 @@ class World:
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
         hurting = kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
-        p = model.chain_probability(dog, self.streak, t) if kind == "dog_spoke" else \
+        p = model.chain_probability(dog, self.streak, t, self.unanswered if self.flow == "quiet" else 0) if kind == "dog_spoke" else \
             0.0 if kind == "typing" and self.interjected else \
             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting, self.unanswered)
         spoke = self.rng.random() < p

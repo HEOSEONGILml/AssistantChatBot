@@ -242,17 +242,18 @@ def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: b
     return _sigmoid(x)
 
 
-def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
+def chain_probability(dog: Dog, streak: int, t: Tuning, ignored: int = 0, hushed: bool = False) -> float:
     """방금 한 말에 한마디 더 할 확률 (검수 005). Jev는 이어 말하기를 잘 판단하지 못해(실사용 44% vs 녹화 시뮬레이션 28%)
     우리 모형이 정한다: 말수가 적으면 거의 한 마디, 이어 갈수록 줄어든다."""
-    if streak >= t.max_streak:
+    if streak >= t.max_streak or hushed:  # "말 걸지 마" 동안은 덧말이 없다 (검수 009)
         return 0.0
     ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
     first = min(t.chain_cap, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
     b = dog.personality.baseline
     jolt = max(0.0, dog.mood["무서움"] - b["무서움"], dog.mood["놀람"] - b["놀람"])
     hush = max(0.0, 1 - 3 * jolt)  # 겁먹거나 놀란 직후에는 덧말이 거의 없다("이제 괜찮아졌어" 해설, 검수 008)
-    return first * hush * t.chain_decay ** max(0, streak - 1)
+    # 대꾸 없는 흐름에서는 덧말이 갈수록 준다 (검수 009: 무시당한 흐름의 덧말 0.26 > 답할 때 0.13)
+    return first * hush * t.chain_decay ** max(0, streak - 1) * t.chain_ignored ** ignored
 
 
 # ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----

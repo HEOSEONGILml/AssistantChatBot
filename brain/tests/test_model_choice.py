@@ -540,3 +540,12 @@ def test_startled_dog_rarely_adds_a_follow_up():
     calm = model.chain_probability(dog, 1, T)
     dog.mood["놀람"] = dog.personality.baseline["놀람"] + 0.3
     assert model.chain_probability(dog, 1, T) < 0.5 * calm
+
+
+def test_ignored_or_hushed_dog_does_not_pile_on_follow_ups():
+    # 대꾸 없는 흐름에서 덧말은 갈수록 준다. "말 걸지 마" 동안은 덧말이 없다 (검수 009: 활발 강아지가 갈수록 길게 조름)
+    from sim.simulate import archetype_dog
+    dog = archetype_dog("활발·변덕쟁이")
+    base = model.chain_probability(dog, 1, T)
+    assert model.chain_probability(dog, 1, T, ignored=2) < 0.25 * base
+    assert model.chain_probability(dog, 1, T, hushed=True) == 0.0

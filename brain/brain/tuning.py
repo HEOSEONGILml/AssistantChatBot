@@ -147,16 +147,17 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.53, "message": -0.63, "dog_spoke": -0.11, "quiet": -1.77})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -2.29, "message": -0.31, "dog_spoke": -0.11, "quiet": -1.71})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 성격(말수)에 따라, 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%, 과묵도 50%)
-    chain_base: float = 0.159           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 20%(검수 006에서 30% → 20%), 질문하면 기다리므로 절반가량은 막힌다)
+    chain_base: float = 0.223           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 20%(검수 006에서 30% → 20%), 질문하면 기다리므로 절반가량은 막힌다)
     chain_talk: float = 1.2             # 평균 강아지보다 말수가 1 많으면 ×e^1.2 (과묵하면 거의 한 마디)
     scared_gate: float = 0.3            # 무서움이 기준값보다 이만큼 높으면 기쁨·신남 반응을 내지 않는다 (검수 007)
     hush_s: float = 3600.0              # "말 걸지 마"를 들으면 이 시간 동안(사용자가 다시 말하면 끝) 먼저 말 걸기를 줄인다
     hush_penalty: float = 5.0           # 그동안 조용함의 말하기 로짓에서 뺀다
     fear_hush: float = 8.0              # 무서움 초과분 1당 말하기 로짓에서 뺀다 (검수 007: 겁먹은 활발 강아지가 55초에 9마디)
     interject_min_chars: int = 15       # 이보다 짧은 조각에서는 끼어들지 않는다(뜻이 드러난 뒤에, 검수 008)
+    chain_ignored: float = 0.4          # 먼저 말을 건 뒤 대꾸 없던 횟수마다 덧말 확률에 곱한다 (검수 009)
     chain_cap: float = 0.6              # 아무리 수다스러워도 덧말은 가끔 (검수 006: 활발 0.9로 매번)
     ignored_penalty: float = 0.7        # 먼저 말을 걸었는데 대꾸가 없을 때마다 먼저 말 걸기 로짓에서 뺀다 (검수 006)
     chain_decay: float = 0.3            # 한 번 더 이어 갈 때마다 곱함. 세 마디는 드물게
