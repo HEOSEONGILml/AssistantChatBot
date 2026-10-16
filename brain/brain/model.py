@@ -192,12 +192,14 @@ def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[st
     """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(기준값 대비) + 반응 + Jev 약한 조정, 온도로 나눈다."""
     T = temperature(dog)
     m, b = dog.mood, dog.personality.baseline
+    # 메시지는 글 내용("앉아", "엎드려")이 동작을 정할 수 있어 Jev 동작 판단을 더 믿는다 (검수 010: 명령을 안 따름)
+    w_jev = t.w_jev_action_message if kinds and kinds[-1] == "message" else t.w_jev_action
     scores = {}
     for a in ACTIONS:
         x = (ACTION_BASE.get(a, 0.0) + sum(EVENT_ACTION.get(k, {}).get(a, 0.0) for k in kinds)
              + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
-             + t.w_jev_action * math.log(jev.get(a, 0.0) + t.jev_action_floor))
+             + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor))
         if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
             x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다. 변덕(온도)으로도 뒤집히지 않게 크게 (검수 003)
         scores[a] = x / T

@@ -556,3 +556,12 @@ def test_apology_reaction_is_not_curiosity():
     dog.mood["시무룩"] = 0.5
     d = model.apply_change(dog, {"궁금함↑": 0.4, "친밀도↑": 0.4}, [("message", {"text": "아까는 미안해"})], random.Random(0), QUIET, soothe=0.9)
     assert model.reaction_from(d, ["message"], T) != "curious"
+
+
+def test_commands_in_messages_are_mostly_followed():
+    # "엎드려"처럼 글 내용이 동작을 정하면 Jev가 그 동작을 크게 준다. 메시지에서는 Jev 동작 판단을 더 믿는다 (검수 010: 엎드려 0/4)
+    dog = calm_dog()
+    p = model.probabilities(model.action_scores({"lie_down": 0.9, "none": 0.1}, dog, "none", ["message"], T))
+    assert p["lie_down"] > 0.6
+    q = model.probabilities(model.action_scores({"lie_down": 0.9, "none": 0.1}, dog, "surprised", ["poke"], T))
+    assert q["lie_down"] < 0.4  # 몸 이벤트에서는 여전히 우리 모형이 정한다

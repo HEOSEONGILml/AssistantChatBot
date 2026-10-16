@@ -180,3 +180,7 @@ def test_trim_drops_sentences_with_offscreen_places_and_banned_words():
 
 def test_rule_speak_only_feelings_that_happened():
     assert "뽑힌 반응'에 없는" in system_instruction()
+
+
+def test_rule_spoken_action_matches_picked_action():
+    assert "말로 하는 동작" in system_instruction()

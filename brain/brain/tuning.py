@@ -142,6 +142,7 @@ class Tuning:
     w_react: float = 1.5
     w_jev_action: float = 0.3           # Jev 동작 로그확률의 무게. 서기 0.98 쏠림도 최대 약 0.9로 묶인다 (검수 001)
     jev_action_floor: float = 0.05
+    w_jev_action_message: float = 1.5   # 메시지일 때 Jev 동작 로그확률의 무게. 명령을 대부분 따른다 (검수 010)
     talk_scale: float = 0.7             # 말수 계수 크기. 기분 8개로 늘며 항이 많아져 1.0이면 활발한 강아지 끼어들기가 65%까지 벌어짐 (시뮬레이션)
     # 이벤트 종류별 말하기 보정. 평균 성격 강아지가 목표 지표(끼어들기 30%, 답하기 85%, 먼저 말 걸기 1/3,
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
