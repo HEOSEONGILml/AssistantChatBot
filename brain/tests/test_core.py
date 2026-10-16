@@ -510,3 +510,29 @@ async def test_one_interjection_per_message(make):
         await env.brain.handle_event("typing", {"text": text})
         await env.brain.drain()
     assert len(utterances(env.out)) == 1
+
+
+async def test_birthday_said_yesterday_is_today(make):
+    # 날짜 계산은 우리 모형이 한다: "내일이 내 생일"을 들은 다음 날이면 오늘이 생일이라는 사실을 준다 (검수 006)
+    from datetime import datetime
+    env = await make(tuning=SPEAK)
+    env.clock.t = datetime(2026, 10, 21, 20, 0).timestamp()
+    env.brain.dog.updated_at = env.clock.t
+    await env.brain.handle_event("message", {"text": "내일이 내 생일이야"})
+    await env.brain.drain()
+    env.clock.t = datetime(2026, 10, 22, 8, 0).timestamp()
+    await env.brain.handle_event("message", {"text": "좋은 아침! 오늘 무슨 날이게?"})
+    await env.brain.drain()
+    prompt = env.talker.calls[-1][1]
+    assert "내일 = 10-22" in prompt and "오늘은 사용자가 말한 생일" in prompt
+
+
+async def test_reply_keeps_what_the_dog_just_said_while_interjecting(make):
+    env = await make(tuning=SPEAK)
+    env.talker.line = "바나나! 달콤해서 좋아"
+    await env.brain.handle_event("typing", {"text": "사과랑 바나나 중에"})
+    await env.brain.drain()
+    env.talker.line = "응"
+    await env.brain.handle_event("message", {"text": "사과랑 바나나 중에 뭐가 좋아?"})
+    await env.brain.drain()
+    assert "방금 네가 한 말: 바나나! 달콤해서 좋아" in env.talker.calls[-1][1]

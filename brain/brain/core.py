@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import dialogue_prompt, system_instruction, trim_line, voice
+from .persona import annotate_dates, date_facts, dialogue_prompt, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -281,7 +281,7 @@ class Brain:
             # 대화 기록: 이벤트 창(30개)과 따로, 실제로 오간 말만 최근 20줄. 하룻밤이 지나도 들은 사실이 남는다 (검수 004)
             talk = [e for e in self._store.recent(500) if e.kind == "message" or (e.kind == "dog" and "utterance" in e.data)][-20:]
             conversation = [f"{datetime.fromtimestamp(e.ts):%m-%d(%a) %H:%M} · "
-                            + (f"사용자: {e.data.get('text', '')}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
+                            + (f"사용자: {annotate_dates(e.data.get('text', ''), e.ts)}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
                             for e in talk]
             v = voice(dog, t)  # 성격에서 나온 말투 (검수 004)
             # 지금 상황 사실: 주인이 곁에 있는지, 집에서 나온 쪽이 누구인지 (검수 005: 지어냄)
@@ -293,6 +293,13 @@ class Brain:
                 facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
             elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
                 facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 밖에 있었다")
+            facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
+            if kinds[-1] == "message":  # 끼어들며 한 말도 내 말이다: 메시지에 답할 때 뒤집지 않는다 (검수 006)
+                said = [e.data["utterance"] for e in talk[:-1] if e.kind == "dog"]
+                prev_msg = max((i for i, e in enumerate(talk[:-1]) if e.kind == "message"), default=-1)
+                just = [e.data["utterance"] for e in talk[prev_msg + 1:-1] if e.kind == "dog"]
+                if just and said:
+                    facts.append(f"방금 네가 한 말: {just[-1]} — 이 말과 어긋나지 않게 이어 간다")
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
                                                                                           conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts)), v["문장 수"])
         except AuthError:

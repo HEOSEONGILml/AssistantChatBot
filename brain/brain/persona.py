@@ -2,6 +2,7 @@
 Gemini에도 Jev와 같은 데이터를 수치 그대로 준다 (사용자 결정)."""
 import json
 import re
+from datetime import datetime, timedelta
 
 from .model import ACTION_NAMES, REACTION_NAMES
 
@@ -67,6 +68,29 @@ def voice(dog, t) -> dict:
     if not parts:
         parts.append("호기심 많고 다정하다. 편안한 강아지 말투")
     return {"지시": ". ".join(parts) + ".", "문장 수": sentences}
+
+
+_RELATIVE_DAYS = {"그저께": -2, "어제": -1, "오늘": 0, "내일": 1, "모레": 2}
+
+
+def _dates_in(text: str, ts: float) -> list[tuple[str, str]]:
+    """글 속 상대 날짜(내일 등)를 들은 시각 기준 실제 날짜로 (LLM은 날짜 계산에 약하다, 검수 006)."""
+    base = datetime.fromtimestamp(ts).date()
+    return [(w, (base + timedelta(days=d)).strftime("%m-%d")) for w, d in _RELATIVE_DAYS.items() if w in text]
+
+
+def annotate_dates(text: str, ts: float) -> str:
+    found = _dates_in(text, ts)
+    return text + (" (" + ", ".join(f"{w} = {d}" for w, d in found) + ")" if found else "")
+
+
+def date_facts(messages: list[tuple[float, str]], now: float) -> list[str]:
+    """사용자가 말한 생일이 오늘이면 사실로 준다."""
+    today = datetime.fromtimestamp(now).strftime("%m-%d")
+    for ts, text in messages:
+        if "생일" in text and any(d == today for _, d in _dates_in(text, ts)):
+            return [f"오늘은 사용자가 말한 생일({today})이다. 먼저 생일을 축하한다"]
+    return []
 
 
 def _span(seconds: float) -> str:
