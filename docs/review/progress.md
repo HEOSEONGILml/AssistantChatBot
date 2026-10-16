@@ -111,3 +111,5 @@ Claude Code를 저장소 루트에서 열고 아래 한 줄을 입력한다.
 **② 명령 묶음**: 검수 010에서 메시지 Jev 동작 무게를 1.5로 올렸는데도 "짖어 봐"는 짖기 1/4, "일어나"는 서기 0/4다. `probe-commands` 판단 로그에서 Jev 동작 분포부터 본다.
 
 **다시 시작**: `/ralph-loop "docs/review/loop-prompt.md를 읽고 그대로 한 회차를 진행해." --completion-promise "REVIEW PASSED TWICE" --max-iterations 80` (중단할 때 반복 53회째였다. 상한 80을 새로 센다)
+
+**루프 밖 할 일 (사용자 요청 2026-10-16)**: 말로 시킨 위치·방향으로 강아지가 오기(vision "말로 시키는 위치·방향" 절). 두뇌·화면·규약이 함께 바뀌어 brainstorming부터 따로 한다.
