@@ -60,7 +60,7 @@ def main() -> None:
         names = sorted(p.stem for p in SCENARIOS.glob("*.json")) if a.all else a.names
         asyncio.run(run(names, a.fake))
     missing = write_coverage()
-    print(f"커버리지 빈 칸 {len(missing)}개" + (": " + ", ".join(missing) if missing else ""))
+    print(f"커버리지 필수 빈 칸 {len(missing)}개" + (": " + ", ".join(missing) if missing else ""))
 
 
 if __name__ == "__main__":

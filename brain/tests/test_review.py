@@ -118,3 +118,11 @@ async def test_long_wait_without_quiet_uses_coarse_ticks(tmp_path):
     runs = await run_scenario(scenario([{"wait": 6 * 3600, "quiet": False}]), fake=True, out_dir=tmp_path)
     ticks = [r for r in runs["평균"] if r["type"] == "snap" and r.get("tick")]
     assert len(ticks) == 6 * 3600 // LONG_TICK_S
+
+
+def test_chance_cells_are_reported_but_not_required():
+    # 짧게 써 봐도 판단이 서야 한다 (사용자). 확률로만 일어나는 칸은 통과 조건이 아니라 참고로 보인다
+    recs = [{"type": "sent", "kind": "poke", "phase": "idle", "context": {}, "t": 0}]
+    table, missing = coverage({"x": recs})
+    assert "기분: excited" not in missing and "동작: bark" not in missing
+    assert "확률 칸" in table and "excited" in table

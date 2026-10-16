@@ -1,0 +1,95 @@
+{
+ "name": "02-states",
+ "description": "상태·예외를 짧게 한 번씩: 몰아치기, 집, 키 실패, 연결, 다시 켬, 초기화",
+ "personality": "평균",
+ "seed": 1,
+ "start": "2026-10-19T09:00",
+ "steps": [
+  {
+   "event": "typing",
+   "context": {
+    "text": "야야야야야야야야야야"
+   },
+   "nowait": true
+  },
+  {
+   "event": "poke",
+   "nowait": true
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "뭐해?"
+   }
+  },
+  {
+   "say": "할 말 있으면 해 봐"
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 됐어"
+   },
+   "nowait": true
+  },
+  {
+   "event": "house_in"
+  },
+  {
+   "wait": 600,
+   "quiet": false
+  },
+  {
+   "event": "house_out",
+   "context": {
+    "away_seconds": 600
+   }
+  },
+  {
+   "keys": "fail"
+  },
+  {
+   "event": "poke"
+  },
+  {
+   "keys": "bad"
+  },
+  {
+   "event": "poke"
+  },
+  {
+   "keys": "none"
+  },
+  {
+   "keys": "ok"
+  },
+  {
+   "disconnect": true
+  },
+  {
+   "wait": 120,
+   "quiet": false
+  },
+  {
+   "connect": true
+  },
+  {
+   "get_state": true
+  },
+  {
+   "get_log": true
+  },
+  {
+   "restart": true
+  },
+  {
+   "say": "다시 켰어"
+  },
+  {
+   "reset": true
+  },
+  {
+   "get_state": true
+  }
+ ]
+}

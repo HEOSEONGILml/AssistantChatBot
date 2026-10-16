@@ -191,8 +191,17 @@ def analyze(scenario_name: str, runs: dict[str, list[dict]]) -> str:
     return text
 
 
+# 필수 칸: 시나리오로 반드시 일으킬 수 있는 칸. 나머지(반응·동작·대사 종류·두드러진 기분 등)는 확률 칸이다.
+# 사람은 조금만 써 봐도 판단이 서므로 회차마다 생성을 많이 하지 않는다 (사용자, 2026-10-16)
+REQUIRED = {("이벤트", k) for k in EVENT_KINDS} | {
+    ("두뇌 단계", "idle"), ("두뇌 단계", "judging"),
+    ("AI 상태", "ok"), ("AI 상태", "no_keys"), ("AI 상태", "bad_key"), ("AI 상태", "호출 실패"),
+    ("장기", "습관화"), ("장기", "성격 변화"), ("장기", "다시 켬 기억"), ("장기", "초기화"),
+    ("연결", "끊김"), ("연결", "다시 연결"), ("연결", "상태 조회"), ("연결", "로그 조회")}
+
+
 def coverage(all_runs: dict[str, list[dict]]) -> tuple[str, list[str]]:
-    """스펙 3절 칸마다 일어난 횟수. 돌려주는 값: (마크다운 표, 빈 칸 목록)."""
+    """스펙 3절 칸마다 일어난 횟수. 돌려주는 값: (마크다운 표, 필수 빈 칸 목록)."""
     c: dict[str, Counter] = defaultdict(Counter)
     axes = {
         "이벤트": list(EVENT_KINDS),
@@ -263,10 +272,14 @@ def coverage(all_runs: dict[str, list[dict]]) -> tuple[str, list[str]]:
                 c["연결"]["상태 조회"] += 1
             elif ty == "log":
                 c["연결"]["로그 조회"] += 1
-    lines, missing = ["# 상태 커버리지", ""], []
+    lines, missing, chance_missing = ["# 상태 커버리지", ""], [], []
     for axis, cells in axes.items():
         lines.append(f"- **{axis}**: " + ", ".join(f"{x} {c[axis][x]}" for x in cells))
-        missing += [f"{axis}: {x}" for x in cells if not c[axis][x]]
-    filled = sum(len(v) for v in axes.values()) - len(missing)
-    lines += ["", f"채운 칸 {filled} / {filled + len(missing)}", "", "빈 칸: " + (", ".join(missing) if missing else "없음")]
+        for x in cells:
+            if not c[axis][x]:
+                (missing if (axis, x) in REQUIRED else chance_missing).append(f"{axis}: {x}")
+    lines += ["", f"필수 칸 {len(REQUIRED) - len(missing)} / {len(REQUIRED)}",
+              "", "필수 빈 칸: " + (", ".join(missing) if missing else "없음"),
+              "", "확률 칸(짧은 사용에서 안 나올 수 있다. 안 나온 것 자체가 이상하면 검수자가 지적한다) 빈 칸: "
+              + (", ".join(chance_missing) if chance_missing else "없음")]
     return "\n".join(lines), missing
