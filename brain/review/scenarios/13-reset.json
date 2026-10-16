@@ -1,0 +1,31 @@
+{
+ "name": "13-reset",
+ "description": "초기화하고 새 강아지와 만난다",
+ "personality": "random",
+ "seed": 7,
+ "start": "2026-10-19T09:00",
+ "steps": [
+  {
+   "say": "안녕 오래된 친구"
+  },
+  {
+   "get_state": true
+  },
+  {
+   "reset": true
+  },
+  {
+   "get_state": true
+  },
+  {
+   "say": "안녕 새 친구! 나 기억해?"
+  },
+  {
+   "wait": 60,
+   "quiet": false
+  },
+  {
+   "get_log": true
+  }
+ ]
+}

@@ -1,0 +1,41 @@
+{
+ "name": "14-personality-compare",
+ "description": "같은 하루를 네 성격 유형으로 겪는다 (성격 차이)",
+ "personality": "all",
+ "seed": 1,
+ "start": "2026-10-19T09:00",
+ "steps": [
+  {
+   "say": "안녕 좋은 아침"
+  },
+  {
+   "event": "poke"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 3.0
+   }
+  },
+  {
+   "say": "오늘 기분 어때?"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "event": "throw",
+   "context": {
+    "impact": 0.7,
+    "bounces": 1,
+    "flight_seconds": 0.9
+   }
+  },
+  {
+   "say": "미안 미안"
+  },
+  {
+   "wait": 1800
+  }
+ ]
+}

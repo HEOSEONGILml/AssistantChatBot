@@ -39,6 +39,7 @@
 | 두뇌 테스트 | `cd ../brain && uv run pytest` |
 | Jev 녹화 (질문 문구·Jev 버전을 바꿨을 때) | `cd ../brain && uv run python -m sim.record` |
 | 시뮬레이션·보정값 맞추기 | `cd ../brain && uv run python -m sim.simulate --fit` |
+| 검수 하네스 (시나리오 실행·분석표·커버리지) | `cd ../brain && uv run python -m review run --all` ([사용법](brain/review/README.md)) |
 | 기분별 임시 시트 다시 만들기 | `uv run --with pillow python tools/draw_moods.py` |
 | 설치 파일 빌드 | `npm run tauri build` → `src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi` |
 

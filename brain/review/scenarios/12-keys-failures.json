@@ -1,0 +1,52 @@
+{
+ "name": "12-keys-failures",
+ "description": "키가 없거나 틀리거나 호출이 실패한다 (실패 시 행동)",
+ "personality": "평균",
+ "seed": 1,
+ "start": "2026-10-19T09:00",
+ "steps": [
+  {
+   "say": "안녕"
+  },
+  {
+   "keys": "fail"
+  },
+  {
+   "say": "내 말 들려?"
+  },
+  {
+   "event": "poke"
+  },
+  {
+   "keys": "ok"
+  },
+  {
+   "say": "이제 들려?"
+  },
+  {
+   "keys": "bad"
+  },
+  {
+   "say": "또 안 되네"
+  },
+  {
+   "keys": "none"
+  },
+  {
+   "event": "pet"
+  },
+  {
+   "wait": 900
+  },
+  {
+   "keys": "ok"
+  },
+  {
+   "say": "다시 왔다"
+  },
+  {
+   "wait": 60,
+   "quiet": false
+  }
+ ]
+}

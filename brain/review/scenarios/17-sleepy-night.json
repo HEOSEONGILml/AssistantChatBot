@@ -1,0 +1,19 @@
+{
+ "name": "17-sleepy-night",
+ "description": "밤 늦게 조용히 둔다 (졸림·잠, 감쇠, 기분별 움직임)",
+ "personality": "평균",
+ "seed": 1,
+ "start": "2026-10-19T22:00",
+ "steps": [
+  {
+   "say": "늦었다 이제 쉬어"
+  },
+  {
+   "wait": 14400,
+   "away": true
+  },
+  {
+   "get_state": true
+  }
+ ]
+}

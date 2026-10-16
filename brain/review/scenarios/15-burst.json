@@ -1,0 +1,81 @@
+{
+ "name": "15-burst",
+ "description": "빠르게 몰아서 이벤트를 보낸다 (묶음 판단, 말하는 중 메시지로 대사 버림)",
+ "personality": "평균",
+ "seed": 1,
+ "start": "2026-10-19T09:00",
+ "steps": [
+  {
+   "event": "typing",
+   "context": {
+    "text": "야야야야야야야야야야"
+   },
+   "nowait": true
+  },
+  {
+   "event": "poke",
+   "nowait": true
+  },
+  {
+   "event": "poke",
+   "nowait": true
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "야!"
+   },
+   "nowait": true
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "대답해 봐"
+   }
+  },
+  {
+   "say": "너 지금 무슨 생각해? 말해 봐"
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 됐다"
+   },
+   "nowait": true
+  },
+  {
+   "say": "너 지금 무슨 생각해? 말해 봐"
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 됐다"
+   },
+   "nowait": true
+  },
+  {
+   "say": "너 지금 무슨 생각해? 말해 봐"
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 됐다"
+   },
+   "nowait": true
+  },
+  {
+   "say": "너 지금 무슨 생각해? 말해 봐"
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 됐다"
+   },
+   "nowait": true
+  },
+  {
+   "wait": 60,
+   "quiet": false
+  }
+ ]
+}

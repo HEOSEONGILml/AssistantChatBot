@@ -1,0 +1,117 @@
+{
+ "name": "10-days",
+ "description": "사흘 동안 낮에는 다정하게, 밤에는 쉰다 (성격·친밀도 변화, 하루 단위)",
+ "personality": "평균",
+ "seed": 1,
+ "start": "2026-10-19T08:00",
+ "steps": [
+  {
+   "say": "1일째 아침이야 잘 잤어?"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 4.0
+   }
+  },
+  {
+   "wait": 10800,
+   "quiet": false
+  },
+  {
+   "say": "점심 먹었어 너무 좋다"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 3.0
+   }
+  },
+  {
+   "wait": 18000,
+   "quiet": false
+  },
+  {
+   "say": "오늘도 고마워 잘 자"
+  },
+  {
+   "get_state": true
+  },
+  {
+   "wait": 57600,
+   "quiet": false
+  },
+  {
+   "say": "2일째 아침이야 잘 잤어?"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 4.0
+   }
+  },
+  {
+   "wait": 10800,
+   "quiet": false
+  },
+  {
+   "say": "점심 먹었어 너무 좋다"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 3.0
+   }
+  },
+  {
+   "wait": 18000,
+   "quiet": false
+  },
+  {
+   "say": "오늘도 고마워 잘 자"
+  },
+  {
+   "get_state": true
+  },
+  {
+   "wait": 57600,
+   "quiet": false
+  },
+  {
+   "say": "3일째 아침이야 잘 잤어?"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 4.0
+   }
+  },
+  {
+   "wait": 10800,
+   "quiet": false
+  },
+  {
+   "say": "점심 먹었어 너무 좋다"
+  },
+  {
+   "event": "pet",
+   "context": {
+    "seconds": 3.0
+   }
+  },
+  {
+   "wait": 18000,
+   "quiet": false
+  },
+  {
+   "say": "오늘도 고마워 잘 자"
+  },
+  {
+   "get_state": true
+  },
+  {
+   "wait": 57600,
+   "quiet": false
+  }
+ ]
+}
