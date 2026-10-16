@@ -63,7 +63,7 @@ def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiti
         # 화면은 사용자가 자리에 없으면 30분마다 조용함을 보낸다. 나간 주인은 무시한 게 아니라 서운하지 않다 (검수 003)
         away = float(ctx.get("seconds") or 600) >= 1800
         sad = 0.0 if away else (0.07 if waiting else 0.01)
-        return {"심심함": 0.04 * m * (1 - f), "졸림": 0.06 * m * f, "시무룩": sad * m}
+        return {"심심함": 0.04 * m * (1 - f), "졸림": 0.10 * m * f, "시무룩": sad * m}  # 졸림 0.06 → 0.10 (검수 005: 낮에 혼자 8시간 잠 안 듦)
     if kind == "returned":
         return {"행복": 0.15, "들뜸": 0.12, "심심함": -0.10, "시무룩": -0.08}
     if kind == "house_out":
@@ -117,7 +117,7 @@ class Tuning:
     # 기본 반감기 (기준값 0.5일 때). 실제 반감기 = 기본 × (0.5 + 기준값) (스펙 4.2)
     # 검수 001(사용자 K-2 "감쇠가 너무 느리다"): 찔린 짜증 30분, 놀람 몇 분은 사람 감각에 너무 길어 줄였다(잠정값).
     # 평균 강아지 실제 반감기: 분노 6분, 놀람 36초, 무서움 9분(검수 002: 던져진 경계는 오래), 궁금함 3분, 들뜸 5분, 행복·시무룩·심심함 15~20분, 졸림 48분
-    half_life_s: dict = field(default_factory=lambda: {"심심함": 1800.0, "졸림": 3600.0, "들뜸": 600.0, "시무룩": 1800.0, "분노": 600.0,
+    half_life_s: dict = field(default_factory=lambda: {"심심함": 1800.0, "졸림": 3600.0, "들뜸": 420.0, "시무룩": 1800.0, "분노": 600.0,
                                                        "궁금함": 300.0, "놀람": 60.0, "무서움": 900.0, "행복": 1800.0})
     mood_noise: float = 0.03            # 오래 두었을 때 기준값 주변 흔들림 표준편차. 움직임 효과를 키우며(×4) 0.05는 경향이 너무 출렁여 줄였다
     intimacy_half_life_s: float = 14 * 86400.0
@@ -144,10 +144,10 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.52, "message": -0.96, "dog_spoke": -0.11, "quiet": -1.68})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -2.42, "message": -0.79, "dog_spoke": -0.11, "quiet": -1.77})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 성격(말수)에 따라, 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%, 과묵도 50%)
-    chain_base: float = 0.573           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 30%, 질문하면 기다리므로 절반가량은 막힌다)
+    chain_base: float = 0.62            # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 30%, 질문하면 기다리므로 절반가량은 막힌다)
     chain_talk: float = 1.2             # 평균 강아지보다 말수가 1 많으면 ×e^1.2 (과묵하면 거의 한 마디)
     chain_decay: float = 0.3            # 한 번 더 이어 갈 때마다 곱함. 세 마디는 드물게
     ask_bonus: float = 3.5              # 사용자 메시지가 질문(?)이면 (검수 004: 직접 질문 무응답)

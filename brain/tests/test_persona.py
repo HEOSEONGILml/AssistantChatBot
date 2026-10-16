@@ -104,3 +104,9 @@ def test_prompt_carries_facts_and_rule():
     p = dialogue_prompt({}, "none", "none", ["quiet"], [], 0, [], "", False, ["주인은 곁에서 조용히 뭔가 하고 있다"])
     assert json.loads(p.split("\n")[0])["지금 상황 사실"] == ["주인은 곁에서 조용히 뭔가 하고 있다"]
     assert "상황 사실" in system_instruction()
+
+
+def test_rules_against_meta_words_human_body_and_repeating_an_answer():
+    s = system_instruction()
+    for rule in ("'화면'", "발", "이미 한 답"):
+        assert rule in s

@@ -470,3 +470,17 @@ async def test_dialogue_gets_presence_and_house_facts(make):
     await env.brain.handle_event("message", {"text": "집에서 뭐 하고 있었어?"})
     await env.brain.drain()
     assert "조금 전까지 집 안에 있던 쪽은 강아지(나)" in env.talker.calls[-1][1]
+
+
+async def test_requests_without_question_mark_count_as_asked(make):
+    # "다시 말해 줘"처럼 물음표 없는 부탁에도 거의 늘 대답한다 (검수 005 사소)
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.6, {"변화없음": 1.0})
+    await env.brain.handle_event("message", {"text": "그냥 그래"})
+    await env.brain.drain()
+    flat = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    await env.brain.handle_event("message", {"text": "아까 네가 뭐 골랐는지 다시 말해 줘"})
+    await env.brain.drain()
+    asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    assert asked > flat + 0.2

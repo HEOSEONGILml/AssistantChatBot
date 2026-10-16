@@ -427,7 +427,7 @@ def test_chain_probability_by_personality_and_depth():
     from sim.simulate import archetype_dog
     quiet, avg, lively = (archetype_dog(n) for n in ("과묵·차분", "평균", "활발·변덕쟁이"))
     q1, a1, l1 = (model.chain_probability(d, 1, T) for d in (quiet, avg, lively))
-    assert q1 < 0.15 and q1 < a1 < l1
+    assert q1 < 0.2 and q1 < a1 < l1  # 과묵: 첫 이어 말하기 0.2 미만, 시뮬레이션 연달아 2번+ 10%
     assert model.chain_probability(lively, 2, T) < 0.6 * l1
     assert model.chain_probability(lively, 3, T) == 0.0
 
@@ -448,3 +448,11 @@ def test_owner_sadness_is_ignored_for_body_events():
     dog = calm_dog()
     d = model.apply_change(dog, {}, [("poke", {})], random.Random(0), QUIET, user_down=0.9)
     assert model.reaction_from(d, ["poke"], T) == "surprised"
+
+
+def test_long_alone_in_the_day_gets_sleepy_enough_to_nap():
+    dog = calm_dog()
+    rng = random.Random(0)
+    for _ in range(6):  # 자리를 비운 3시간, 30분마다 조용함
+        model.apply_change(dog, {}, [("quiet", {"seconds": 1800})], rng, QUIET, alone_s=3 * 3600)
+    assert dog.mood["졸림"] - dog.personality.baseline["졸림"] > 0.2

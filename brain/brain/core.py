@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import random
+import re
 import time
 from datetime import datetime
 from collections import deque
@@ -19,6 +20,7 @@ log = logging.getLogger(__name__)
 
 Emit = Callable[[dict], Awaitable[None]]
 MakeClients = Callable[[dict[str, str | None]], tuple[Jev, Talker]]
+_REQUEST = re.compile(r"(줘|줄래|주라|주세요|봐)\s*[.!~ㅎㅋ]*\s*$")
 USER_KINDS = {"typing", "message", "poke", "pet", "throw", "returned"}  # 사용자가 한 일. 나머지는 화면이 알린 상황
 
 
@@ -248,7 +250,9 @@ class Brain:
             p_speak = 0.0
         else:
             last = batch[-1]
-            asked = last.kind == "message" and "?" in str(last.data.get("text", ""))
+            text = str(last.data.get("text", ""))
+            # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
+            asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
             hurting = last.kind == "message" and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
             p_speak = model.chain_probability(dog, self._streak, t) if kinds[-1] == "dog_spoke" else \
                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting)
