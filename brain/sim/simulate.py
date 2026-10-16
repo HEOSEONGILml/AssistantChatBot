@@ -24,7 +24,7 @@ ARCHETYPES = {  # 성격 유형 (기준값, 민감도, 변덕). 성격 유형 �
     "활발·변덕쟁이": ({"심심함": .7, "졸림": .2, "들뜸": .7, "시무룩": .1, "분노": .1, "궁금함": .7, "놀람": .1, "무서움": .1, "행복": .6}, .6, .9),
 }
 # 스펙 10절 (평균 성격 기준). 끼어들기는 15% → 30% (사용자 요청 "타이핑하는 동안 반응을 더 많이", 기분 8개 스펙)
-TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}
+TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.20}  # 연달아 2번+ 30% → 20%: 덧말은 가끔 (검수 006)
 START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
 P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
 P_ASK = 0.4          # 사용자 메시지 중 질문 비율 (잠정값, 검수 004)
@@ -75,6 +75,7 @@ class World:
     def __init__(self, dog: model.Dog, rec: Recording, rng: random.Random, t: Tuning):
         self.dog, self.rec, self.rng, self.t = dog, rec, rng, t
         self.now = self.last = self.last_user = dog.updated_at
+        self.unanswered, self.interjected = 0, False
         self.streak, self.waiting = 0, False
         self.stats = Stats()
 
@@ -88,6 +89,9 @@ class World:
         rd = self.rec.readout(kind, dog, self.streak)
         if kind in USER_KINDS:
             self.last_user = self.now
+            self.unanswered = 0
+        if kind == "message":
+            self.interjected = False
         deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user,
                                     user_down=rd.user_down, soothe=rd.soothe)
         reaction = model.reaction_from(deltas, [kind], t)
@@ -98,13 +102,19 @@ class World:
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
         hurting = kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
-        p = model.chain_probability(dog, self.streak, t) if kind == "dog_spoke" else             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting)
+        p = model.chain_probability(dog, self.streak, t) if kind == "dog_spoke" else \
+            0.0 if kind == "typing" and self.interjected else \
+            model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting, self.unanswered)
         spoke = self.rng.random() < p
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
         self.last = self.now
         if spoke:
             self.streak += 1
+            if kind == "typing":
+                self.interjected = True
+            if kind == "quiet":
+                self.unanswered += 1
             self.waiting = self.rng.random() < P_QUESTION
         return spoke
 

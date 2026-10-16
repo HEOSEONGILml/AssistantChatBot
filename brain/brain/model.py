@@ -227,13 +227,14 @@ def talkativeness(dog: Dog, t: Tuning) -> float:
 
 
 def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: bool, t: Tuning,
-                      asked: bool = False, hurting: bool = False) -> float:
+                      asked: bool = False, hurting: bool = False, unanswered: int = 0) -> float:
     """말할 확률. 사용자가 직접 물었거나(asked) 속상한 이야기를 털어놓았으면(hurting) 거의 늘 대답한다 (검수 004)."""
     if streak >= t.max_streak:
         return 0.0
     x = (_logit(p_jev) + talkativeness(dog, t) + t.kind_bias.get(kind, 0.0)
          - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0)
-         + (t.ask_bonus if asked else 0.0) + (t.comfort_bonus if hurting else 0.0))
+         + (t.ask_bonus if asked else 0.0) + (t.comfort_bonus if hurting else 0.0)
+         - (t.ignored_penalty * unanswered if kind == "quiet" else 0.0))  # 대꾸 없으면 점점 덜 조른다
     return _sigmoid(x)
 
 
@@ -243,7 +244,7 @@ def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
     if streak >= t.max_streak:
         return 0.0
     ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
-    first = min(0.9, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
+    first = min(t.chain_cap, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
     return first * t.chain_decay ** max(0, streak - 1)
 
 

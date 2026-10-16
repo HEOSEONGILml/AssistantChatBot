@@ -476,3 +476,8 @@ def test_long_away_return_wakes_and_excites():
     dog.mood["졸림"] = 0.55
     model.apply_change(dog, {}, [("returned", {"away_seconds": 8 * 3600})], random.Random(0), QUIET)
     assert dog.mood["졸림"] < 0.4 and dog.mood["들뜸"] > model.BIRTH_BASELINE["들뜸"] + 0.1
+
+
+def test_even_lively_dog_does_not_always_chain():
+    from sim.simulate import archetype_dog
+    assert model.chain_probability(archetype_dog("활발·변덕쟁이"), 1, T) <= 0.6

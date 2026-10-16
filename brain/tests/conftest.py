@@ -12,7 +12,7 @@ from brain.tuning import EVENT_KINDS, Tuning
 
 BOTH_KEYS = {"typesafe": "t-key", "gemini": "g-key"}
 _CALM = Tuning(mood_noise=0.0, change_noise=0.0)
-SPEAK = replace(_CALM, kind_bias={k: 30.0 for k in EVENT_KINDS}, chain_base=0.9, chain_decay=1.0)  # 거의 늘 말함(이어 말하기 포함)
+SPEAK = replace(_CALM, kind_bias={k: 30.0 for k in EVENT_KINDS}, chain_base=0.9, chain_decay=1.0, chain_cap=1.0)  # 거의 늘 말함(이어 말하기 포함)
 SILENT = replace(_CALM, kind_bias={k: -30.0 for k in EVENT_KINDS}, chain_base=0.0)                 # 거의 안 말함
 
 

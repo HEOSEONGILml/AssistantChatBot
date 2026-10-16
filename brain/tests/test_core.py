@@ -484,3 +484,29 @@ async def test_requests_without_question_mark_count_as_asked(make):
     await env.brain.drain()
     asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
     assert asked > flat + 0.2
+
+
+async def test_ignored_dog_speaks_up_less_and_less(make):
+    # 주인이 대꾸하지 않으면 먼저 말 걸기가 점점 준다 (검수 006: 활발한 강아지가 2시간 내내 조름)
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.7, {"심심함↑": 0.5})
+    ps = []
+    for _ in range(4):
+        env.brain._unanswered += 0  # 말했는지와 상관없이 판단 기록의 말할 확률을 본다
+        await env.brain.handle_event("quiet", {"seconds": 600})
+        await env.brain.drain()
+        ps.append(env.brain.log_snapshot()["judgements"][-1]["model"]["speak"])
+        env.brain._unanswered += 1
+    assert ps[3] < ps[0] * 0.5
+    await env.brain.handle_event("message", {"text": "왜"})
+    await env.brain.drain()
+    assert env.brain._unanswered == 0
+
+
+async def test_one_interjection_per_message(make):
+    env = await make(tuning=SPEAK)
+    for text in ("오늘 산책", "오늘 산책 갈까 말까", "오늘 산책 갈까 말까 고민"):
+        await env.brain.handle_event("typing", {"text": text})
+        await env.brain.drain()
+    assert len(utterances(env.out)) == 1

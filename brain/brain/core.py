@@ -43,6 +43,8 @@ class Brain:
         self._streak = 0                   # 사용자 입력 없이 강아지가 연달아 말한 횟수
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
         self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
+        self._unanswered = 0               # 먼저 말을 건 뒤 사용자 대꾸가 없었던 횟수 (검수 006)
+        self._interjected = False          # 이번 메시지를 치는 동안 이미 끼어들었다 (검수 006: 한 문장에 세 번)
         self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
         self._user_away = False            # 사용자가 자리를 비웠다(화면이 30분 조용함을 보냄). 대사에 사실로 준다 (검수 005)
         self._in_house = False             # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002)
@@ -151,6 +153,9 @@ class Brain:
             self._waiting = False
         if kind in USER_KINDS:
             self._user_away = False
+            self._unanswered = 0
+        if kind == "message":
+            self._interjected = False
         elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
             self._user_away = True
         if kind in ("house_in", "house_out"):
@@ -246,7 +251,8 @@ class Brain:
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
         # 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002). 조용함이 오면 다시 말을 걸 수 있다
-        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and (self._hold or self._waiting)):
+        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and (self._hold or self._waiting)) \
+                or (kinds[-1] == "typing" and self._interjected):
             p_speak = 0.0
         else:
             last = batch[-1]
@@ -255,7 +261,7 @@ class Brain:
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
             hurting = last.kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
             p_speak = model.chain_probability(dog, self._streak, t) if kinds[-1] == "dog_spoke" else \
-                model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting)
+                model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered)
         speak = self._rng.random() < p_speak
         entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
@@ -301,6 +307,10 @@ class Brain:
         entry["utterance"] = line
         self._store.add(Event(self._clock(), "dog", "dog", {"utterance": line}))
         self._streak += 1
+        if kinds[-1] == "typing":
+            self._interjected = True
+        if self._flow not in ("message", "typing") and self._streak == 1:
+            self._unanswered += 1  # 먼저 말을 건 흐름 하나
         self._hold = kinds[-1] == "typing" or (kinds[-1] == "message" and rd.change.get("친밀도↓", 0.0) >= 0.4)
         # "…? 멍!"도 질문이다 (검수 002). 다만 사용자와 말을 주고받는 흐름의 질문만 답을 기다린다.
         # 조용함·몸 이벤트에서 나온 혼잣말 질문은 기다리지 않는다 (검수 004: 혼잣말 질문마다 서운함)
