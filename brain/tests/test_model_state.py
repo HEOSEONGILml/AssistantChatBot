@@ -41,9 +41,9 @@ def test_zero_gap_keeps_mood():
 
 
 def test_mood_halves_toward_baseline_in_half_life():
-    dog = model.default_dog(ts())  # 분노 기준값 0.1 → 반감기 1800 × (0.5 + 0.1) = 1080초
+    dog = model.default_dog(ts())  # 분노 기준값 0.1 → 반감기 600 × (0.5 + 0.1) = 360초 (검수 001: 30분은 너무 길었다)
     dog.mood["분노"] = 0.9
-    model.advance(dog, ts() + 1080, random.Random(0), QUIET)
+    model.advance(dog, ts() + 360, random.Random(0), QUIET)
     assert dog.mood["분노"] == pytest.approx(0.5, abs=1e-6)
 
 
@@ -136,3 +136,35 @@ def test_old_saved_dog_with_five_moods_gets_new_moods():
         data["personality"][key] = {k: v for k, v in data["personality"][key].items() if k not in ("궁금함", "놀람", "무서움")}
     dog = model.dog_from_dict(data)
     assert set(dog.mood) == set(MOODS) and dog.personality.baseline["궁금함"] == 0.5
+
+
+# ---- 시간 감각 (스펙 2026-10-16 시간 모형, 검수 001) ----
+
+
+def test_poke_irritation_mostly_gone_in_ten_minutes():
+    dog = model.default_dog(ts())
+    dog.mood["분노"] = 0.5  # 찔려서 크게 짜증 남 (기준값 0.1)
+    model.advance(dog, ts() + 600, random.Random(0), QUIET)
+    assert dog.mood["분노"] - 0.1 < 0.4 * 0.35  # 10분이면 초과분이 3분의 1 아래로
+
+
+def test_surprise_fades_within_a_minute_or_two():
+    dog = model.default_dog(ts())
+    dog.mood["놀람"] = 0.6
+    model.advance(dog, ts() + 120, random.Random(0), QUIET)
+    assert dog.mood["놀람"] < 0.25
+
+
+def test_sleepy_at_night_not_in_the_afternoon():
+    night, day = model.default_dog(ts(15, 23)), model.default_dog(ts(15, 11))
+    model.advance(night, ts(16, 3), random.Random(0), QUIET)
+    model.advance(day, ts(15, 15), random.Random(0), QUIET)
+    assert night.mood["졸림"] > 0.5 > 0.2 > day.mood["졸림"]
+    assert model.dominant_mood(night, T) == "sleepy"
+    assert night.mood["들뜸"] < day.mood["들뜸"]
+
+
+def test_circadian_does_not_shift_the_daily_mean():
+    hours = [model.circadian(h) for h in range(24)]
+    assert sum(hours) / 24 == pytest.approx(0.0, abs=1e-9)
+    assert max(hours) == model.circadian(3) and min(hours) == model.circadian(15)

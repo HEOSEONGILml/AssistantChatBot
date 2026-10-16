@@ -3,7 +3,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from .tuning import (ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
+from .tuning import (CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
                      IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
                      MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
                      TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
@@ -59,6 +59,17 @@ def birth(rng, now: float) -> Dog:
         whim=clip(rng.gauss(BIRTH_WHIM, WHIM_SD))), now)
 
 
+def circadian(hour: float) -> float:
+    """하루 리듬값: 새벽 3시 +0.5, 오후 3시 −0.5, 하루 평균 0."""
+    return 0.5 * math.cos(2 * math.pi * (hour - CIRCADIAN_PEAK_HOUR) / 24)
+
+
+def rest_point(dog: "Dog", mood: str, ts: float) -> float:
+    """기분이 돌아가는 자리: 기준값 + 하루 리듬 (시간 모형 스펙)."""
+    dt = datetime.fromtimestamp(ts)
+    return clip(dog.personality.baseline[mood] + CIRCADIAN.get(mood, 0.0) * circadian(dt.hour + dt.minute / 60))
+
+
 def half_life(t: Tuning, mood: str, baseline: float) -> float:
     # 기준값이 높은 기분일수록 늦게 풀린다 (사용자 결정: 반감기도 기존 성격에서)
     return t.half_life_s[mood] * (0.5 + baseline)
@@ -69,8 +80,8 @@ def advance(dog: Dog, now: float, rng, t: Tuning) -> None:
     dt = now - dog.updated_at
     if dt > 0:
         for d in MOODS:
-            mu = dog.personality.baseline[d]
-            e = math.exp(-LN2 / half_life(t, d, mu) * dt)
+            mu = rest_point(dog, d, now)
+            e = math.exp(-LN2 / half_life(t, d, dog.personality.baseline[d]) * dt)
             dog.mood[d] = clip(mu + (dog.mood[d] - mu) * e + t.mood_noise * math.sqrt(1 - e * e) * rng.gauss(0, 1))
         e = math.exp(-LN2 / t.intimacy_half_life_s * dt)
         dog.intimacy = clip(INTIMACY_START + (dog.intimacy - INTIMACY_START) * e)

@@ -113,7 +113,8 @@ flowchart LR
 ```text
 dm_d = −λ_d (m_d − μ_d) dt  +  σ √(2λ_d) dW_t  +  Σ_i J_{d,i} δ(t − t_i)
 
-λ_d     = ln2 / (H_d · (0.5 + μ_d))                      σ = 0.05
+λ_d     = ln2 / (H_d · (0.5 + 기준값_d))                 σ = 0.05,  H: 분노 10분·놀람 1분·무서움 5분·궁금함 5분·들뜸 10분·행복·시무룩·심심함 30분·졸림 1시간
+μ_d(t)  = 기준값_d + a_d · 0.5cos(2π(시각 − 3)/24)       하루 리듬: a 졸림 +0.6, 들뜸 −0.2, 심심함 −0.2 (평균 0)
 J_{d,i} = g_i · 2s_d · ( Σ_{e∈E_i} a_d(e) + k · w(e_last) · (π_C[d↑] − π_C[d↓]) ) + ε      k = 0.3,  ε ~ N(0, 0.01²)
          그 뒤 반대 기분 억제: J_b −= ρ·max(J_a, 0),  (a, b) ∈ 반대 쌍,  ρ = 0.6
 a_d(e)  = 우리 평가 사전값 (찌르기 → 놀람 +0.20, 던지기 → 무서움 +0.30·충격, 쓰다듬기 → 행복 +0.12, …)
@@ -491,7 +492,7 @@ flowchart LR
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약과 사내 사용 사례 |
 | [`docs/references/similar-projects.md`](docs/references/similar-projects.md) | 비슷한 프로젝트 조사 (mochi-llm-pet) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분×동작별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분 8개·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분×동작별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md), [시간 모형](docs/superpowers/specs/2026-10-16-time-model-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 ([검수 하네스](docs/superpowers/plans/2026-10-16-review-harness.md) 등) |
 | [`brain/review/`](brain/review/README.md) | 검수 하네스: 시나리오 실행기, 상태 분석표, 커버리지 |
 | [`docs/review/`](docs/review/) | 검수 루프: [진행 상황](docs/review/progress.md), [루프 프롬프트](docs/review/loop-prompt.md), [검수자 정의](docs/review/reviewer.md), [아는 결함](docs/review/known-defects.md), 회차별 판정(`rounds/`) |
