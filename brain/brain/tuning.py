@@ -125,7 +125,7 @@ class Tuning:
     intimacy_half_life_s: float = 14 * 86400.0
     change_k: float = 0.3               # 메시지의 강한 내용 (P↑−P↓) ±0.6 → 평균 강아지 ±0.18
     change_noise: float = 0.01          # 0.02는 Jev 신호와 같은 크기라 반응이 잡음으로 뽑혔다 (검수 001)
-    soothe_k: float = 0.5               # 달램 확률당 시무룩·무서움·분노가 내리는 Jev ↓ 상당 (검수 006)
+    soothe_k: float = 0.8               # 달램 확률당 시무룩·무서움·분노가 내리는 Jev ↓ 상당 (검수 006)
     empathy: float = 0.6                # 사용자 속상함 확률당 Jev 시무룩↑ 상당 (메시지 가중치 1이면 평균 강아지 +0.18·u)
     inhibit: float = 0.3                # 반대 기분 억제 비율. 0.6은 쓰다듬기 한 번에 나쁜 기분을 0으로 지웠다 (검수 002)
     rest_inhibit: float = 1.5           # 반대 기분이 기준값보다 높은 만큼 돌아갈 자리를 낮춘다 (검수 004: 무서움·들뜸 함께 5분 30초)

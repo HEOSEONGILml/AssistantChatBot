@@ -513,3 +513,12 @@ def test_scared_dog_hushes():
     lively.mood["무서움"] = lively.personality.baseline["무서움"] + 0.6
     assert model.speak_probability(0.7, lively, "throw", 0, False, T) < 0.3 * calm_p
     assert model.chain_probability(lively, 1, T) < 0.3 * calm_c
+
+
+def test_hard_throw_in_a_mixed_burst_still_scares():
+    # 찌르기·던지기·쓰다듬기·메시지가 한 묶음이어도 세게 던진 무서움은 단독에 가깝다 (검수 007 사소)
+    alone, burst = calm_dog(), calm_dog()
+    a = model.apply_change(alone, {"무서움↓": 0.3}, [("throw", {"impact": 0.85})], random.Random(0), QUIET).signal["무서움"]
+    b = model.apply_change(burst, {"무서움↓": 0.3}, [("poke", {}), ("throw", {"impact": 0.85}), ("pet", {"seconds": 2}), ("message", {"text": "괜찮아?"})],
+                           random.Random(0), QUIET).signal["무서움"]
+    assert b > 0.6 * a
