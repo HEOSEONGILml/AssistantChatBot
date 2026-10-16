@@ -143,14 +143,14 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.92, "message": -1.08, "dog_spoke": -0.11, "quiet": -1.98})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -2.86, "message": -1.5, "dog_spoke": -0.11, "quiet": -2.12})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 성격(말수)에 따라, 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%, 과묵도 50%)
-    chain_base: float = 0.54            # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 30%, 질문하면 기다리므로 절반가량은 막힌다)
-    chain_talk: float = 0.7             # 평균 강아지보다 말수가 1 많으면 ×e^0.7
+    chain_base: float = 0.425           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 30%, 질문하면 기다리므로 절반가량은 막힌다)
+    chain_talk: float = 1.2             # 평균 강아지보다 말수가 1 많으면 ×e^1.2 (과묵하면 거의 한 마디)
     chain_decay: float = 0.3            # 한 번 더 이어 갈 때마다 곱함. 세 마디는 드물게
-    ask_bonus: float = 3.0              # 사용자 메시지가 질문(?)이면 (검수 004: 직접 질문 무응답)
-    comfort_bonus: float = 3.0          # 사용자 메시지가 강아지를 서운하게 할 만큼 속상한 이야기면(시무룩 신호 ≥ 0.05)
+    ask_bonus: float = 3.5              # 사용자 메시지가 질문(?)이면 (검수 004: 직접 질문 무응답)
+    comfort_bonus: float = 3.5          # 사용자 메시지가 강아지를 서운하게 할 만큼 속상한 이야기면(시무룩 신호 ≥ 0.05)
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
     move_personality: float = 2.0       # 성격(기준값, 탄생 평균 대비) 효과. 검수 003: 1.0·0.5 기준으로는 성격이 움직임에 안 보였다

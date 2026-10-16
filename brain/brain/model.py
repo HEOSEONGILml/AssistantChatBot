@@ -243,7 +243,8 @@ def chain_probability(dog: Dog, streak: int, t: Tuning) -> float:
     if streak >= t.max_streak:
         return 0.0
     ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
-    return min(0.9, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)) * t.chain_decay ** max(0, streak - 1))
+    first = min(0.9, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
+    return first * t.chain_decay ** max(0, streak - 1)
 
 
 # ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----
