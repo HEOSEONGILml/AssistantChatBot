@@ -434,3 +434,20 @@ async def test_rhetorical_question_outside_a_conversation_does_not_wait(make):
     await env.brain.handle_event("message", {"text": "안녕"})
     await env.brain.drain()
     assert env.brain._waiting
+
+
+async def test_core_marks_question_and_sad_message(make):
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.3, {"시무룩↑": 0.6})
+    await env.brain.handle_event("message", {"text": "오늘 회사에서 크게 혼났어"})
+    await env.brain.drain()
+    sad = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    env.jev.readout = Readout({"none": 1.0}, 0.3, {"변화없음": 1.0})
+    await env.brain.handle_event("message", {"text": "그냥 그래"})
+    await env.brain.drain()
+    flat = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    await env.brain.handle_event("message", {"text": "너는 기분 어때?"})
+    await env.brain.drain()
+    asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    assert sad > flat + 0.2 and asked > flat + 0.2

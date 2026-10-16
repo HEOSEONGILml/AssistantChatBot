@@ -401,3 +401,11 @@ def test_scared_dog_is_not_happy_from_a_pet():
     dog.mood["무서움"] = 0.84
     d = model.apply_change(dog, {"행복↑": 0.3}, [("pet", {"seconds": 3.0})], random.Random(0), QUIET)
     assert model.reaction_from(d, ["pet"], T) != "happy"
+
+
+def test_direct_question_or_sad_disclosure_is_almost_always_answered():
+    # 직접 물었거나 속상하다고 털어놓으면 거의 늘 대답한다 (검수 004: 메시지 무응답 31%)
+    plain = model.speak_probability(0.6, neutral(), "message", 0, False, T)
+    asked = model.speak_probability(0.6, neutral(), "message", 0, False, T, asked=True)
+    hurting = model.speak_probability(0.6, neutral(), "message", 0, False, T, hurting=True)
+    assert asked > 0.93 and hurting > 0.93 and plain < asked

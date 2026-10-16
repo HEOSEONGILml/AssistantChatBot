@@ -27,6 +27,7 @@ ARCHETYPES = {  # 성격 유형 (기준값, 민감도, 변덕). 성격 유형 �
 TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}
 START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
 P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
+P_ASK = 0.4          # 사용자 메시지 중 질문 비율 (잠정값, 검수 004)
 P_REPLY = 0.5        # 강아지가 말하면 사용자가 답하는 비율 (잠정값)
 P_QUESTION = 0.48    # 강아지 대사에 물음표가 있는 비율. 검수 002 실제 대사 85개 실측
 
@@ -94,7 +95,9 @@ class World:
         a = model.pick(scores, self.rng)
         self.stats.judged += 1
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
-        spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t)
+        asked = kind == "message" and self.rng.random() < P_ASK
+        hurting = kind == "message" and deltas.signal.get("시무룩", 0.0) >= 0.05
+        spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting)
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
         self.last = self.now

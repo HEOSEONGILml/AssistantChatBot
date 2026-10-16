@@ -143,8 +143,10 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.98, "message": -0.29, "dog_spoke": -0.15, "quiet": -1.99})
+                                                     "typing": -2.91, "message": -1.08, "dog_spoke": -0.11, "quiet": -2.02})
     streak_penalty: float = 1.0
+    ask_bonus: float = 3.0              # 사용자 메시지가 질문(?)이면 (검수 004: 직접 질문 무응답)
+    comfort_bonus: float = 3.0          # 사용자 메시지가 강아지를 서운하게 할 만큼 속상한 이야기면(시무룩 신호 ≥ 0.05)
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
     move_personality: float = 2.0       # 성격(기준값, 탄생 평균 대비) 효과. 검수 003: 1.0·0.5 기준으로는 성격이 움직임에 안 보였다

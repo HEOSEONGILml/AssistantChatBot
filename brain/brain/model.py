@@ -226,11 +226,14 @@ def talkativeness(dog: Dog, t: Tuning) -> float:
                            + _affinity(TALK_BASELINE, dog.personality.baseline))
 
 
-def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: bool, t: Tuning) -> float:
+def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: bool, t: Tuning,
+                      asked: bool = False, hurting: bool = False) -> float:
+    """말할 확률. 사용자가 직접 물었거나(asked) 속상한 이야기를 털어놓았으면(hurting) 거의 늘 대답한다 (검수 004)."""
     if streak >= t.max_streak:
         return 0.0
     x = (_logit(p_jev) + talkativeness(dog, t) + t.kind_bias.get(kind, 0.0)
-         - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0))
+         - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0)
+         + (t.ask_bonus if asked else 0.0) + (t.comfort_bonus if hurting else 0.0))
     return _sigmoid(x)
 
 
