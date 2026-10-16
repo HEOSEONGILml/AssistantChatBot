@@ -481,3 +481,13 @@ def test_long_away_return_wakes_and_excites():
 def test_even_lively_dog_does_not_always_chain():
     from sim.simulate import archetype_dog
     assert model.chain_probability(archetype_dog("활발·변덕쟁이"), 1, T) <= 0.6
+
+
+def test_burst_of_pokes_angers_but_does_not_pin_near_one():
+    # 같은 자극이 한 묶음에 여럿이면 k번째는 1/√k만 센다 (검수 006: 연타 한 묶음에 분노 0.40 → 0.90)
+    dog = calm_dog()
+    for d in model.MOODS:
+        dog.personality.sensitivity[d] = 0.8
+    dog.personality.baseline["분노"] = dog.mood["분노"] = 0.4
+    model.apply_change(dog, {}, [("poke", {})] * 7, random.Random(0), QUIET)
+    assert 0.55 < dog.mood["분노"] < 0.8

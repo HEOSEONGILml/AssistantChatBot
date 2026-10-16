@@ -33,6 +33,20 @@
    "nowait": true
   },
   {
+   "event": "message",
+   "context": {
+    "text": "너 오늘 뭐 했어?"
+   },
+   "nowait": true
+  },
+  {
+   "event": "message",
+   "context": {
+    "text": "아 아니다 됐어"
+   },
+   "during_speech": true
+  },
+  {
    "event": "house_in"
   },
   {

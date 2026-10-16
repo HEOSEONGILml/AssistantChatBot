@@ -126,3 +126,12 @@ def test_chance_cells_are_reported_but_not_required():
     table, missing = coverage({"x": recs})
     assert "기분: excited" not in missing and "동작: bark" not in missing
     assert "확률 칸" in table and "excited" in table
+
+
+async def test_event_during_speech_reaches_the_speaking_phase(tmp_path):
+    # 하네스가 '말하는 중' 단계를 만들 수 있어야 대사 버림을 검수한다 (검수 006 사소)
+    steps = [{"event": "message", "context": {"text": "안녕"}, "nowait": True},
+             {"event": "message", "context": {"text": "아 됐다"}, "during_speech": True}]
+    runs = await run_scenario(scenario(steps, fake_speak=0.999), fake=True, out_dir=tmp_path)
+    phases = [r["phase"] for r in runs["평균"] if r["type"] == "sent" and r["kind"] == "message"]
+    assert phases[-1] == "speaking"

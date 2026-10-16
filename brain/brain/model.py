@@ -280,10 +280,13 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     # 화나거나 무서운 정도(절대 수준): 성마른 강아지(분노 기준값이 높음)는 평소에도 잘 안 풀린다 (검수 004)
     wary = min(1.0, 2 * max(0.0, max(m["분노"], m["무서움"]) - 0.15))
     parts: dict[str, list[float]] = {d: [] for d in MOODS}
+    seen: dict[str, int] = {}
     for k, ctx in events:
         h = dog.habit.get(k, 0.0)
+        seen[k] = seen.get(k, 0) + 1
+        dim = 1 / math.sqrt(seen[k])  # 한 묶음 안 같은 자극은 k번째를 1/√k만 센다 (검수 006: 연타 분노 0.90)
         for d, v in appraisal(k, ctx or {}, h, wary, waiting, alone_s).items():
-            parts[d].append(v * 2 * sens[d] * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
+            parts[d].append(v * 2 * sens[d] * dim * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
         if k in HABIT_KINDS:  # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정). 묶음 안에서도 쌓인다
             lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
             dog.habit[k] += lam * (1 - dog.habit[k])

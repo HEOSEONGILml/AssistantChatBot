@@ -110,3 +110,10 @@ def test_rules_against_meta_words_human_body_and_repeating_an_answer():
     s = system_instruction()
     for rule in ("'화면'", "발", "이미 한 답"):
         assert rule in s
+
+
+def test_prompt_states_the_current_mood_for_tone():
+    p = dialogue_prompt({}, "none", "none", ["dog_spoke"], [], 0, [], "", False, [], mood_now="무서움")
+    assert "움츠" in json.loads(p.split("\n")[0])["지금 기분"]
+    s = system_instruction()
+    assert "깡총" in s and "하지 않은 행동" in s

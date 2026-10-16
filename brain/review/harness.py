@@ -3,6 +3,7 @@
 화면 대신 이벤트를 보내고, 가상 시계로 시간을 넘긴다. 화면이 하는 일 두 가지를 흉내 낸다:
 대사가 나오면 `dog_spoke`를 보내고, 조용하면 `quiet`를 보낸다(`app/src/body/events.ts`와 같은 값).
 두뇌 코드는 바꾸지 않는다. 성격 지정과 단계 관찰만 두뇌 내부(`_dog`, `_phase`)를 쓴다(하네스 전용)."""
+import asyncio
 import json
 import random
 from datetime import datetime
@@ -86,6 +87,7 @@ class FakeTalker:
         self.rng, self.n = rng, 0
 
     async def say(self, system, prompt):
+        await asyncio.sleep(0.01)  # 실제 Gemini처럼 시간이 걸려야 '말하는 중' 단계가 생긴다
         self.n += 1
         return f"멍! 가짜 대사 {self.n}" + ("?" if self.rng.random() < 0.3 else "")
 
@@ -189,6 +191,11 @@ class Runner:
                 await self.send("typing", {"text": text[:n]})
             await self.send("message", {"text": text})
         elif "event" in s:
+            if s.get("during_speech"):  # 앞 판단이 대사를 만드는 중일 때 보낸다(말 버리기 검수)
+                for _ in range(2000):
+                    if self.brain._phase == "speaking" or self.brain._task is None:
+                        break
+                    await asyncio.sleep(0.005)
             await self.send(s["event"], s.get("context"), wait=not s.get("nowait"))
         elif "wait" in s:
             await self.wait(float(s["wait"]), away=bool(s.get("away")), quiet=s.get("quiet", True))

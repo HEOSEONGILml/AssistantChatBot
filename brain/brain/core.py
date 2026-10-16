@@ -21,6 +21,8 @@ log = logging.getLogger(__name__)
 Emit = Callable[[dict], Awaitable[None]]
 MakeClients = Callable[[dict[str, str | None]], tuple[Jev, Talker]]
 _REQUEST = re.compile(r"(줘|줄래|주라|주세요|봐)\s*[.!~ㅎㅋ]*\s*$")
+from .tuning import MOOD_REACTION_ID as _MRI
+_MOOD_KO = {v: k for k, v in _MRI.items()}  # 반응 id → 기분 이름
 USER_KINDS = {"typing", "message", "poke", "pet", "throw", "returned"}  # 사용자가 한 일. 나머지는 화면이 알린 상황
 
 
@@ -301,7 +303,8 @@ class Brain:
                 if just and said:
                     facts.append(f"방금 네가 한 말: {just[-1]} — 이 말과 어긋나지 않게 이어 간다")
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts)), v["문장 수"])
+                                                                                          conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts,
+                                                                                          _MOOD_KO.get(model.dominant_mood(dog, t), ""))), v["문장 수"])
         except AuthError:
             await self._set_ai("bad_key")
             return
