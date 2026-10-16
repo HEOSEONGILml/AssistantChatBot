@@ -149,3 +149,9 @@ def test_excited_dog_plays_visibly():
     dog = calm_avg()
     dog.mood["들뜸"] += 0.3
     assert share(model.movement(dog, T), ["play"]) > 0.15
+
+
+def test_annoyed_dog_does_not_mostly_rest():
+    dog = calm_avg()
+    dog.mood["분노"] += 0.4
+    assert share(model.movement(dog, T), ["rest", "sleep"]) < 0.5

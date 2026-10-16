@@ -565,3 +565,17 @@ def test_commands_in_messages_are_mostly_followed():
     assert p["lie_down"] > 0.6
     q = model.probabilities(model.action_scores({"lie_down": 0.9, "none": 0.1}, dog, "surprised", ["poke"], T))
     assert q["lie_down"] < 0.4  # 몸 이벤트에서는 여전히 우리 모형이 정한다
+
+
+def test_owner_venting_saddens_less_than_being_insulted():
+    vent, insult = calm_dog(), calm_dog()
+    model.apply_change(vent, {"궁금함↑": 0.4}, [("message", {"text": "오늘 팀장한테 혼났어"})], random.Random(0), QUIET, user_down=0.95)
+    model.apply_change(insult, {"친밀도↓": 0.66, "분노↑": 0.24}, [("message", {"text": "저리 가 귀찮아"})], random.Random(0), QUIET)
+    assert vent.mood["시무룩"] < insult.mood["시무룩"]
+
+
+def test_poke_wakes_a_sleepy_dog():
+    dog = calm_dog()
+    dog.mood["졸림"] = 0.75
+    model.apply_change(dog, {}, [("poke", {})], random.Random(0), QUIET)
+    assert dog.mood["졸림"] < 0.68
