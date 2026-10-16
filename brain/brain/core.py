@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 Emit = Callable[[dict], Awaitable[None]]
 MakeClients = Callable[[dict[str, str | None]], tuple[Jev, Talker]]
-_REQUEST = re.compile(r"(줘|줄래|주라|주세요|봐)\s*[.!~ㅎㅋ]*\s*$")
+_REQUEST = re.compile(r"(줘|줄래|주라|주세요|봐|하자|가자|놀자)\s*[.!~ㅎㅋ]*\s*$")  # 부탁과 함께 하자는 말 (검수 005·008)
 from .tuning import MOOD_REACTION_ID as _MRI
 _MOOD_KO = {v: k for k, v in _MRI.items()}  # 반응 id → 기분 이름
 USER_KINDS = {"typing", "message", "poke", "pet", "throw", "returned"}  # 사용자가 한 일. 나머지는 화면이 알린 상황

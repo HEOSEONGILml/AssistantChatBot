@@ -566,3 +566,13 @@ async def test_no_interjection_on_a_short_fragment(make):
     await env.brain.handle_event("typing", {"text": "나 지금부터 한 시간 집중해야 해서"})
     await env.brain.drain()
     assert len(utterances(env.out)) == 1
+
+
+async def test_lets_play_counts_as_asked(make):
+    # "놀자", "산책 가자"처럼 함께 하자는 말에도 대답한다 (검수 008 사소: "놀자"에 무응답 뒤 10분 뒤 "아무도 안 놀아주니까")
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.6, {"변화없음": 1.0})
+    await env.brain.handle_event("message", {"text": "우리 공놀이 하자"})
+    await env.brain.drain()
+    assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.95
