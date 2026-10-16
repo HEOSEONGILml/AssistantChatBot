@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from brain import model
+from brain.core import USER_KINDS
 from brain.clients import Readout
 from brain.tuning import BASELINE_RANGE, BIRTH_BASELINE, MOODS, Tuning
 
@@ -72,7 +73,7 @@ class World:
 
     def __init__(self, dog: model.Dog, rec: Recording, rng: random.Random, t: Tuning):
         self.dog, self.rec, self.rng, self.t = dog, rec, rng, t
-        self.now = self.last = dog.updated_at
+        self.now = self.last = self.last_user = dog.updated_at
         self.streak, self.waiting = 0, False
         self.stats = Stats()
 
@@ -84,7 +85,9 @@ class World:
         if kind in ("message", "typing"):
             self.waiting = False
         rd = self.rec.readout(kind, dog, self.streak)
-        deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting)
+        if kind in USER_KINDS:
+            self.last_user = self.now
+        deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
         scores = model.action_scores(rd.action, dog, reaction, [kind], t)

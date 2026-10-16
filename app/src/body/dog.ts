@@ -38,7 +38,7 @@ export const MOVES = ["rest", "sleep", "roam", "approach", "play", "explore"] as
 export type Move = (typeof MOVES)[number];
 export type Movement = { weights: Record<Move, number>; run: number; idleScale: number };
 // 기본 경향은 예전 "보통" 프로필과 같은 값이다 (두뇌 tuning.MOVE_BASE와 같게 유지)
-export const DEFAULT_MOVEMENT: Movement = { weights: { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 }, run: 0.2, idleScale: 1 };
+export const DEFAULT_MOVEMENT: Movement = { weights: { rest: 0.6, sleep: 0.08, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 }, run: 0.2, idleScale: 1 };
 // 강아지가 느끼는 바깥 상황. rand는 테스트에서 바꿔 끼운다.
 // rest: 설정의 쉬기(켜면 그 자리에서 잔다). movement: 두뇌가 보낸 평소 움직임 경향 (vision 2026-10-15)
 // click: 가장 최근 마우스 클릭 위치와 지난 시간 (다른 창에서 난 클릭 포함)

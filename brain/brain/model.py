@@ -241,7 +241,7 @@ def _combine(xs: list[float]) -> float:
 
 
 def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
-                 waiting: bool = False) -> Change:
+                 waiting: bool = False, alone_s: float = 0.0) -> Change:
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
@@ -255,7 +255,7 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     parts: dict[str, list[float]] = {d: [] for d in MOODS}
     for k, ctx in events:
         h = dog.habit.get(k, 0.0)
-        for d, v in appraisal(k, ctx or {}, h, wary, waiting).items():
+        for d, v in appraisal(k, ctx or {}, h, wary, waiting, alone_s).items():
             parts[d].append(v * 2 * sens[d] * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
         if k in HABIT_KINDS:  # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정). 묶음 안에서도 쌓인다
             lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])

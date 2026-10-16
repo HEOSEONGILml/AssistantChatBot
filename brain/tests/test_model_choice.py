@@ -321,3 +321,14 @@ def test_habituation_only_dulls_its_target_mood_in_jev_part_too():
     dog.habit["poke"] = 0.9
     d = model.apply_change(dog, {"분노↑": 0.5}, [("poke", {})], random.Random(0), QUIET)
     assert d.signal["분노"] > 0.15  # 찌르기에 익숙해도 Jev의 분노 신호는 줄지 않는다
+
+
+# ---- 오래 혼자면 심심함 대신 졸음 (검수 002) ----
+
+
+def test_long_alone_turns_boredom_into_sleepiness():
+    short, long_ = calm_dog(), calm_dog()
+    a = model.apply_change(short, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, alone_s=1800).signal
+    b = model.apply_change(long_, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, alone_s=4 * 3600).signal
+    assert b["심심함"] < 0.3 * a["심심함"]
+    assert b["졸림"] > 0.1 and model.reaction_from(b, ["quiet"], T) == "sleepy"

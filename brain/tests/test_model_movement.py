@@ -101,3 +101,9 @@ def test_scared_dog_keeps_away():
     calm, scared = calm_avg(), calm_avg()
     scared.mood["무서움"] += 0.3
     assert share(model.movement(scared, T), ["approach", "play"]) < 0.5 * share(model.movement(calm, T), ["approach", "play"])
+
+
+def test_sleepy_dog_naps_visibly():
+    dog = calm_avg()
+    dog.mood["졸림"] += 0.3
+    assert share(model.movement(dog, T), ["sleep"]) > 0.25

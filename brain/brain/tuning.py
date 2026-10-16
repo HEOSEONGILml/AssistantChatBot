@@ -41,7 +41,8 @@ CIRCADIAN_PEAK_HOUR = 3
 
 
 # 기분 변화 = 우리 평가 사전값 + Jev 조정 (스펙 2026-10-16, 0015). 사전값은 평균 강아지가 느끼는 크기(잠정값)
-def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiting: bool = False) -> dict[str, float]:
+def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiting: bool = False,
+              alone_s: float = 0.0) -> dict[str, float]:
     """이벤트 하나가 기분에 주는 충격. 뜻이 정해진 이벤트는 우리가 정한다(Jev가 던지기를 행복으로 읽는 등 틀리기 때문).
     habit: 이 자극에 익숙한 정도(찌르기는 익숙할수록 짜증이 쌓인다). wary: 지금 화나거나 무서운 정도(쓰다듬기를 경계한다)."""
     if kind == "poke":
@@ -56,7 +57,9 @@ def appraisal(kind: str, ctx: dict, habit: float = 0.0, wary: float = 0.0, waiti
     if kind == "quiet":
         m = min(float(ctx.get("seconds") or 600) / 600, 3.0)
         # 물어봤는데 답이 없으면 서운하다 (검수 002: 3시간 무시당해도 시무룩 그대로)
-        return {"심심함": 0.04 * m, "시무룩": (0.07 if waiting else 0.01) * m}
+        # 주인이 오래(30분 → 2시간) 없으면 심심함은 줄고 졸음으로 넘어간다: 혼자인 낮에 개는 대부분 잔다 (검수 002)
+        f = min(1.0, max(0.0, (alone_s / 3600 - 0.5) / 1.5))
+        return {"심심함": 0.04 * m * (1 - f), "졸림": 0.06 * m * f, "시무룩": (0.07 if waiting else 0.01) * m}
     if kind == "returned":
         return {"행복": 0.15, "들뜸": 0.12, "심심함": -0.10, "시무룩": -0.08}
     if kind == "house_out":
@@ -86,8 +89,8 @@ JEV_WEIGHT_OTHER = 0.3
 # 함께 높으면 어색한 반대 기분 쌍: 한쪽이 오르면 다른 쪽이 내린다 (검수 001)
 OPPOSITES = (("무서움", "행복"), ("무서움", "들뜸"), ("분노", "행복"), ("시무룩", "들뜸"), ("시무룩", "행복"), ("졸림", "들뜸"))
 # 평소 움직임 경향 (스펙 6.5). 기본값은 몸체 "보통" 프로필과 같다
-MOVE_BASE = {"rest": 0.6, "sleep": 0.02, "roam": 0.4, "approach": 0.18, "play": 0.06, "explore": 0.2}
-MOVE_MOOD = {"rest": {"졸림": 1, "시무룩": 1, "들뜸": -1, "무서움": 1}, "sleep": {"졸림": 1, "들뜸": -1, "심심함": -1},
+MOVE_BASE = {"rest": 0.6, "sleep": 0.08, "roam": 0.4, "approach": 0.18, "play": 0.06, "explore": 0.2}
+MOVE_MOOD = {"rest": {"졸림": 1, "시무룩": 1, "들뜸": -1, "무서움": 1}, "sleep": {"졸림": 2, "들뜸": -1, "심심함": -1},
              "roam": {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1},
              "approach": {"심심함": 1, "들뜸": 1, "분노": -1, "시무룩": -1, "궁금함": 1, "무서움": -1, "행복": 1},
              "play": {"들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "무서움": -1}, "explore": {"심심함": 1, "졸림": -1, "궁금함": 1}}
@@ -132,7 +135,7 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.78, "message": -0.27, "dog_spoke": -0.28, "quiet": -1.86})
+                                                     "typing": -2.97, "message": -0.46, "dog_spoke": -0.2, "quiet": -1.81})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
