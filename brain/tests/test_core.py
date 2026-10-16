@@ -576,3 +576,13 @@ async def test_lets_play_counts_as_asked(make):
     await env.brain.handle_event("message", {"text": "우리 공놀이 하자"})
     await env.brain.drain()
     assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.95
+
+
+async def test_apology_gets_an_answer(make):
+    # 사과는 받아 준다: 달램이 높은 메시지에도 대답 보정 (검수 010: 사과 11번 중 5번만 대답, 평균 p 0.38)
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.4, {"친밀도↑": 0.5}, 0.3, 0.9)
+    await env.brain.handle_event("message", {"text": "아까 짜증낸 거 미안해"})
+    await env.brain.drain()
+    assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.9

@@ -105,6 +105,7 @@ class World:
         self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
         hurting = kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
+        asked = asked or (kind == "message" and rd.soothe >= 0.5)
         p = model.chain_probability(dog, self.streak, t, self.unanswered if self.flow == "quiet" else 0) if kind == "dog_spoke" else \
             0.0 if kind == "typing" and self.interjected else \
             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting, self.unanswered)

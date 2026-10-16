@@ -184,3 +184,7 @@ def test_rule_speak_only_feelings_that_happened():
 
 def test_rule_spoken_action_matches_picked_action():
     assert "말로 하는 동작" in system_instruction()
+
+
+def test_trim_replaces_system_word_user():
+    assert trim_line("나는 사용자랑 노는 게 좋아.") == "나는 너랑 노는 게 좋아."

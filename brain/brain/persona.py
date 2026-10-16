@@ -180,6 +180,7 @@ def trim_line(text: str, max_sentences: int = 2) -> str:
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
     t = _STOCK_OPENING.sub("", t).strip()  # 반기는 말이 늘 "드디어"로 시작하던 틀을 걷는다 (검수 008, 규칙만으로는 안 지켜짐)
     t = _NON_WORD.sub("", t).strip()
+    t = t.replace("사용자", "너")  # 시스템 낱말이 대사에 새지 않게 (검수 010)
     # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
     parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p)]
     return " ".join(parts[:max_sentences])

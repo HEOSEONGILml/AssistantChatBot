@@ -266,6 +266,7 @@ class Brain:
             # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
             hurting = last.kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
+            asked = asked or (last.kind == "message" and rd.soothe >= 0.5)  # 사과는 받아 준다 (검수 010)
             ignored = self._unanswered if self._flow not in ("message", "typing") else 0
             p_speak = model.chain_probability(dog, self._streak, t, ignored, now < self._hush_until) if kinds[-1] == "dog_spoke" else \
                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered,
