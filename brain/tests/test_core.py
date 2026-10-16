@@ -406,3 +406,19 @@ async def test_bad_key_still_reacts_by_our_appraisal(make):
     await env.brain.handle_event("poke", {})
     await env.brain.drain()
     assert any(m["type"] == "reaction" and m.get("reaction") == "surprised" for m in env.out)
+
+
+async def test_dialogue_gets_the_conversation_even_after_many_events(make):
+    # 생일처럼 들은 사실은 이벤트가 많이 쌓여도 대화 기록으로 대사에 남는다 (검수 004: 하룻밤 뒤 생일을 잊음)
+    env = await make(tuning=SILENT)
+    await env.brain.handle_event("message", {"text": "내일이 내 생일이야 기억해 줘"})
+    await env.brain.drain()
+    for _ in range(40):
+        env.clock.t += 600
+        await env.brain.handle_event("quiet", {"seconds": 600})
+        await env.brain.drain()
+    env.brain._t = SPEAK
+    await env.brain.handle_event("message", {"text": "오늘 무슨 날이게?"})
+    await env.brain.drain()
+    prompt = env.talker.calls[-1][1]
+    assert "내일이 내 생일이야 기억해 줘" in prompt and "대화 기록" in prompt

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import random
 import time
+from datetime import datetime
 from collections import deque
 from typing import Awaitable, Callable
 
@@ -256,7 +257,12 @@ class Brain:
         self._phase = "speaking"
         try:
             own = [e.data["utterance"] for e in recent if e.kind == "dog" and "utterance" in e.data][-5:]
-            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user)))
+            # 대화 기록: 이벤트 창(30개)과 따로, 실제로 오간 말만 최근 20줄. 하룻밤이 지나도 들은 사실이 남는다 (검수 004)
+            talk = [e for e in self._store.recent(500) if e.kind == "message" or (e.kind == "dog" and "utterance" in e.data)][-20:]
+            conversation = [f"{datetime.fromtimestamp(e.ts):%m-%d(%a) %H:%M} · "
+                            + (f"사용자: {e.data.get('text', '')}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
+                            for e in talk]
+            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user, conversation)))
         except AuthError:
             await self._set_ai("bad_key")
             return

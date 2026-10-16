@@ -24,7 +24,11 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "반기는 말('돌아왔네', '이제야 봐 주네')은 이번 이벤트가 사용자가 돌아옴·집에서 나옴일 때만 한다. "
          "늘 반말로 말하고 존댓말이나 '주인님 ~요'를 쓰지 않는다. "
          "내가 최근에 한 말과 어긋나지 않는다: 이미 고른 것은 그대로 유지한다. 사용자가 한 말과 내가 한 말을 헷갈리지 않고, 사용자를 탓하지 않는다. "
-         "몸짓 표현(꼬리 살랑 등)은 기분에 맞을 때만 쓴다. 서운하거나 무섭거나 화났을 때 꼬리 살랑은 쓰지 않는다.")
+         "몸짓 표현(꼬리 살랑 등)은 기분에 맞을 때만 쓴다. 서운하거나 무섭거나 화났을 때 꼬리 살랑은 쓰지 않는다. "
+         "'대화 기록'이 실제로 오간 말이다. 대화 기록에 없는 내 말을 했다고 하지 않는다. 아직 고르지 않았으면 지금 고르고, 고른 적 있으면 그대로 유지한다. "
+         "사용자가 알려 준 사실(이름, 생일, 약속 등)은 대화 기록을 보고 기억한다. 날짜가 바뀌었으면 그날의 '내일'은 오늘이다(지금 시각을 본다). "
+         "던져진 것, 찔린 것, 집에 들어갔다 나온 것은 너(강아지)다. 사용자가 '괜찮아?'라고 물으면 네 상태를 답한다. "
+         "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다.")
 # 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
 
@@ -51,7 +55,7 @@ def _span(seconds: float) -> str:
 
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
-                    alone_s: float = 0.0) -> str:
+                    alone_s: float = 0.0, conversation: list[str] | None = None) -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -59,7 +63,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             **({"최근 이벤트 기록": log} if "최근 이벤트 기록" in state else {}),
             "이번에 뽑힌 반응": REACTION_NAMES[reaction], "이번에 뽑힌 동작": ACTION_NAMES[action],
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
-            "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s)}
+            "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s),
+            "대화 기록(오래된 것부터)": conversation or []}
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
     if kinds and kinds[-1] == "typing" and typing and typing[-1]:
         data["쓰는 중인 글"] = typing[-1]

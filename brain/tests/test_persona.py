@@ -61,3 +61,14 @@ def test_quiet_seconds_are_not_shown_to_the_dialogue():
 def test_quiet_situation_says_the_user_has_not_returned():
     p = dialogue_prompt({}, "bored", "none", ["quiet"], [], 1800)
     assert "돌아오지 않았" in json.loads(p.split("\n")[0])["지금 말하는 상황"]
+
+
+def test_rules_keep_the_dialogue_honest_and_roles_straight():
+    s = system_instruction()
+    for rule in ("대화 기록에 없는", "아직 고르지 않았으면", "날짜가 바뀌었으면", "던져진 것", "집에 들어갔다 나온 것", "떠났다고 말하지 않는다"):
+        assert rule in s
+
+
+def test_prompt_carries_the_conversation_log():
+    p = dialogue_prompt({}, "none", "none", ["message"], [], 0, ["어제 19:02 · 사용자: 내일이 내 생일이야"])
+    assert json.loads(p.split("\n")[0])["대화 기록(오래된 것부터)"] == ["어제 19:02 · 사용자: 내일이 내 생일이야"]
