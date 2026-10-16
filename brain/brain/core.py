@@ -238,7 +238,8 @@ class Brain:
             return
         self._phase = "speaking"
         try:
-            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action)))
+            own = [e.data["utterance"] for e in recent if e.kind == "dog" and "utterance" in e.data][-5:]
+            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own)))
         except AuthError:
             await self._set_ai("bad_key")
             return

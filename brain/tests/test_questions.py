@@ -53,7 +53,7 @@ def test_jev_state_shape():
 
 def test_dialogue_prompt_carries_state_and_picks():
     state = {"기분": {"시무룩": 0.9}}
-    p = persona.dialogue_prompt(state, "sad", "lie_down")  # 서운함
+    p = persona.dialogue_prompt(state, "sad", "lie_down", ["message"], [])  # 서운함
     assert '"시무룩": 0.9' in p and "서운함" in p and "엎드리기" in p
 
 

@@ -467,7 +467,7 @@ flowchart LR
 | `brain/brain/model.py` | 확률 모델 (순수 함수): 상태 갱신, 점수, 뽑기, 움직임 경향 |
 | `brain/brain/core.py` | 이벤트 대기열·판단 태스크·기분 시계 틱 |
 | `brain/brain/questions.py` | Jev 질문 3개와 정책 문구, state 직렬화 |
-| `brain/brain/persona.py` | 기본 성격, Gemini 지시·프롬프트, 대사 다듬기 |
+| `brain/brain/persona.py` | 기본 성격, Gemini 지시(이벤트 뜻·대화 규칙)·프롬프트(말하는 상황·최근 한 말), 대사 다듬기 |
 | `brain/brain/tuning.py` | 잠정값과 방향표 (근거 주석) |
 | `brain/brain/store.py` | 이벤트 기록·강아지 상태 |
 | `brain/brain/clients.py` | Jev·Gemini 클라이언트 |
