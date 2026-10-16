@@ -451,3 +451,22 @@ async def test_core_marks_question_and_sad_message(make):
     await env.brain.drain()
     asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
     assert sad > flat + 0.2 and asked > flat + 0.2
+
+
+async def test_dialogue_gets_presence_and_house_facts(make):
+    # 주인이 곁에 있는지·자리를 비웠는지, 집에서 나온 쪽이 강아지인지를 사실로 준다 (검수 005: 지어냄)
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert "곁에" in env.talker.calls[-1][1]
+    await env.brain.handle_event("quiet", {"seconds": 1800})
+    await env.brain.drain()
+    assert "자리를 비웠" in env.talker.calls[-1][1]
+    await env.brain.handle_event("house_in", {})
+    await env.brain.drain()
+    await env.brain.handle_event("house_out", {"away_seconds": 600})
+    await env.brain.drain()
+    assert "강아지(나)가 집에서 나왔" in env.talker.calls[-1][1]
+    await env.brain.handle_event("message", {"text": "집에서 뭐 하고 있었어?"})
+    await env.brain.drain()
+    assert "조금 전까지 집 안에 있던 쪽은 강아지(나)" in env.talker.calls[-1][1]

@@ -98,3 +98,9 @@ def test_prompt_tells_when_the_owner_looks_down():
     p = dialogue_prompt({}, "sad", "beg", ["message"], [], 0, [], "", owner_down=True)
     assert json.loads(p.split("\n")[0])["사용자 기분"] == "속상해 보인다"
     assert "상담사" in system_instruction()
+
+
+def test_prompt_carries_facts_and_rule():
+    p = dialogue_prompt({}, "none", "none", ["quiet"], [], 0, [], "", False, ["주인은 곁에서 조용히 뭔가 하고 있다"])
+    assert json.loads(p.split("\n")[0])["지금 상황 사실"] == ["주인은 곁에서 조용히 뭔가 하고 있다"]
+    assert "상황 사실" in system_instruction()

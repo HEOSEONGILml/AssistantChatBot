@@ -42,6 +42,7 @@ class Brain:
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
         self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
         self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
+        self._user_away = False            # 사용자가 자리를 비웠다(화면이 30분 조용함을 보냄). 대사에 사실로 준다 (검수 005)
         self._in_house = False             # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002)
         self._sent_movement: dict | None = None
         self._can_save = True
@@ -104,7 +105,7 @@ class Brain:
         사용자가 고른 일이므로 읽지 못한 저장본도 덮어쓴다."""
         self._cancel()
         self._pending.clear()
-        self._streak, self._waiting, self._hold, self._in_house = 0, False, False, False
+        self._streak, self._waiting, self._hold, self._in_house, self._user_away = 0, False, False, False, False
         self._store.clear_events()
         self._judgements.clear()
         self._dog = model.birth(self._rng, self._clock())
@@ -146,6 +147,10 @@ class Brain:
             self._hold = False
         if kind in ("message", "typing"):
             self._waiting = False
+        if kind in USER_KINDS:
+            self._user_away = False
+        elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
+            self._user_away = True
         if kind in ("house_in", "house_out"):
             self._in_house = kind == "house_in"
             self._sent_movement = None  # 나오면 지금 경향을 바로 다시 보낸다
@@ -269,8 +274,17 @@ class Brain:
                             + (f"사용자: {e.data.get('text', '')}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
                             for e in talk]
             v = voice(dog, t)  # 성격에서 나온 말투 (검수 004)
+            # 지금 상황 사실: 주인이 곁에 있는지, 집에서 나온 쪽이 누구인지 (검수 005: 지어냄)
+            facts = ["주인은 자리를 비웠다. 아직 돌아오지 않았다" if self._user_away else
+                     ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
+            if "returned" in kinds:
+                facts.append("주인이 자리를 비웠다가 방금 돌아왔다")
+            if "house_out" in kinds:
+                facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
+            elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
+                facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 밖에 있었다")
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], rd.user_down >= 0.5)), v["문장 수"])
+                                                                                          conversation, v["지시"], rd.user_down >= 0.5, facts)), v["문장 수"])
         except AuthError:
             await self._set_ai("bad_key")
             return

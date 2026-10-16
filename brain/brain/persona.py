@@ -31,6 +31,7 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다. "
          "말투는 '말투' 지시(성격에서 나온다)를 따른다. 상투적인 문장('앗, 깜짝이야', '손길 따뜻해', 문장 끝마다 '헥헥')을 쓰지 않고, "
          "같은 상황이라도 매번 다르게 말한다. "
+         "'지금 상황 사실'(주인이 곁에 있는지, 누가 집에서 나왔는지)과 어긋나는 말을 하지 않는다. "
          "사용자가 속상해 보이면 조언하거나 사람 상담사처럼 말하지 않는다. 강아지답게 곁에 붙어 짧게 위로한다('내가 옆에 있을게').")
 # 검수 003: 반기는 말 지어내기, '10분' 읊기, 존댓말, 선택 뒤집기·역할 바꾸기, 기분과 안 맞는 몸짓
 
@@ -43,7 +44,7 @@ def system_instruction() -> str:
 
 SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')의 내용에 짧게 반응하며 끼어든다. '무슨 글 써?'처럼 내용을 모르는 척 묻지 않는다", "message": "사용자의 말에 답한다",
              "dog_spoke": "방금 한 내 말에 이어 한마디 더 한다(새 내용으로)", "quiet": "한동안 조용해서 먼저 말을 건다. 사용자는 아직 돌아오지 않았다(혼잣말이나 부르는 말)",
-             "returned": "돌아온 사용자를 맞이한다", "house_out": "집에서 나와 말을 건다",
+             "returned": "돌아온 사용자를 맞이한다", "house_out": "네가(강아지가) 방금 집에서 나왔다. '나 나왔다! 집 안 답답했어'처럼 너 자신이 나온 것으로 말한다. 주인이 나왔다고 하지 않는다",
              "poke": "찔린 것에 반응한다", "pet": "쓰다듬어 준 것에 반응한다", "throw": "던져진 것에 반응한다"}
 
 
@@ -77,7 +78,8 @@ def _span(seconds: float) -> str:
 
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
-                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False) -> str:
+                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False,
+                    facts: list[str] | None = None) -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
     log = [_QUIET_SECONDS.sub("", line) for line in state.get("최근 이벤트 기록", [])]
@@ -91,6 +93,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
         data["말투"] = tone
     if owner_down:
         data["사용자 기분"] = "속상해 보인다"
+    if facts:
+        data["지금 상황 사실"] = facts
     typing = [e.get("맥락", {}).get("글") for e in state.get("이번 이벤트들", []) if e.get("종류") == "타이핑"]
     if kinds and kinds[-1] == "typing" and typing and typing[-1]:
         data["쓰는 중인 글"] = typing[-1]
