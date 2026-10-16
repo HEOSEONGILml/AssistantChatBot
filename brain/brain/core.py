@@ -294,8 +294,8 @@ class Brain:
             # 지금 상황 사실: 주인이 곁에 있는지, 집에서 나온 쪽이 누구인지 (검수 005: 지어냄)
             facts = ["주인은 자리를 비웠다. 아직 돌아오지 않았다" if self._user_away else
                      ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
-            if "returned" in kinds:
-                facts.append("주인이 자리를 비웠다가 방금 돌아왔다")
+            if "returned" in kinds:  # 돌아온 순간에는 "곁에 있다" 대신 이 사실만 (검수 007: "옆에 있는 거 다 아는데")
+                facts = ["주인이 자리를 비웠다가 방금 돌아왔다"]
             if "house_out" in kinds:
                 facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
             elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):

@@ -117,3 +117,20 @@ def test_prompt_states_the_current_mood_for_tone():
     assert "움츠" in json.loads(p.split("\n")[0])["지금 기분"]
     s = system_instruction()
     assert "깡총" in s and "하지 않은 행동" in s
+
+
+# ---- 검수 007 대사 ----
+
+
+def test_interjection_does_not_assert_or_choose_on_unfinished_text():
+    p = dialogue_prompt({}, "curious", "sit", ["typing"], [])
+    sit = json.loads(p.split("\n")[0])["지금 말하는 상황"]
+    assert "덜 끝났" in sit and "고르지" in sit
+
+
+def test_return_greeting_knows_how_long_and_avoids_stock_words():
+    state = {"이번 이벤트들": [{"종류": "사용자가 돌아옴", "맥락": {"떠나 있던 시간(초)": 5400}}]}
+    p = dialogue_prompt(state, "happy", "beg", ["returned"], [], 0)
+    assert json.loads(p.split("\n")[0])["비운 시간"] == "1시간 30분"
+    s = system_instruction()
+    assert "드디어" in s and "목 빠지" in s
