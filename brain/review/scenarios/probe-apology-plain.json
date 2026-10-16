@@ -1,0 +1,12 @@
+{"name": "probe-apology-plain", "description": "찌르고 던진 뒤, 그리고 거친 말 뒤에 사과만 함: 사과가 시무룩·무서움을 낮추나, 오히려 '주인이 속상하다'로 읽혀 시무룩이 오르나, 대사와 상태가 맞나", "personality": "평균", "seed": 41, "start": "2026-10-23T10:00",
+ "steps": [
+  {"event": "throw", "context": {"impact": 0.8, "bounces": 2, "flight_seconds": 1.0}},
+  {"wait": 60, "quiet": false},
+  {"say": "던져서 미안해"},
+  {"wait": 60, "quiet": false},
+  {"say": "너 진짜 귀찮아 저리 가"},
+  {"wait": 60, "quiet": false},
+  {"say": "내가 말이 심했어 미안"},
+  {"wait": 300, "quiet": false},
+  {"get_state": true}
+ ]}
