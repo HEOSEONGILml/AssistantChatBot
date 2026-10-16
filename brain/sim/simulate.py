@@ -27,7 +27,7 @@ TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.30}
 START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
 P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
 P_REPLY = 0.5        # 강아지가 말하면 사용자가 답하는 비율 (잠정값)
-P_QUESTION = 0.3     # 강아지 대사가 질문으로 끝나는 비율 (잠정값)
+P_QUESTION = 0.48    # 강아지 대사에 물음표가 있는 비율. 검수 002 실제 대사 85개 실측
 
 
 class Recording:
@@ -108,7 +108,7 @@ class World:
         if kind == "typing":  # 두뇌 core와 같은 규칙: 타이핑 중 끼어들기는 한마디로 끝낸다 (검수 001)
             self.stats.chains.append(length)
             return True
-        while True:
+        while not self.waiting:  # 두뇌 core와 같은 규칙: 질문했으면 이어 말하지 않는다 (검수 002)
             self.now += 2
             if not self._judge("dog_spoke", None):
                 break

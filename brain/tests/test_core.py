@@ -335,3 +335,17 @@ async def test_interjection_while_typing_is_one_line(make):
     await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
     await env.brain.drain()
     assert len(utterances(env.out)) == 3  # 답한 뒤에는 이어 말할 수 있다
+
+
+async def test_question_waits_for_an_answer_even_with_a_trailing_bark(make):
+    # "…? 멍!"처럼 물음표 뒤에 의성어가 붙어도 질문이다. 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002)
+    env = await make(tuning=SPEAK)
+    env.talker.line = "밖은 날씨가 어때? 멍멍!"
+    await env.brain.handle_event("message", {"text": "오늘 기분 좋다"})
+    await env.brain.drain()
+    await env.brain.handle_event("dog_spoke", {"text": "밖은 날씨가 어때? 멍멍!"})
+    await env.brain.drain()
+    assert utterances(env.out) == ["밖은 날씨가 어때? 멍멍!"]
+    await env.brain.handle_event("message", {"text": "맑아"})
+    await env.brain.drain()
+    assert len(utterances(env.out)) == 2  # 답이 오면 다시 말한다

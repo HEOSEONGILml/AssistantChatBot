@@ -225,7 +225,8 @@ class Brain:
         action = model.pick(a_scores, self._rng)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
-        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and self._interjected):
+        # 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002). 조용함이 오면 다시 말을 걸 수 있다
+        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and (self._interjected or self._waiting)):
             p_speak = 0.0
         else:
             p_speak = model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t)
@@ -259,7 +260,7 @@ class Brain:
         self._store.add(Event(self._clock(), "dog", "dog", {"utterance": line}))
         self._streak += 1
         self._interjected = kinds[-1] == "typing"
-        self._waiting = line.rstrip().endswith("?")
+        self._waiting = "?" in line  # "…? 멍!"도 질문이다 (검수 002)
 
     async def _push_movement(self) -> None:
         if not self._connected:
