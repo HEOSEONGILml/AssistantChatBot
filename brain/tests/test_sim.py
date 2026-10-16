@@ -21,7 +21,7 @@ def test_world_runs_a_day():
     for kind in ("typing", "message", "quiet"):
         assert 0 <= s.rate(kind) <= 1
     assert s.chains and all(1 <= c <= 3 for c in s.chains)
-    assert 0 <= s.kept / s.judged <= 1
+    assert sum(s.actions.values()) == s.judged and max(s.actions.values()) / s.judged <= 1
 
 
 def test_bias_raises_rate():

@@ -218,7 +218,7 @@ class Brain:
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t)
         reaction = model.reaction_from(deltas, kinds, t)
-        a_scores = model.action_scores(rd.action, dog, reaction, t)
+        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
         action = model.pick(a_scores, self._rng)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         p_speak = 0.0 if kinds[-1] == "house_in" else \

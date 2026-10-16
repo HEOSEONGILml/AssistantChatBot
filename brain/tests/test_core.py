@@ -13,9 +13,9 @@ async def test_message_emits_reaction_and_logs(make):
     env = await make()
     await env.brain.handle_event("message", {"text": "안녕"})
     await env.brain.drain()
-    assert [m for m in env.out if m["type"] == "reaction"] == [{"type": "reaction", "reaction": "excited", "action": "beg"}]
+    assert [m for m in env.out if m["type"] == "reaction"] == [{"type": "reaction", "reaction": "excited", "action": "bark"}]  # 시드로 고정된 뽑기 (동작 모형 2026-10-16)
     assert [e.kind for e in env.store.recent(5)] == ["message", "dog"]
-    assert env.store.recent(1)[0].data == {"reaction": "excited", "action": "beg"}
+    assert env.store.recent(1)[0].data == {"reaction": "excited", "action": "bark"}
     assert kinds_in(env.jev.calls[0]) == ["메시지 보냄"]
     assert env.talker.calls == []
 
@@ -146,7 +146,7 @@ async def test_talker_error_keeps_reaction(make):
     env.talker.error = CallError("timeout")
     await env.brain.handle_event("message", {"text": "a"})
     await env.brain.drain()
-    assert env.out[0] == {"type": "reaction", "reaction": "excited", "action": "beg"}
+    assert env.out[0] == {"type": "reaction", "reaction": "excited", "action": "bark"}
     assert utterances(env.out) == []
 
 
@@ -262,7 +262,7 @@ async def test_log_records_why_the_dog_acted(make):
     j = env.brain.log_snapshot()["judgements"][-1]
     assert j["events"] == [{"종류": "찌르기"}]
     assert j["jev"]["action"] == {"beg": 1.0} and j["jev"]["speak"] == 0.5 and j["jev"]["change"] == {"들뜸↑": 1.0}
-    assert j["picked"] == {"reaction": "surprised", "action": "beg", "speak": True}  # 찌르기는 우리 평가로 놀람이 1위 (0015)
+    assert j["picked"] == {"reaction": "surprised", "action": "bark", "speak": True}  # 찌르기는 우리 평가로 놀람이 1위 (0015)
     assert 0 <= j["model"]["speak"] <= 1 and "beg" in j["model"]["action"]
     assert j["mood_change"]["들뜸"] > 0
     assert j["utterance"] == "멍! 안녕"

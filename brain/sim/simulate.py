@@ -50,7 +50,7 @@ class Recording:
 class Stats:
     counts: dict = field(default_factory=dict)   # 꼬리표 → (판단 수, 말한 수)
     chains: list = field(default_factory=list)   # 사용자 입력 없이 이어 말한 길이
-    kept: int = 0                                # 보정 뒤에도 Jev 1위 동작이 1위로 남은 판단 수
+    actions: dict = field(default_factory=dict)  # 뽑힌 동작별 횟수 (가장 흔한 동작 비율 ≤ 0.5, 동작 모형 스펙)
     judged: int = 0
     stuck: int = 0                               # 기분이 0.9 이상이거나 0.05 이하인 표본 수 (기분 차원별)
     reactions: dict = field(default_factory=dict)  # 반응별 횟수
@@ -87,10 +87,10 @@ class World:
         deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
-        scores = model.action_scores(rd.action, dog, reaction, t)
-        model.pick(scores, self.rng)
+        scores = model.action_scores(rd.action, dog, reaction, [kind], t)
+        a = model.pick(scores, self.rng)
         self.stats.judged += 1
-        self.stats.kept += max(rd.action, key=rd.action.get) == max(scores, key=scores.get)
+        self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         spoke = self.rng.random() < model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t)
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
@@ -198,13 +198,13 @@ def fit(rec: Recording, t: Tuning, days: int = 10, seed: int = 1, rounds: int = 
 
 def _row(name: str, s: Stats) -> str:
     return (f"| {name} | {s.rate('typing'):.2f} | {s.rate('message'):.2f} | {s.rate('quiet'):.2f} | {s.chain2plus():.2f} "
-            f"| {s.kept / s.judged:.2f} | {s.stuck_ratio():.2f} |")
+            f"| {max(s.actions.values()) / s.judged:.2f} | {s.stuck_ratio():.2f} |")
 
 
 def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int = 8) -> str:
-    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | Jev 1위 동작 유지 | 기분 고착 |",
+    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | 가장 흔한 동작 비율 | 기분 고착 |",
             "|---|---|---|---|---|---|---|",
-            f"| **목표** | {TARGETS['typing']:.2f} | {TARGETS['message']:.2f} | {TARGETS['quiet']:.2f} | {TARGETS['chain2plus']:.2f} | ≥ 0.60 | ≤ 0.20 |"]
+            f"| **목표** | {TARGETS['typing']:.2f} | {TARGETS['message']:.2f} | {TARGETS['quiet']:.2f} | {TARGETS['chain2plus']:.2f} | ≤ 0.50 | ≤ 0.20 |"]
     rows = [_row(name, run(archetype_dog(name), rec, t, days, 1).stats) for name in ARCHETYPES]
     pop = [run(model.birth(random.Random(i), START), rec, t, days, i).stats for i in range(dogs)]
     metrics = {"typing": [s.rate("typing") for s in pop], "message": [s.rate("message") for s in pop],

@@ -18,10 +18,17 @@ INTIMACY_START = 0.3
 MOOD_REACTION_ID = {"심심함": "bored", "졸림": "sleepy", "들뜸": "excited", "시무룩": "sad", "분노": "annoyed",
                     "궁금함": "curious", "놀람": "surprised", "무서움": "scared", "행복": "happy"}
 # 동작 보정 (스펙 6절): 기분→동작 B, 반응→동작 C
-MOOD_ACTION = {"sleep": {"졸림": 1}, "lie_down": {"졸림": 1, "시무룩": 1, "무서움": 1}, "bark": {"들뜸": 1, "분노": 1, "놀람": 1},
-               "beg": {"심심함": 1, "행복": 1}, "stand": {"궁금함": 1}}
+# 동작 선택 (스펙 2026-10-16 동작 모형): 우리 모형 중심, Jev는 약하게. 기분은 기준값 대비로 본다
+MOOD_ACTION = {"stand": {"궁금함": 0.5, "놀람": 0.3}, "sit": {"행복": 0.3, "궁금함": 0.5, "졸림": 0.3},
+               "lie_down": {"졸림": 0.7, "시무룩": 1, "무서움": 1}, "sleep": {"졸림": 1.5},
+               "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
+ACTION_BASE = {"stand": 0.3, "sit": 0.3, "lie_down": 0.0, "sleep": -1.5, "beg": -0.5, "bark": -0.5, "none": 0.3}
+EVENT_ACTION = {"poke": {"bark": 0.8, "stand": 0.3}, "pet": {"beg": 0.8, "sit": 0.8, "lie_down": 0.3},
+                "throw": {"bark": 0.6, "lie_down": 0.6}, "quiet": {"lie_down": 0.8, "sit": 0.5, "sleep": 0.3},
+                "returned": {"beg": 1.0, "bark": 0.5}, "house_out": {"stand": 0.5},
+                "message": {"sit": 0.5, "stand": 0.2}, "typing": {"sit": 0.5, "stand": 0.2}, "dog_spoke": {"none": 1.2}}
 REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 1}, "surprised": {"bark": 1}, "scared": {"lie_down": 1},
-                   "sad": {"lie_down": 1}, "curious": {"stand": 1}, "sleepy": {"lie_down": 1}, "happy": {"beg": 1}}
+                   "sad": {"lie_down": 1}, "curious": {"sit": 0.6, "stand": 0.4}, "sleepy": {"lie_down": 1}, "happy": {"beg": 1}}
 # 말수 (스펙 6절 3): 독립 파라미터가 아니라 친밀도·기분·기준값에서 계산한다 (사용자 결정, 분노는 −)
 TALK_MOOD = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
 TALK_BASELINE = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
@@ -101,8 +108,10 @@ class Tuning:
     habit_half_life_s: float = 3600.0   # 1시간 쉬면 습관화가 절반 풀림
     react_threshold: float = 0.02      # 이만큼 이상 오른 기분이 있으면 그 기분의 반응을 보인다 (잠정값)
     dominant_threshold: float = 0.15   # 기준값보다 이만큼 높은 기분이 평소 모습을 정한다 (잠정값)
-    w_mood: float = 1.0                 # 기분이 0.5 벗어나면 로그 점수 ±0.5. Jev 로그확률 차이(1~3)보다 작게
-    w_react: float = 1.0
+    w_mood: float = 5.0                 # 기분이 기준값보다 0.2 높으면 점수 +1 (동작 모형 스펙)
+    w_react: float = 1.5
+    w_jev_action: float = 0.3           # Jev 동작 로그확률의 무게. 서기 0.98 쏠림도 최대 약 0.9로 묶인다 (검수 001)
+    jev_action_floor: float = 0.05
     talk_scale: float = 0.7             # 말수 계수 크기. 기분 8개로 늘며 항이 많아져 1.0이면 활발한 강아지 끼어들기가 65%까지 벌어짐 (시뮬레이션)
     # 이벤트 종류별 말하기 보정. 평균 성격 강아지가 목표 지표(끼어들기 30%, 답하기 85%, 먼저 말 걸기 1/3,
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).

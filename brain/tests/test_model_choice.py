@@ -23,10 +23,9 @@ JEV = {"beg": 0.6, "stand": 0.3, "none": 0.1}
 
 
 def test_whim_controls_temperature():
-    sharp = model.probabilities(model.action_scores(JEV, neutral(whim=0.0), "none", T))
-    flat = model.probabilities(model.action_scores(JEV, neutral(whim=1.0), "none", T))
-    assert sharp["beg"] == pytest.approx(0.78, abs=0.01)
-    assert flat["beg"] == pytest.approx(0.52, abs=0.01)
+    sharp = model.probabilities(model.action_scores(JEV, neutral(whim=0.0), "none", ["pet"], T))
+    flat = model.probabilities(model.action_scores(JEV, neutral(whim=1.0), "none", ["pet"], T))
+    assert max(sharp.values()) > max(flat.values()) + 0.05
 
 
 def test_reaction_is_the_mood_that_rose_most():
@@ -62,8 +61,8 @@ def test_dominant_mood():
 
 def test_reaction_tilts_action():
     jev = {"bark": 0.4, "beg": 0.4, "none": 0.2}
-    after_annoyed = model.probabilities(model.action_scores(jev, neutral(), "annoyed", T))
-    after_excited = model.probabilities(model.action_scores(jev, neutral(), "excited", T))
+    after_annoyed = model.probabilities(model.action_scores(jev, neutral(), "annoyed", ["message"], T))
+    after_excited = model.probabilities(model.action_scores(jev, neutral(), "excited", ["message"], T))
     assert after_annoyed["bark"] > after_annoyed["beg"]
     assert after_excited["beg"] > after_excited["bark"]
 
@@ -72,12 +71,12 @@ def test_sleepy_mood_tilts_action_to_sleep():
     sleepy = neutral()
     sleepy.mood["졸림"] = 0.95
     jev = {"sleep": 0.3, "stand": 0.7}
-    assert model.probabilities(model.action_scores(jev, sleepy, "none", T))["sleep"] > \
-        model.probabilities(model.action_scores(jev, neutral(), "none", T))["sleep"]
+    assert model.probabilities(model.action_scores(jev, sleepy, "none", ["message"], T))["sleep"] > \
+        model.probabilities(model.action_scores(jev, neutral(), "none", ["message"], T))["sleep"]
 
 
 def test_pick_follows_probabilities():
-    scores = model.action_scores(JEV, neutral(), "none", T)
+    scores = model.action_scores(JEV, neutral(), "none", ["message"], T)
     rng = random.Random(7)
     picks = [model.pick(scores, rng) for _ in range(4000)]
     assert picks.count("beg") / 4000 == pytest.approx(model.probabilities(scores)["beg"], abs=0.03)
@@ -197,3 +196,36 @@ def test_return_is_welcome():
     dog = calm_dog()
     deltas = model.apply_change(dog, {"놀람↑": 0.5}, [("returned", {"away_seconds": 3600})], random.Random(0), QUIET)
     assert model.reaction_from(deltas, ["returned"], T) in ("happy", "excited")
+
+
+# ---- 동작 = 우리 모형 중심 + Jev 약한 조정 (스펙 2026-10-16, 검수 001) ----
+
+STAND = {"stand": 0.98, "bark": 0.01, "none": 0.01}  # 검수 001에서 Jev가 늘 주던 쏠린 분포
+
+
+def share(scores, actions):
+    p = model.probabilities(scores)
+    return sum(p[a] for a in actions)
+
+
+def test_pet_leads_to_beg_or_sit_even_if_jev_says_stand():
+    dog = calm_dog()
+    assert share(model.action_scores(STAND, dog, "happy", ["pet"], T), ("beg", "sit")) > 0.5
+
+
+def test_sleepy_dog_left_alone_lies_down_or_sleeps():
+    dog = calm_dog()
+    dog.mood["졸림"] = dog.personality.baseline["졸림"] + 0.35
+    assert share(model.action_scores(STAND, dog, "sleepy", ["quiet"], T), ("lie_down", "sleep")) > 0.5
+
+
+def test_poke_barks_more_than_it_stands():
+    p = model.probabilities(model.action_scores(STAND, calm_dog(), "surprised", ["poke"], T))
+    assert p["bark"] > p["stand"]
+
+
+def test_high_baseline_alone_does_not_force_sleep():
+    # 늘 졸린 성격이라도 평소만큼 졸리면 자지 않는다 (기분은 기준값 대비)
+    dog = calm_dog()
+    dog.personality.baseline["졸림"] = dog.mood["졸림"] = 0.8
+    assert model.probabilities(model.action_scores(STAND, dog, "none", ["message"], T))["sleep"] < 0.1
