@@ -143,3 +143,9 @@ def test_annoyed_dog_keeps_away():
     a, b = model.movement(calm, T), model.movement(angry, T)
     assert share(b, ["approach"]) < 0.5 * share(a, ["approach"])
     assert share(b, ["roam", "explore"]) > share(a, ["roam", "explore"])
+
+
+def test_excited_dog_plays_visibly():
+    dog = calm_avg()
+    dog.mood["들뜸"] += 0.3
+    assert share(model.movement(dog, T), ["play"]) > 0.15

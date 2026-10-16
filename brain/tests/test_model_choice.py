@@ -410,3 +410,11 @@ def test_direct_question_or_sad_disclosure_is_almost_always_answered():
     asked = model.speak_probability(0.74, neutral(), "message", 0, False, T, asked=True)
     hurting = model.speak_probability(0.74, neutral(), "message", 0, False, T, hurting=True)
     assert asked > 0.93 and hurting > 0.93 and plain < asked
+
+
+def test_sleepy_reaction_at_night_can_be_sleep():
+    # 밤에 졸리면(기준값보다 0.3 높음) 조용함에 잠 동작이 눈에 띄게 나온다 (검수 004 사소)
+    dog = calm_dog()
+    dog.mood["졸림"] += 0.3
+    p = model.probabilities(model.action_scores(STAND, dog, "sleepy", ["quiet"], T))
+    assert p["sleep"] > 0.2
