@@ -385,3 +385,24 @@ async def test_dialogue_knows_how_long_the_user_has_been_away(make):
     await env.brain.handle_event("quiet", {"seconds": 600})
     await env.brain.drain()
     assert "1시간" in env.talker.calls[-1][1]  # '십 분'이 아니라 실제로 혼자 있은 시간
+
+
+async def test_ignored_once_then_no_more_sadness_buildup(make):
+    # 질문하고 무시당하면 한 번 서운하다. 조용함이 이어질 때마다 쌓이지 않는다 (검수 003)
+    env = await make(tuning=SPEAK)
+    env.talker.line = "뭐 해?"
+    await env.brain.handle_event("message", {"text": "일 좀 할게"})
+    await env.brain.drain()
+    assert env.brain._waiting
+    env.talker.line = "심심해"
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    assert not env.brain._waiting
+
+
+async def test_bad_key_still_reacts_by_our_appraisal(make):
+    env = await make()
+    env.jev.error = AuthError("typesafe")
+    await env.brain.handle_event("poke", {})
+    await env.brain.drain()
+    assert any(m["type"] == "reaction" and m.get("reaction") == "surprised" for m in env.out)

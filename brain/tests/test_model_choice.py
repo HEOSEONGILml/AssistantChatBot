@@ -299,9 +299,10 @@ def test_warm_words_make_happy():
 
 def test_ignored_question_makes_sad():
     plain, ignored = calm_dog(), calm_dog()
-    a = model.apply_change(plain, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET).signal["시무룩"]
-    b = model.apply_change(ignored, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, waiting=True).signal["시무룩"]
-    assert b > a + 0.1
+    # 사용자가 자리에 있는데(조용함 10분) 질문에 답이 없을 때만. 자리를 비운 조용함(30분)은 서운하지 않다 (검수 003)
+    a = model.apply_change(plain, {}, [("quiet", {"seconds": 600})], random.Random(0), QUIET).signal["시무룩"]
+    b = model.apply_change(ignored, {}, [("quiet", {"seconds": 600})], random.Random(0), QUIET, waiting=True).signal["시무룩"]
+    assert b > a + 0.04
 
 
 # ---- 타이핑에 익숙해지면 글 내용이 드러난다 (검수 002) ----
@@ -332,3 +333,34 @@ def test_long_alone_turns_boredom_into_sleepiness():
     b = model.apply_change(long_, {}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, alone_s=4 * 3600).signal
     assert b["심심함"] < 0.3 * a["심심함"]
     assert b["졸림"] > 0.1 and model.reaction_from(b, ["quiet"], T) == "sleepy"
+
+
+# ---- 검수 003: 조용함은 심심함·졸음, 던지기 반복은 무서움, 사과는 서운함을 던다 ----
+
+
+def test_quiet_while_user_is_away_is_not_sad_even_after_a_question():
+    # 화면은 자리를 비우면 30분마다 조용함을 보낸다. 나간 주인은 무시한 게 아니다
+    dog = calm_dog()
+    d = model.apply_change(dog, {"시무룩↑": 0.4, "친밀도↓": 0.3}, [("quiet", {"seconds": 1800})], random.Random(0), QUIET, waiting=True)
+    assert d.signal["시무룩"] < 0.03
+    assert model.reaction_from(d, ["quiet"], T) in ("bored", "sleepy", "none")
+
+
+def test_quiet_mood_is_ours_not_jevs():
+    dog = calm_dog()
+    d = model.apply_change(dog, {"시무룩↑": 0.5}, [("quiet", {"seconds": 600})], random.Random(0), QUIET)
+    assert model.reaction_from(d, ["quiet"], T) == "bored"
+
+
+def test_repeated_hard_throws_scare():
+    dog = calm_dog()
+    rng = random.Random(0)
+    rs = [model.reaction_from(model.apply_change(dog, {}, [("throw", {"impact": 0.95})], rng, QUIET), ["throw"], T) for _ in range(3)]
+    assert rs[1] == "scared" and rs[2] == "scared"
+
+
+def test_apology_eases_sadness():
+    dog = calm_dog()
+    dog.mood["시무룩"] = 0.5
+    model.apply_change(dog, {"친밀도↑": 0.78, "행복↑": 0.11}, [("message", {"text": "아까는 미안해"})], random.Random(0), QUIET)
+    assert dog.mood["시무룩"] < 0.4

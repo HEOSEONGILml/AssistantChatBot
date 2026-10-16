@@ -213,19 +213,23 @@ class Brain:
         try:
             rd = await self._jev.judge(state)
         except AuthError:
+            # 키가 틀려도 찔리면 놀란다: 우리 평가 사전값으로 반응하고 말하지 않는다 (검수 003)
             entry["error"] = "키 오류"
             await self._set_ai("bad_key")
-            return
+            rd = Readout({}, 0.0, {})
         except CallError as e:
             # Jev 없이도 우리 평가 사전값으로 기분·반응·동작은 낸다. 대사는 없다 (검수 002)
             entry["error"] = f"Jev 실패: {e}"
             log.warning("Jev 실패(%s). 우리 모형만으로 반응하고 말하지 않는다", e)
             rd = Readout({}, 0.0, {})
         kinds = [e.kind for e in batch]
+        waiting = self._waiting
+        if kinds[-1] == "quiet":
+            self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t,
-                                    waiting=self._waiting, alone_s=now - last_user)
+                                    waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
         a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
         action = model.pick(a_scores, self._rng)
