@@ -45,6 +45,7 @@ class Brain:
         self._streak = 0                   # 사용자 입력 없이 강아지가 연달아 말한 횟수
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
         self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
+        self._hush_until = 0.0             # 이 시각까지 먼저 말 걸지 않는다("말 걸지 마", 검수 007)
         self._unanswered = 0               # 먼저 말을 건 뒤 사용자 대꾸가 없었던 횟수 (검수 006)
         self._interjected = False          # 이번 메시지를 치는 동안 이미 끼어들었다 (검수 006: 한 문장에 세 번)
         self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
@@ -158,6 +159,7 @@ class Brain:
             self._unanswered = 0
         if kind == "message":
             self._interjected = False
+            self._hush_until = 0.0  # 사용자가 다시 말을 걸면 부탁은 끝난다(새 메시지가 다시 부탁이면 판단에서 다시 켠다)
         elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
             self._user_away = True
         if kind in ("house_in", "house_out"):
@@ -240,6 +242,8 @@ class Brain:
             log.warning("Jev 실패(%s). 우리 모형만으로 반응하고 말하지 않는다", e)
             rd = Readout({}, 0.0, {})
         kinds = [e.kind for e in batch]
+        if kinds[-1] == "message" and rd.hush >= 0.5:
+            self._hush_until = now + t.hush_s
         waiting = self._waiting
         if kinds[-1] == "quiet":
             self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
@@ -263,9 +267,10 @@ class Brain:
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
             hurting = last.kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
             p_speak = model.chain_probability(dog, self._streak, t) if kinds[-1] == "dog_spoke" else \
-                model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered)
+                model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered,
+                                        now < self._hush_until)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})

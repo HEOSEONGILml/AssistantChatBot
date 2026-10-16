@@ -62,7 +62,7 @@ async def main() -> None:
                 if attempt == 2:
                     raise
                 await asyncio.sleep(2)
-        data[key(*c)] = {"action": rd.action, "speak": rd.speak, "change": rd.change, "user_down": rd.user_down, "soothe": rd.soothe}
+        data[key(*c)] = {"action": rd.action, "speak": rd.speak, "change": rd.change, "user_down": rd.user_down, "soothe": rd.soothe, "hush": rd.hush}
     await jev.aclose()
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"{len(data)}개 녹화 → {OUT}")

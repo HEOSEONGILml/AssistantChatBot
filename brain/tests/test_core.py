@@ -536,3 +536,22 @@ async def test_reply_keeps_what_the_dog_just_said_while_interjecting(make):
     await env.brain.handle_event("message", {"text": "사과랑 바나나 중에 뭐가 좋아?"})
     await env.brain.drain()
     assert "방금 네가 한 말: 바나나! 달콤해서 좋아" in env.talker.calls[-1][1]
+
+
+async def test_do_not_disturb_hushes_the_dog_for_an_hour(make):
+    # "말 걸지 마"를 Jev가 hush로 읽으면 한 시간 동안(또는 사용자가 다시 말할 때까지) 먼저 말 걸기가 거의 없다 (검수 007)
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"none": 1.0}, 0.7, {"변화없음": 1.0}, 0.0, 0.0, 0.9)
+    await env.brain.handle_event("message", {"text": "한 시간 집중해야 해. 말 걸지 마"})
+    await env.brain.drain()
+    env.jev.readout = Readout({"none": 1.0}, 0.7, {"심심함↑": 0.5})
+    env.clock.t += 600
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    hushed = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    env.clock.t += 3600
+    await env.brain.handle_event("quiet", {"seconds": 600})
+    await env.brain.drain()
+    later = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
+    assert hushed < 0.05 and later > 3 * hushed

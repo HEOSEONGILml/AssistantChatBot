@@ -45,7 +45,7 @@ class Recording:
         preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
         intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
         r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
-        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0))
+        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0), r.get("hush", 0.0))
 
 
 @dataclass
