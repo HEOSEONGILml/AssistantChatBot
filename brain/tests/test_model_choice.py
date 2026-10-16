@@ -364,3 +364,19 @@ def test_apology_eases_sadness():
     dog.mood["시무룩"] = 0.5
     model.apply_change(dog, {"친밀도↑": 0.78, "행복↑": 0.11}, [("message", {"text": "아까는 미안해"})], random.Random(0), QUIET)
     assert dog.mood["시무룩"] < 0.4
+
+
+def test_no_sleep_action_unless_sleepier_than_usual():
+    for whim in (0.2, 0.9):
+        dog = calm_dog()
+        dog.personality.whim = whim
+        dog.mood["들뜸"] += 0.3
+        p = model.probabilities(model.action_scores(STAND, dog, "excited", ["quiet"], T))
+        assert p["sleep"] < 0.03
+
+
+def test_annoyed_dog_does_not_only_bark():
+    dog = calm_dog()
+    dog.mood["분노"] += 0.4
+    p = model.probabilities(model.action_scores(STAND, dog, "annoyed", ["poke"], T))
+    assert 0.3 < p["bark"] < 0.75

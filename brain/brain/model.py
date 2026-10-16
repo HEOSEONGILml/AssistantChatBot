@@ -3,7 +3,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from .tuning import (RELATION_MOOD, CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
+from .tuning import (IDLE_BASELINE, RUN_BASELINE, RELATION_MOOD, CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
                      IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
                      MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
                      TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
@@ -186,6 +186,8 @@ def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[st
              + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
              + t.w_jev_action * math.log(jev.get(a, 0.0) + t.jev_action_floor))
+        if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
+            x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다. 변덕(온도)으로도 뒤집히지 않게 크게 (검수 003)
         scores[a] = x / T
     return scores
 
@@ -295,14 +297,17 @@ def movement(dog: Dog, t: Tuning) -> dict:
 
     def mood_term(row):
         return sum(w * dev[d] for d, w in row.items())
+
+    def trait_term(row):  # 성격의 평소 수준: 탄생 평균 대비
+        return t.move_personality * sum(w * (b[d] - BIRTH_BASELINE[d]) for d, w in row.items())
     weights = {}
     for c in MOVES:
-        x = (t.move_scale * mood_term(MOVE_MOOD[c]) + t.move_personality * _affinity(MOVE_BASELINE.get(c, {}), b)
+        x = (t.move_scale * mood_term(MOVE_MOOD[c]) + trait_term(MOVE_BASELINE.get(c, {}))
              + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5))
         weights[c] = round(MOVE_BASE[c] * math.exp(x), 4)
     return {"weights": weights, "mood": dominant_mood(dog, t),
-            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * mood_term(RUN_MOOD)), 4),
-            "idle_scale": round(math.exp(t.move_scale * mood_term(IDLE_MOOD)), 4)}
+            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * mood_term(RUN_MOOD) + trait_term(RUN_BASELINE)), 4),
+            "idle_scale": round(math.exp(t.move_scale * mood_term(IDLE_MOOD) + trait_term(IDLE_BASELINE)), 4)}
 
 
 def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:

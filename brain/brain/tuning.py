@@ -20,14 +20,14 @@ MOOD_REACTION_ID = {"심심함": "bored", "졸림": "sleepy", "들뜸": "excited
 # 동작 보정 (스펙 6절): 기분→동작 B, 반응→동작 C
 # 동작 선택 (스펙 2026-10-16 동작 모형): 우리 모형 중심, Jev는 약하게. 기분은 기준값 대비로 본다
 MOOD_ACTION = {"stand": {"궁금함": 0.5, "놀람": 0.3}, "sit": {"행복": 0.3, "궁금함": 0.5, "졸림": 0.3},
-               "lie_down": {"졸림": 0.7, "시무룩": 1, "무서움": 1}, "sleep": {"졸림": 1.5},
+               "lie_down": {"졸림": 0.7, "시무룩": 1, "무서움": 1}, "sleep": {"졸림": 1.5, "들뜸": -1, "무서움": -1},
                "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
 ACTION_BASE = {"stand": 0.3, "sit": 0.3, "lie_down": 0.0, "sleep": -1.5, "beg": -0.5, "bark": -0.5, "none": 0.3}
 EVENT_ACTION = {"poke": {"bark": 0.8, "stand": 0.3}, "pet": {"beg": 0.8, "sit": 0.8, "lie_down": 0.3},
                 "throw": {"bark": 0.6, "lie_down": 0.6}, "quiet": {"lie_down": 0.8, "sit": 0.5, "sleep": 0.3},
                 "returned": {"beg": 1.0, "bark": 0.5}, "house_out": {"stand": 0.5},
                 "message": {"sit": 0.5, "stand": 0.2}, "typing": {"sit": 0.5, "stand": 0.2}, "dog_spoke": {"none": 1.2}}
-REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 1}, "surprised": {"bark": 1}, "scared": {"lie_down": 1},
+REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 0.7, "none": 0.5}, "surprised": {"bark": 1}, "scared": {"lie_down": 1},
                    "sad": {"lie_down": 1}, "curious": {"sit": 0.6, "stand": 0.4}, "sleepy": {"lie_down": 1}, "happy": {"beg": 1}}
 # 말수 (스펙 6절 3): 독립 파라미터가 아니라 친밀도·기분·기준값에서 계산한다 (사용자 결정, 분노는 −)
 TALK_MOOD = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
@@ -95,14 +95,17 @@ OPPOSITES = (("무서움", "행복"), ("무서움", "들뜸"), ("분노", "행�
 # 평소 움직임 경향 (스펙 6.5). 기본값은 몸체 "보통" 프로필과 같다
 MOVE_BASE = {"rest": 0.6, "sleep": 0.08, "roam": 0.4, "approach": 0.18, "play": 0.06, "explore": 0.2}
 MOVE_MOOD = {"rest": {"졸림": 1, "시무룩": 1, "들뜸": -1, "무서움": 1}, "sleep": {"졸림": 2, "들뜸": -1, "심심함": -1},
-             "roam": {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1},
+             "roam": {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": 0.5},
              "approach": {"심심함": 1, "들뜸": 1, "분노": -1, "시무룩": -1, "궁금함": 1, "무서움": -1, "행복": 1},
-             "play": {"들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "무서움": -1}, "explore": {"심심함": 1, "졸림": -1, "궁금함": 1}}
-MOVE_BASELINE = {"rest": {"졸림": 1}, "sleep": {"졸림": 1}, "roam": {"심심함": 1},
-                 "approach": {"심심함": 1, "들뜸": 1, "행복": 1}, "play": {"들뜸": 1}, "explore": {"심심함": 1}}
+             "play": {"들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "무서움": -1}, "explore": {"심심함": 1, "졸림": -1, "궁금함": 1, "분노": 0.5}}  # 화나면 사용자를 피해 돌아다닌다 (검수 003)
+# 성격(기준값)의 평소 수준은 탄생 평균 대비로 본다 (검수 003: 활발이 과묵보다 덜 뛰었다)
+MOVE_BASELINE = {"rest": {"졸림": 1, "들뜸": -1}, "sleep": {"졸림": 1}, "roam": {"심심함": 1, "들뜸": 1},
+                 "approach": {"심심함": 1, "들뜸": 1, "행복": 1}, "play": {"들뜸": 1, "궁금함": 0.5}, "explore": {"심심함": 1, "궁금함": 1}}
+RUN_BASELINE = {"들뜸": 2, "졸림": -1}
+IDLE_BASELINE = {"들뜸": -1, "졸림": 1}
 MOVE_INTIMACY = {"approach": 1, "play": 1}
-RUN_BASE, RUN_MOOD = 0.2, {"들뜸": 1.5, "행복": 0.5, "졸림": -1, "무서움": -0.5}
-IDLE_MOOD = {"졸림": 1, "시무룩": 1, "들뜸": -1}
+RUN_BASE, RUN_MOOD = 0.2, {"들뜸": 1.5, "졸림": -1, "무서움": -0.5}  # 행복은 느긋한 기쁨이라 뛰지 않는다 (검수 003)
+IDLE_MOOD = {"졸림": 1, "시무룩": 1, "들뜸": -1, "행복": 0.5}
 
 
 @dataclass(frozen=True)
@@ -139,11 +142,12 @@ class Tuning:
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.91, "message": -0.58, "dog_spoke": -0.3, "quiet": -2.12})
+                                                     "typing": -3.0, "message": -0.71, "dog_spoke": -0.47, "quiet": -2.02})
     streak_penalty: float = 1.0
     waiting_penalty: float = 1.0
     move_scale: float = 4.0             # 기분(기준값 대비) 효과. 기준값보다 0.3 높으면 경향 ×3.3 (검수 001: 1.0은 기분 차이가 안 보였다)
-    move_personality: float = 1.0       # 성격(기준값) 효과. 성격끼리 차이는 이미 보였다(검수 001)
+    move_personality: float = 2.0       # 성격(기준값, 탄생 평균 대비) 효과. 검수 003: 1.0·0.5 기준으로는 성격이 움직임에 안 보였다
+    sleep_gate: float = 0.1             # 잠 동작은 졸림이 기준값보다 이만큼 높을 때부터 (검수 003: 들뜬 강아지가 잠)
     clock_s: float = 30.0               # 기분 반감기가 20분 이상이라 30초 갱신이면 충분
     send_weight_ratio: float = 0.30     # 움직임 경향 전송 기준. 사람 눈에 보일 만한 30% 변화. 0.10이면 시간당 95번 보냈다
     send_run_delta: float = 0.10
