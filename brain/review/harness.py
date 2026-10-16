@@ -17,6 +17,8 @@ from sim.simulate import ARCHETYPES, archetype_dog
 
 QUIET_PRESENT_S, QUIET_AWAY_S = 600, 1800  # events.ts QUIET_PRESENT_MS, QUIET_AWAY_MS
 TYPING_CHARS = 10                          # events.ts TYPING_CHARS: 이만큼 바뀌면 타이핑 이벤트
+LONG_WAIT_S, LONG_TICK_S = 7200, 300       # 조용함 없이 2시간 넘게 기다리면 5분 간격 틱 (회차를 짧게, 사용자 요청).
+                                           # 기분은 경과 시간으로 계산되므로 값은 같고 movement 전송 시점만 성겨진다
 
 
 class Faults:
@@ -232,9 +234,10 @@ class Runner:
         await self.settle()
         end = self.clock + seconds
         gap = QUIET_AWAY_S if away else QUIET_PRESENT_S
+        tick = LONG_TICK_S if not quiet and seconds > LONG_WAIT_S else self.t.clock_s
         self.during = "tick"
         while self.clock < end:
-            self.clock = min(end, self.clock + self.t.clock_s)
+            self.clock = min(end, self.clock + tick)
             await self.brain.clock_tick()
             self.snap(tick=True)
             if quiet and self.connected and self.clock - self.last_event_at >= gap:

@@ -12,6 +12,7 @@
 - 개발용 앱(`npm run tauri dev`)은 띄우지 않는다. 두뇌만 본다.
 - API 키·대화 내용을 로그·커밋에 쓰지 않는다.
 - 한 번에 **한 단계만** 하고 `progress.md`를 갱신한 뒤 끝낸다(다음 회차가 이어 간다).
+- **회차는 짧게**(사용자 요청 2026-10-16): 고치기는 회차마다 원인 묶음 하나만, 검수는 확인 시나리오를 5개까지만 쓴다.
 
 ## 할 일: `progress.md`의 "다음 단계"를 하나 진행한다
 
@@ -35,7 +36,7 @@
 ### 단계 1: 검수
 
 1. 두뇌 `uv run pytest`, 화면 `npm test`·`npx tsc --noEmit`이 통과하는지 본다. 실패하면 이 단계 대신 그것부터 고친다.
-2. **새 서브에이전트**(Agent 도구, general-purpose, model `opus`)를 띄운다. 프롬프트 = `docs/review/reviewer.md` 전체 + "회차 번호 NNN, 커밋 <해시>. 판정을 `docs/review/rounds/NNN.md`에 써라." 이전 회차 판정·`known-defects.md`·`progress.md`는 넘기지 않는다.
+2. **새 서브에이전트**(Agent 도구, general-purpose, model `opus`)를 띄운다. 프롬프트 = `docs/review/reviewer.md` 전체 + "회차 번호 NNN, 커밋 <해시>. 판정을 `docs/review/rounds/NNN.md`에 써라. 기본 세트는 `run --all` 한 번만 돌리고, 확인 시나리오는 5개까지만 쓴다." 이전 회차 판정·`known-defects.md`·`progress.md`는 넘기지 않는다.
 3. **검수자 보정**: 판정을 `known-defects.md`와 비교한다. 아직 고치지 않은 아는 결함을 판정이 놓쳤으면, `reviewer.md`를 고치고 커밋한 뒤 같은 번호로 다시 검수한다(최대 3번. 그래도 놓치면 판단으로 적고 진행).
 4. 통과면 연속 통과 수를 1 올린다. **2회 연속 통과**면 `progress.md`를 마무리하고 `<promise>REVIEW PASSED TWICE</promise>`를 출력한다. 1회면 다음 단계를 "단계 1 (검수 NNN+1)"로 적는다(고칠 것 없이 바로 새 검수자).
 5. 불통과면 연속 통과 수를 0으로 하고, 다음 단계를 "단계 2 (검수 NNN 고치기)"로 적는다.
@@ -43,12 +44,12 @@
 
 ### 단계 2: 고치기
 
-1. `docs/review/rounds/NNN.md`의 지적을 모두 읽는다. 치명 → 중요 → 사소 순으로, 원인을 찾아(superpowers `systematic-debugging`) 고친다. 한 회차에 가능한 많이 고친다. 같은 원인을 공유하는 지적은 묶어 고친다.
+1. `docs/review/rounds/NNN.md`의 지적을 모두 읽는다. 아직 안 고친 지적 중 **가장 심각한 것 하나와 같은 원인을 공유하는 지적들(원인 묶음 하나)만** 이번 회차에 고친다(회차를 짧게). 원인은 superpowers `systematic-debugging`으로 찾는다. 고친 지적은 판정 파일 옆 `NNN-fix.md`에 표시한다.
    - **설계 점검**: 고치기 전에 각 지적이 모형·구조의 결함에서 나온 증상인지 따진다. 그렇다면 대안 설계를 2개 이상 비교해(수학·통계적 타당성, 사람 감각과의 일치, 단순성, 테스트 가능성) 더 나은 쪽을 적용한다. 근거와 대안 비교는 `docs/review/rounds/NNN-fix.md`에 남긴다.
 2. 큰 설계 변경은 스펙(`docs/superpowers/specs/`)이나 결정 기록(`docs/decisions/`)을 먼저 쓴다.
 3. 테스트 먼저, 그다음 수정. 모든 테스트·타입 검사 통과. 문서 동기화. 커밋 메시지: `review NNN: <요약>`.
 4. 고치지 않기로 한 지적은 이유를 `progress.md`에 "판단:"으로 적는다.
-5. 다음 단계를 "단계 1 (검수 NNN+1)"로 적는다.
+5. 판정 파일에 아직 안 고친 치명·중요 지적이 남았으면 다음 단계를 "단계 2 (검수 NNN 고치기, 계속)"로, 모두 고쳤으면 "단계 1 (검수 NNN+1)"로 적는다. 사소 지적만 남으면 한 회차에 몰아 고쳐도 된다.
 
 ## progress.md 갱신 형식
 

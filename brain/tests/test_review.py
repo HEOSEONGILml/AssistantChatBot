@@ -2,7 +2,7 @@
 from collections import Counter
 
 from review.analysis import analyze, coverage, half_recoveries, opposite_overlaps
-from review.harness import QUIET_PRESENT_S, run_scenario
+from review.harness import LONG_TICK_S, QUIET_PRESENT_S, run_scenario
 
 
 def scenario(steps, **kw):
@@ -111,3 +111,10 @@ async def test_analysis_renders(tmp_path):
         assert title in text
     assert (tmp_path / "t.jsonl").exists()
     assert Counter(r["type"] for r in runs["평균"])["end"] == 1
+
+
+async def test_long_wait_without_quiet_uses_coarse_ticks(tmp_path):
+    # 회차를 짧게 (사용자 요청): 조용함을 보내지 않는 2시간 넘는 기다림은 5분 간격으로 기분 시계를 돌린다
+    runs = await run_scenario(scenario([{"wait": 6 * 3600, "quiet": False}]), fake=True, out_dir=tmp_path)
+    ticks = [r for r in runs["평균"] if r["type"] == "snap" and r.get("tick")]
+    assert len(ticks) == 6 * 3600 // LONG_TICK_S

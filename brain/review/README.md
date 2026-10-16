@@ -39,7 +39,7 @@ uv run python -m review run --all --fake            # 가짜 Jev·Gemini (하네
 |---|---|
 | `{"say": "글"}` | 화면처럼 10글자마다 `typing`, 끝에 `message` |
 | `{"event": 종류, "context": {...}, "nowait": true}` | 이벤트 하나. `nowait`면 판단을 기다리지 않고 다음 단계로(묶음·말하는 중 메시지) |
-| `{"wait": 초, "away": false, "quiet": true}` | 가상 시계를 넘긴다. 30초마다 기분 시계. `quiet`면 화면처럼 조용함을 보낸다(자리 있음 10분, 비움 30분마다) |
+| `{"wait": 초, "away": false, "quiet": true}` | 가상 시계를 넘긴다. 30초마다 기분 시계. `quiet`면 화면처럼 조용함을 보낸다(자리 있음 10분, 비움 30분마다). 조용함 없이 2시간 넘으면 5분 간격 틱 |
 | `{"restart": true}` | 두뇌를 끄고 같은 저장소로 다시 켠다 |
 | `{"keys": "none\|bad\|fail\|ok"}` | 키 없음 / 키 오류 / 호출 실패 / 정상으로 |
 | `{"disconnect": true}`, `{"connect": true}` | 화면 연결 끊기·다시 붙이기 |
