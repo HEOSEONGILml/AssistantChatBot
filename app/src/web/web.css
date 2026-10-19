@@ -1,0 +1,18 @@
+/* 웹 프로토타입: 브라우저 창 안이 강아지의 세계다 (PC 앱은 투명 창) */
+body.web { background: linear-gradient(#eaf4ff, #f7f3e8); font: 14px "Segoe UI", "Malgun Gothic", sans-serif; }
+#talkbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #ccc; }
+#talkbar[hidden] { display: none; }
+#talk { box-sizing: border-box; width: 100%; padding: 8px 10px; font: inherit; border: 1px solid #999; border-radius: 6px; }
+#panel { position: fixed; top: 16px; right: 16px; width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  background: #fff; border: 1px solid #bbb; border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15); }
+#panel[hidden] { display: none; }
+#panel header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #eee; }
+#panel header button { border: none; background: none; font-size: 16px; cursor: pointer; }
+#panel nav { display: flex; gap: 4px; padding: 8px 12px 0; }
+#panel nav button { border: 1px solid #ccc; background: #f3f3f3; padding: 4px 12px; cursor: pointer; border-radius: 4px; }
+#panel nav button.on { background: #fff; font-weight: bold; }
+#panel .tab { padding: 12px; display: grid; gap: 10px; }
+#panel .tab[hidden] { display: none; }
+#panel label { display: grid; gap: 4px; }
+#panel label:has(input[type="checkbox"]) { display: block; }
+#panel pre { margin: 0; white-space: pre-wrap; font: 12px Consolas, "Malgun Gothic", monospace; }

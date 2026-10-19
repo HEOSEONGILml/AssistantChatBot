@@ -25,7 +25,7 @@ flowchart LR
 3. **이벤트가 없으면** 기분은 성격이 정한 자리로 천천히 돌아간다 (4.2).
 4. **평소 움직임**은 두뇌가 기분으로 경향만 정하고, 화면이 그 경향으로 초 단위 행동을 혼자 뽑는다 (7절).
 
-화면(Tauri 앱, `app/`)과 두뇌(파이썬 서비스, `brain/`)는 localhost WebSocket으로 통신한다. 두뇌는 화면을 모르므로 화면만 바꿔 다른 기기로 옮길 수 있다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)).
+화면(Tauri 앱, `app/`)과 두뇌(파이썬 서비스, `brain/`)는 localhost WebSocket으로 통신한다. 두뇌는 화면을 모르므로 화면만 바꿔 다른 기기로 옮길 수 있다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)). 그 예로 **웹 프로토타입**이 있다: 두뇌의 웹 모드가 브라우저용 화면과 WebSocket을 한 포트에서 함께 낸다 ([0017](docs/decisions/0017-web-prototype-brain-serves-page.md)).
 
 ## 2. 원칙
 
@@ -44,6 +44,7 @@ flowchart LR
 | 구성 요소 | 맡는 일 | 위치 |
 |---|---|---|
 | 화면 | 강아지 그리기, 입력·클릭·창 감지, 이벤트 판정, 평소 행동 뽑기, 입력창·설정 창 | `app/` (Tauri: Rust + TypeScript) |
+| 웹 화면 (프로토타입) | 같은 몸 로직을 브라우저 창 안에서. 창 위 올라앉기·단축키·트레이 없음, 입력줄과 설정 패널은 페이지 안 | `app/web.html`, `app/src/web/` |
 | 두뇌 | 강아지 상태, 판단, 기분 시계, 이벤트 기록, API 키 보관 | `brain/` (파이썬, WebSocket 서버) |
 | Jev | 상황에 대한 판단 분포(선택지 확률, 예/아니오 확률). 대사는 쓰지 않는다 | TypeSafe System One ([요약](docs/references/typesafe-jev.md)) |
 | Gemini | 대사 한마디 | `gemini-3.1-flash-lite` ([0007](docs/decisions/0007-dialogue-llm.md)) |
@@ -505,6 +506,19 @@ flowchart LR
 - 두뇌는 시작할 때 다른 두뇌가 살아 있으면 바로 끝낸다. 같은 데이터를 두 두뇌가 쓰지 않게 하기 위해서다.
 - 앱을 끄면 자기가 띄운 두뇌만 끈다. 두뇌가 죽어도 강아지는 기본 경향으로 계속 움직인다.
 
+**웹 모드** (`uv run python -m brain.web`, 기본 `127.0.0.1:8787`):
+
+```mermaid
+flowchart LR
+  B["브라우저"] -->|"GET / (app/dist-web)"| W["웹 모드 두뇌"]
+  B -->|"GET /token (같은 출처)"| W
+  B <-->|"/ws: Origin = Host일 때만"| W
+```
+
+- 판단은 PC 두뇌와 같은 `Brain`·`Link`다. 데이터는 `…\brain\web\`로 따로 둔다(웹 강아지 ≠ PC 강아지). `brain.json`은 쓰지 않는다.
+- 키는 자격 증명 관리자, 없으면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`(`config.py`).
+- 웹 화면은 두뇌를 띄우지 않고 같은 주소로 2초마다 다시 접속한다. 자리 비움은 페이지 안 입력 1분 없음 또는 탭 숨김이다. 화면 설정은 `localStorage`.
+
 ## 11. 오류 처리
 
 원칙: 강아지는 멈추지 않는다.
@@ -531,6 +545,7 @@ flowchart LR
 | `brain/brain/clients.py` | Jev·Gemini 클라이언트, 실패를 키 오류/일시 실패로 정리 |
 | `brain/brain/config.py` | 데이터 폴더, 키 읽기·쓰기 (환경 값을 읽는 유일한 곳) |
 | `brain/brain/server.py`, `__main__.py` | WebSocket 서버, 실행·중복 실행 막기 |
+| `brain/brain/web.py` | 웹 모드: 정적 파일·토큰·`/ws`를 한 포트에서, 출처 검사 |
 | `brain/sim/` | Jev 녹화, 시뮬레이터 |
 | `brain/review/` | 검수 하네스: 시나리오 실행기, 상태 분석표, 커버리지 |
 | `app/src/body/` | 강아지 상태 기계·행동 선택(`dog.ts`), 이벤트 판정(`events.ts`), 쓰다듬기·말풍선·집 등 순수 로직 |
@@ -538,6 +553,7 @@ flowchart LR
 | `app/src/input.ts`, `app/src/settings-page.ts` | 입력창, 설정 창 |
 | `app/src/brain-link.ts`, `app/src/shared/brain-protocol.ts` | 두뇌 접속, 프로토콜 |
 | `app/src-tauri/` | Rust 셸: 창, Win32 신호, 두뇌 실행 |
+| `app/web.html`, `app/src/web/` | 웹 화면: 조립(`main.ts`), 같은 출처 접속(`link.ts`, `endpoint.ts`), 자리 비움(`presence.ts`), 설정(`prefs.ts`). 빌드 `npm run build:web` → `app/dist-web/` |
 
 ## 13. 문서 지도
 
@@ -550,12 +566,12 @@ flowchart LR
 | [`docs/decisions/`](docs/decisions/) | 결정 기록. 결정 하나에 파일 하나 |
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜. 화면은 이 문서만 보고 만들 수 있어야 한다 |
 | [`docs/references/`](docs/references/) | [Jev API 요약](docs/references/typesafe-jev.md), [비슷한 프로젝트](docs/references/similar-projects.md) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md), [시간 모형](docs/superpowers/specs/2026-10-16-time-model-design.md), [기분 갱신 수식](docs/superpowers/specs/2026-10-16-mood-update-math-design.md) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙: [Windows 첫 버전](docs/superpowers/specs/2026-10-14-windows-desktop-pet-design.md), [두뇌 v1](docs/superpowers/specs/2026-10-15-brain-design.md), [두뇌 v2](docs/superpowers/specs/2026-10-15-brain-v2-design.md), [기분·즉각 반응](docs/superpowers/specs/2026-10-15-mood-reaction-design.md), [기분별 그림](docs/superpowers/specs/2026-10-15-mood-sprites-design.md), [검수 루프](docs/superpowers/specs/2026-10-15-review-loop-design.md), [평가 사전값](docs/superpowers/specs/2026-10-16-appraisal-prior-design.md), [동작 모형](docs/superpowers/specs/2026-10-16-action-model-design.md), [시간 모형](docs/superpowers/specs/2026-10-16-time-model-design.md), [기분 갱신 수식](docs/superpowers/specs/2026-10-16-mood-update-math-design.md), [웹 프로토타입](docs/superpowers/specs/2026-10-19-web-prototype-design.md) |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 스펙별 구현 계획 |
 | [`docs/spikes/`](docs/spikes/) | 실측·기술 검증: [배경 모드](docs/spikes/background-mode.md), [Jev speak_now](docs/spikes/2026-10-15-jev-speak-now-probe.md), [두뇌 v2 가정](docs/spikes/2026-10-15-brain-v2-assumptions.md), [성격 유형](docs/spikes/2026-10-15-personality-types.md), [질문 문구](docs/spikes/2026-10-15-question-wording.md), [시뮬레이션](docs/spikes/2026-10-15-simulation.md) |
 | [`docs/review/`](docs/review/) | 검수 루프: [회차별 요약](docs/review/summary.md), [진행 상황](docs/review/progress.md), [루프 프롬프트](docs/review/loop-prompt.md), [검수자 정의](docs/review/reviewer.md), [아는 결함](docs/review/known-defects.md), 회차별 판정·고친 기록(`rounds/`) |
 | [`brain/review/README.md`](brain/review/README.md) | 검수 하네스 사용법 |
-| [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32·실제 키 동작 수동 확인 체크리스트 |
+| [`docs/manual-checks/`](docs/manual-checks/) | 화면·Win32·실제 키·웹 동작 수동 확인 체크리스트 |
 
 ## 14. 결정 기록
 
@@ -577,3 +593,4 @@ flowchart LR
 | [0014](docs/decisions/0014-probabilistic-model-with-jev-distributions.md) | Jev는 분포를 주고 확률 모델이 뽑아서 결정 | 채택 (기분 변화는 0015로 개정) |
 | [0015](docs/decisions/0015-appraisal-prior-mood-change.md) | 기분 변화는 우리 평가 사전값이 정하고 Jev는 조정만 | 채택 |
 | [0016](docs/decisions/0016-action-model-ours-first.md) | 동작 선택은 우리 모형 중심, Jev는 약한 조정 | 채택 |
+| [0017](docs/decisions/0017-web-prototype-brain-serves-page.md) | 웹 프로토타입은 두뇌가 페이지와 WebSocket을 함께 낸다 | 채택 (프로토타입) |

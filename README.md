@@ -59,6 +59,20 @@ cd brain
 uv run python -m brain
 ```
 
+### 웹 버전 (프로토타입)
+
+브라우저 페이지 안에서 강아지와 논다. 두뇌가 웹 페이지와 WebSocket을 함께 낸다([스펙](docs/superpowers/specs/2026-10-19-web-prototype-design.md), [0017](docs/decisions/0017-web-prototype-brain-serves-page.md)).
+
+```bash
+cd app && npm run build:web                       # app/dist-web/ 만들기 (화면 코드를 바꿨을 때만)
+cd ../brain && uv run python -m brain.web         # http://127.0.0.1:8787/ 을 브라우저로 연다
+```
+
+- 키는 PC 앱과 같은 Windows 자격 증명 관리자에서 읽는다. 없으면 페이지의 톱니바퀴 → 설정에서 넣거나, 서버라면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`로 준다.
+- 웹 강아지는 PC 강아지와 다른 강아지다(데이터 `%APPDATA%\TamagotchiChatBot\brain\web\`).
+- `--host 0.0.0.0 --port 8787`로 열면 다른 기기에서도 접속한다. **주의**: 키가 두뇌에 있으므로 주소를 아는 사람은 누구나 그 키로 강아지와 대화한다. 프로토타입이라 사용자 구분이 없다.
+- 끝낼 때는 두뇌 창에서 Ctrl+C.
+
 ### 사용법
 
 | 하고 싶은 것 | 방법 |
@@ -105,6 +119,7 @@ npm run tauri build
 | 두뇌 접속 정보 | `%APPDATA%\TamagotchiChatBot\brain\brain.json` |
 | API 키 | Windows 자격 증명 관리자 (`TamagotchiChatBot.brain`) |
 | 화면 설정 | `%APPDATA%\com.tamagotchi.app\settings.json` |
+| 웹 버전 두뇌 데이터 | `%APPDATA%\TamagotchiChatBot\brain\web\` (웹 화면 설정은 브라우저 localStorage) |
 
 대화(이벤트) 기록은 설정의 "대화 기록 전체 삭제"로 지운다. Jev·Gemini 호출 때 타이핑 중인 글과 최근 기록이 각 업체로 전송된다([0006](docs/decisions/0006-user-provided-api-keys.md)).
 

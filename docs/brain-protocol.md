@@ -23,6 +23,18 @@ sequenceDiagram
 - 화면은 하나만 붙는다. 새 화면이 `hello`에 성공하면 이전 연결은 4002로 닫힌다.
 - 닫기 코드: 4001 토큰·hello 오류, 4002 다른 화면으로 교체, 4003 프로토콜 버전 불일치.
 
+### 웹 모드 접속 (프로토타입, [0017](decisions/0017-web-prototype-brain-serves-page.md))
+
+웹 모드 두뇌(`python -m brain.web`)는 한 포트(기본 8787)에서 웹 화면을 함께 낸다. 메시지는 위와 같다.
+
+| 경로 | 내용 |
+|---|---|
+| `/` 등 | 웹 화면 정적 파일(`app/dist-web/`). `/`는 `web.html` |
+| `GET /token` | `{"token"}`. 같은 출처에서만 읽힌다(CORS 헤더 없음) |
+| `/ws` | WebSocket. `Origin`이 요청 `Host`와 다르면 403. 접속 뒤 `hello {token}`부터는 위와 같다 |
+
+- `brain.json`을 쓰지 않는다. 화면은 페이지 주소에서 `ws(s)://{host}/ws`를 만든다.
+
 ## 메시지
 
 모든 메시지는 JSON 객체 하나이고 `v: 3`과 `type`이 있다. (v3: 반응 어휘가 기분 8개의 표출로 바뀌고 `movement`에 `mood`가 생겼다, [기분 8개 스펙](superpowers/specs/2026-10-15-mood-reaction-design.md)) 해석할 수 없는 메시지는 버리고 연결은 유지한다.
