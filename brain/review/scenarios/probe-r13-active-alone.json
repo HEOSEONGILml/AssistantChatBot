@@ -1,0 +1,7 @@
+{"name": "probe-r13-active-alone", "description": "활발한 강아지 곁에서 1시간 조용히 일함(다른 시드): 먼저 하는 말이 자기 동작을 해설('조르기 시작!')하거나 없는 몸 상태(배고픔·꼬리)를 지어내나, 반복",
+ "personality": "활발·변덕쟁이", "seed": 33, "start": "2026-10-20T15:00",
+ "steps": [
+  {"say": "나 일 좀 할게"},
+  {"wait": 3600, "quiet": true},
+  {"get_state": true}
+ ]}
