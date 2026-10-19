@@ -1,0 +1,5 @@
+{"name": "probe-r15-bed-present", "description": "밤 11시 '이제 자자 잘 자' 뒤 주인은 자리에 그대로(조용함 10분마다) 3시간: 잠자리 동안 먼저 말을 거나, 자는 동작 중 말하나", "personality": "all", "seed": 15, "start": "2026-10-21T23:00",
+ "steps": [
+  {"say": "이제 자자 잘 자"},
+  {"wait": 10800, "quiet": true}
+ ]}
