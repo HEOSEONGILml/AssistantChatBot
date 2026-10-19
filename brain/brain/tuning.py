@@ -21,13 +21,13 @@ MOOD_REACTION_ID = {"심심함": "bored", "졸림": "sleepy", "들뜸": "excited
 # 동작 선택 (스펙 2026-10-16 동작 모형): 우리 모형 중심, Jev는 약하게. 기분은 기준값 대비로 본다
 MOOD_ACTION = {"stand": {"궁금함": 0.5, "놀람": 0.3}, "sit": {"행복": 0.3, "궁금함": 0.5, "졸림": 0.3},
                "lie_down": {"졸림": 0.7, "시무룩": 1, "무서움": 1}, "sleep": {"졸림": 1.5, "들뜸": -1, "무서움": -1},
-               "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5, "무서움": -2}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
+               "beg": {"행복": 1, "들뜸": 0.7, "심심함": 0.5, "무서움": -2, "분노": -1}, "bark": {"분노": 1, "놀람": 0.8, "들뜸": 0.5}}
 ACTION_BASE = {"stand": 0.3, "sit": 0.3, "lie_down": 0.0, "sleep": -1.5, "beg": -0.5, "bark": -0.5, "none": 0.3}
 EVENT_ACTION = {"poke": {"bark": 0.8, "stand": 0.3}, "pet": {"beg": 0.8, "sit": 0.8, "lie_down": 0.3},
                 "throw": {"bark": 0.6, "lie_down": 0.6}, "quiet": {"lie_down": 0.8, "sit": 0.5, "sleep": 0.3},
                 "returned": {"beg": 1.0, "bark": 0.5}, "house_out": {"stand": 0.5},
                 "message": {"sit": 0.5, "stand": 0.2}, "typing": {"sit": 0.5, "stand": 0.2}, "dog_spoke": {"none": 1.2}}
-REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 0.7, "none": 0.5}, "surprised": {"bark": 1}, "scared": {"lie_down": 1},
+REACTION_ACTION = {"excited": {"beg": 1}, "annoyed": {"bark": 0.7, "none": 0.7}, "surprised": {"bark": 1}, "scared": {"lie_down": 1},
                    "sad": {"lie_down": 1}, "curious": {"sit": 0.6, "stand": 0.4}, "sleepy": {"lie_down": 0.6, "sleep": 0.8}, "happy": {"beg": 1}}
 # 말수 (스펙 6절 3): 독립 파라미터가 아니라 친밀도·기분·기준값에서 계산한다 (사용자 결정, 분노는 −)
 TALK_MOOD = {"심심함": 1, "들뜸": 1, "졸림": -1, "시무룩": -1, "분노": -1, "궁금함": 1, "무서움": -1, "행복": 1}
@@ -142,6 +142,9 @@ class Tuning:
     dominant_threshold: float = 0.15   # 기준값보다 이만큼 높은 기분이 평소 모습을 정한다 (잠정값)
     w_mood: float = 5.0                 # 기분이 기준값보다 0.2 높으면 점수 +1 (동작 모형 스펙)
     w_react: float = 1.5
+    react_temper: float = 4.0           # 기준값이 탄생 평균보다 0.3 높은 기분은 반응으로 ×3.3 잘 드러난다 (검수 013: 성마른데 놀람만)
+    startle_repeat: float = 3.0         # 놀람이 기준값보다 0.2 높으면 또 놀라는 반응은 ×0.4 (이미 놀란 채 다시 찔림)
+    act_personality: float = 2.0        # 동작 점수에 기질(기준값 − 탄생 평균) × 기분 친화도. 움직임 경향 move_personality와 같은 크기 (검수 013)
     w_jev_action: float = 0.3           # Jev 동작 로그확률의 무게. 서기 0.98 쏠림도 최대 약 0.9로 묶인다 (검수 001)
     jev_action_floor: float = 0.05
     obey_k: float = 6.0                 # 시킨 동작 확률 1·친밀도 0.5면 그 동작 로짓 +6(온도로 나누기 전). 친밀도 0.3 강아지가 71~96% 따른다. 4는 짖기 45~71% (검수 011)

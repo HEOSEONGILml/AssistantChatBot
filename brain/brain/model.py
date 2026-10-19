@@ -172,9 +172,12 @@ def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
     """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다.
     apply_change의 결과를 받으면 잡음을 뺀 신호로 뽑는다(잡음만으로 반응이 뜨지 않게, 검수 002)."""
     blocked = {"행복", "들뜸"} if getattr(deltas, "scared", 0.0) >= t.scared_gate else set()
+    express = getattr(deltas, "express", {})
     deltas = getattr(deltas, "signal", deltas)
     deltas = {d: v for d, v in deltas.items() if d not in blocked}
-    mood, rise = max(((d, deltas.get(d, 0.0)) for d in MOODS), key=lambda x: x[1])
+    # 드러내기 쉬움을 곱한 신호가 가장 큰 기분을 고르고, 문턱은 그 기분의 실제 신호로 본다 (검수 013)
+    mood = max(MOODS, key=lambda d: deltas.get(d, 0.0) * (express.get(d, 1.0) if deltas.get(d, 0.0) > 0 else 1.0))
+    rise = deltas.get(mood, 0.0)
     if rise >= t.react_threshold:
         return MOOD_REACTION_ID[mood]
     if "typing" in kinds:  # 타이핑하는 동안 반응을 더 많이 (사용자 요청)
@@ -218,6 +221,7 @@ def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[st
         x = (ACTION_BASE.get(a, 0.0) + sum(EVENT_ACTION.get(k, {}).get(a, 0.0) for k in kinds)
              + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
+             + t.act_personality * sum(w * (b[d] - BIRTH_BASELINE[d]) for d, w in MOOD_ACTION.get(a, {}).items())  # 기질 (검수 013)
              + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor)
              + (obey * _asked(command, a) if command and a != "none" else 0.0))  # 시킨 동작 확률만큼 따른다. 없음은 "시킨 게 없다"
         if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
@@ -289,6 +293,7 @@ class Change(dict):
     .scared는 판단 뒤 무서움이 기준값보다 높은 정도: 겁먹은 동안은 기쁨·신남 반응을 내지 않는다 (검수 007)."""
     signal: dict[str, float]
     scared: float = 0.0
+    express: dict[str, float] = {}  # 기분별 드러내기 쉬움(기질 × 이미 놀란 정도). 반응을 고를 때 신호에 곱한다 (검수 013)
 
 
 SOOTHE_MOODS = (("시무룩", 1.0), ("분노", 0.6), ("무서움", 0.25))  # 달램이 푸는 기분과 비율: 말은 서운함을 크게, 무서움은 조금 (검수 008)
@@ -365,6 +370,10 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
         signal[c] -= t.inhibit * max(rises[a], 0.0)
         signal[a] -= t.inhibit * max(rises[c], 0.0)
     deltas = Change()
+    # 기질: 기준값이 탄생 평균보다 높은 기분일수록 쉽게 드러낸다(성마르면 짜증). 이미 놀란 상태면 또 놀라기보다 다른 기분이 드러난다 (검수 013)
+    startled = max(0.0, m["놀람"] - b["놀람"])
+    deltas.express = {d: math.exp(t.react_temper * (b[d] - BIRTH_BASELINE[d])) for d in MOODS}
+    deltas.express["놀람"] *= max(0.0, 1 - t.startle_repeat * startled)
     for d in MOODS:
         x = signal[d] + rng.gauss(0, t.change_noise)
         before = m[d]

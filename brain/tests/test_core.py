@@ -268,7 +268,7 @@ async def test_log_records_why_the_dog_acted(make):
     assert j["events"] == [{"종류": "찌르기"}]
     assert j["jev"]["action"] == {"beg": 1.0} and j["jev"]["speak"] == 0.5 and j["jev"]["change"] == {"들뜸↑": 1.0}
     assert j["picked"] == {"reaction": "surprised", "action": "bark", "speak": True}  # 찌르기는 우리 평가로 놀람이 1위 (0015)
-    assert 0 <= j["model"]["speak"] <= 1 and "beg" in j["model"]["action"]
+    assert 0 <= j["model"]["speak"] <= 1 and len(j["model"]["action"]) == 3  # 찔려 화가 오르면 조르기는 상위에서 빠진다 (검수 013)
     assert j["mood_change"]["들뜸"] > 0
     assert j["utterance"] == "멍! 안녕"
     assert env.brain.log_snapshot()["events"][-1].endswith("강아지: 멍! 안녕")

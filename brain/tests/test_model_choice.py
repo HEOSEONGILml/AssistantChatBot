@@ -61,8 +61,9 @@ def test_dominant_mood():
 
 def test_reaction_tilts_action():
     jev = {"bark": 0.4, "beg": 0.4, "none": 0.2}
-    after_annoyed = model.probabilities(model.action_scores(jev, neutral(), "annoyed", ["message"], T))
-    after_excited = model.probabilities(model.action_scores(jev, neutral(), "excited", ["message"], T))
+    # 기질 항이 생겨(검수 013) 기준값이 모두 0.5인 neutral()은 '겁 많고 성마른' 강아지라 탄생 평균 강아지로 본다
+    after_annoyed = model.probabilities(model.action_scores(jev, calm_dog(), "annoyed", ["message"], T))
+    after_excited = model.probabilities(model.action_scores(jev, calm_dog(), "excited", ["message"], T))
     assert after_annoyed["bark"] > after_annoyed["beg"]
     assert after_excited["beg"] > after_excited["bark"]
 
@@ -716,3 +717,37 @@ def test_harsh_rejection_lowers_intimacy_more_than_a_plain_request():
     model.apply_change(plain, {"친밀도↓": 0.5}, [("message", {"text": "일 좀 할게"})], random.Random(0), QUIET, hush=0.7, harsh=0.08)
     model.apply_change(harsh, {"친밀도↓": 0.5}, [("message", {"text": "저리 가 귀찮아"})], random.Random(0), QUIET, hush=0.7, harsh=0.91)
     assert 0.5 - harsh.intimacy > 2 * (0.5 - plain.intimacy)
+
+
+# ---- 검수 013 묶음 2: 성마른 강아지는 성마르게 ----
+
+
+def _pokes(name, n):
+    from sim.simulate import archetype_dog
+    d, rng, out = archetype_dog(name), random.Random(0), []
+    for _ in range(n):
+        model.advance(d, d.updated_at + 60, rng, T)
+        d.updated_at += 60
+        out.append(model.reaction_from(model.apply_change(d, {}, [("poke", {})], rng, T), ["poke"], T))
+    return out
+
+
+def test_irritable_dog_gets_annoyed_sooner_than_average():
+    # 검수 013: 1분 간격 세 번 찌르기에 예민 강아지는 분노 0.64인데도 세 번 모두 놀람이었다
+    assert _pokes("예민·성마름", 2) == ["surprised", "annoyed"]
+    assert _pokes("평균", 2) == ["surprised", "surprised"]
+
+
+def test_irritable_dog_takes_pets_without_begging():
+    from sim.simulate import archetype_dog
+    def p_beg(name):
+        d = archetype_dog(name)
+        return model.probabilities(model.action_scores({}, d, "happy", ["pet"], T))["beg"]
+    assert p_beg("예민·성마름") < 0.2 and p_beg("예민·성마름") < 0.5 * p_beg("평균")
+
+
+def test_angry_dog_does_not_beg():
+    dog = calm_dog()
+    calm = model.probabilities(model.action_scores({}, dog, "happy", ["pet"], T))["beg"]
+    dog.mood["분노"] += 0.3
+    assert model.probabilities(model.action_scores({}, dog, "happy", ["pet"], T))["beg"] < 0.5 * calm
