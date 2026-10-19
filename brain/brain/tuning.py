@@ -144,13 +144,14 @@ class Tuning:
     w_react: float = 1.5
     w_jev_action: float = 0.3           # Jev 동작 로그확률의 무게. 서기 0.98 쏠림도 최대 약 0.9로 묶인다 (검수 001)
     jev_action_floor: float = 0.05
+    obey_k: float = 6.0                 # 시킨 동작 확률 1·친밀도 0.5면 그 동작 로짓 +6(온도로 나누기 전). 친밀도 0.3 강아지가 71~96% 따른다. 4는 짖기 45~71% (검수 011)
     w_jev_action_message: float = 1.5   # 메시지일 때 Jev 동작 로그확률의 무게. 명령을 대부분 따른다 (검수 010)
     talk_scale: float = 0.7             # 말수 계수 크기. 기분 8개로 늘며 항이 많아져 1.0이면 활발한 강아지 끼어들기가 65%까지 벌어짐 (시뮬레이션)
     # 이벤트 종류별 말하기 보정. 평균 성격 강아지가 목표 지표(끼어들기 30%, 답하기 85%, 먼저 말 걸기 1/3,
     # 연달아 2번+ 30%)에 맞도록 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -2.45, "message": -0.51, "dog_spoke": -0.11, "quiet": -1.7})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -2.51, "message": -0.72, "dog_spoke": -0.11, "quiet": -2.06})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 성격(말수)에 따라, 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%, 과묵도 50%)
     chain_base: float = 0.251           # 평균 강아지 첫 이어 말하기 확률 (시뮬레이션으로 맞춤: 연달아 2번+ 20%(검수 006에서 30% → 20%), 질문하면 기다리므로 절반가량은 막힌다)

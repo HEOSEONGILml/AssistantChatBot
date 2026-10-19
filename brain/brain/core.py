@@ -252,7 +252,7 @@ class Brain:
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe,
                                     waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
-        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
+        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t, command=rd.command if kinds[-1] == "message" else None)
         action = model.pick(a_scores, self._rng)
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
@@ -272,7 +272,7 @@ class Brain:
                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered,
                                         now < self._hush_until)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3), "command": _top(rd.command)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})

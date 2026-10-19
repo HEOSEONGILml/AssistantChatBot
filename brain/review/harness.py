@@ -76,7 +76,7 @@ class FakeJev:
     async def judge(self, state):
         change_keys = [f"{d}{s}" for d in (*MOODS, "친밀도") for s in "↑↓"] + ["변화없음"]
         speak = self.speak if self.speak is not None else self.rng.random()
-        return Readout(self._dist(list(model.ACTION_NAMES)), min(speak, 0.999), self._dist(change_keys))
+        return Readout(self._dist(list(model.ACTION_NAMES)), min(speak, 0.999), self._dist(change_keys), command={"none": 1.0})
 
     async def aclose(self):
         pass

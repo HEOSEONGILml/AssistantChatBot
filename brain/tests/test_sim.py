@@ -21,7 +21,7 @@ def test_world_runs_a_day():
     for kind in ("typing", "message", "quiet"):
         assert 0 <= s.rate(kind) <= 1
     assert s.chains and all(1 <= c <= 3 for c in s.chains)
-    assert sum(s.actions.values()) == s.judged and max(s.actions.values()) / s.judged <= 1
+    assert sum(s.actions.values()) == s.judged - s.counts["dog_spoke"][0]  # 자기 말 뒤에는 동작을 고르지 않는다 (검수 011)
 
 
 def test_bias_raises_rate():

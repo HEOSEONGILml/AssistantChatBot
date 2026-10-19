@@ -13,7 +13,7 @@ def ev(kind, data=None, ago=0.0, source="user"):
 
 def test_question_vocabulary():
     q = questions.QUESTIONS
-    assert set(q) == {"action", "speak", "change", "user_down", "soothe", "hush"}  # 반응은 기분 변화에서 나온다. 사용자 속상함은 공감용 (검수 005)
+    assert set(q) == {"action", "speak", "change", "user_down", "soothe", "hush", "command"}  # 반응은 기분 변화에서 나온다. 사용자 속상함은 공감용 (검수 005)
     assert set(q["action"].criteria) == set(model.ACTIONS)
     assert len(q["change"].criteria) == 21 and "변화없음" in q["change"].criteria and "무서움↑" in q["change"].criteria
     assert "분노↑" in q["change"].criteria and "친밀도↓" in q["change"].criteria

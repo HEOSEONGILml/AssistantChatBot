@@ -9,11 +9,12 @@ from brain import clients
 def test_to_readout_reads_all_four_answers():
     resp = SimpleNamespace(
         choices={"action": SimpleNamespace(probabilities={"beg": 1.0}),
-                 "change": SimpleNamespace(probabilities={"변화없음": 1.0})},
+                 "change": SimpleNamespace(probabilities={"변화없음": 1.0}),
+                 "command": SimpleNamespace(probabilities={"sit": 0.9, "none": 0.1})},
         nouls={"speak": SimpleNamespace(noul=0.4), "user_down": SimpleNamespace(noul=0.7), "soothe": SimpleNamespace(noul=0.2),
                "hush": SimpleNamespace(noul=0.1)},
     )
-    assert clients.to_readout(resp) == clients.Readout({"beg": 1.0}, 0.4, {"변화없음": 1.0}, 0.7, 0.2, 0.1)
+    assert clients.to_readout(resp) == clients.Readout({"beg": 1.0}, 0.4, {"변화없음": 1.0}, 0.7, 0.2, 0.1, {"sit": 0.9, "none": 0.1})
 
 
 async def test_jev_unexpected_shape_becomes_call_error(monkeypatch):

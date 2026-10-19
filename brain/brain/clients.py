@@ -1,7 +1,7 @@
 """외부 AI 호출 계층 (CLAUDE.md 3절). 실패를 AuthError(키 문제)와 CallError(일시적 실패) 두 가지로 정리해
 두뇌 핵심이 SDK 예외를 몰라도 되게 한다. 사용법은 Context7로 확인했다 (2026-10-15)."""
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from google import genai
@@ -33,12 +33,13 @@ class Readout:
     user_down: float = 0.0   # 사용자가 지금 속상해 보일 확률 (검수 005: 공감)
     soothe: float = 0.0      # 사용자가 강아지에게 사과하거나 달래는 확률 (검수 006)
     hush: float = 0.0        # 사용자가 조용히 해 달라고(말 걸지 말라고) 한 확률 (검수 007)
+    command: dict[str, float] = field(default_factory=dict)  # 사용자가 글로 시킨 동작의 분포, none = 시킨 것 없음 (검수 011)
 
 
 def to_readout(resp) -> Readout:
     return Readout(dict(resp.choices["action"].probabilities), resp.nouls["speak"].noul,
                    dict(resp.choices["change"].probabilities), resp.nouls["user_down"].noul, resp.nouls["soothe"].noul,
-                   resp.nouls["hush"].noul)
+                   resp.nouls["hush"].noul, dict(resp.choices["command"].probabilities))
 
 
 class Jev(Protocol):

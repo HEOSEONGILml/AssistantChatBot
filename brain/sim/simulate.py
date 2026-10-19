@@ -46,14 +46,14 @@ class Recording:
         preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
         intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
         r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
-        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0), r.get("hush", 0.0))
+        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0), r.get("hush", 0.0), r.get("command", {}))
 
 
 @dataclass
 class Stats:
     counts: dict = field(default_factory=dict)   # 꼬리표 → (판단 수, 말한 수)
     chains: list = field(default_factory=list)   # 사용자 입력 없이 이어 말한 길이
-    actions: dict = field(default_factory=dict)  # 뽑힌 동작별 횟수 (가장 흔한 동작 비율 ≤ 0.5, 동작 모형 스펙)
+    actions: dict = field(default_factory=dict)  # 뽑힌 동작별 횟수, 자기 말 뒤는 빼고 (가장 흔한 동작 비율 ≤ 0.5, 동작 모형 스펙)
     judged: int = 0
     stuck: int = 0                               # 기분이 0.9 이상이거나 0.05 이하인 표본 수 (기분 차원별)
     reactions: dict = field(default_factory=dict)  # 반응별 횟수
@@ -99,10 +99,11 @@ class World:
                                     user_down=rd.user_down, soothe=rd.soothe)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
-        scores = model.action_scores(rd.action, dog, reaction, [kind], t)
+        scores = model.action_scores(rd.action, dog, reaction, [kind], t, command=rd.command if kind == "message" else None)
         a = model.pick(scores, self.rng)
         self.stats.judged += 1
-        self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
+        if kind != "dog_spoke":  # 자기 말 뒤에는 동작을 고르지 않는다 (검수 011)
+            self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
         hurting = kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
         asked = asked or (kind == "message" and rd.soothe >= 0.5)
@@ -229,7 +230,7 @@ def fit(rec: Recording, t: Tuning, days: int = 10, seed: int = 1, rounds: int = 
 
 def _row(name: str, s: Stats) -> str:
     return (f"| {name} | {s.rate('typing'):.2f} | {s.rate('message'):.2f} | {s.rate('quiet'):.2f} | {s.chain2plus():.2f} "
-            f"| {max(s.actions.values()) / s.judged:.2f} | {s.stuck_ratio():.2f} |")
+            f"| {max(s.actions.values()) / sum(s.actions.values()):.2f} | {s.stuck_ratio():.2f} |")
 
 
 def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int = 8) -> str:

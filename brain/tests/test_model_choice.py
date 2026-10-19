@@ -604,3 +604,47 @@ def test_one_apology_does_not_fully_heal_a_sensitive_dog():
                        random.Random(0), QUIET, user_down=0.5, soothe=0.92)
     rest = model.rest_point(dog, "시무룩", dog.updated_at)
     assert rest + 0.03 < dog.mood["시무룩"] < 0.54
+
+
+# ---- 검수 011 묶음 3: 명령을 따른다 ----
+
+
+def _p(dog, jev, command, kinds=("message",)):
+    return model.probabilities(model.action_scores(jev, dog, "none", list(kinds), T, command=command))
+
+
+def test_dog_obeys_bark_command_even_if_jev_action_is_split():
+    # 실측: "짖어 봐"에 Jev 동작 짖기 0.55·서기 0.42. 시킨 동작(command) 짖기 0.9면 대부분 짖는다
+    p = _p(calm_dog(), {"bark": 0.55, "stand": 0.42, "none": 0.03}, {"bark": 0.9, "none": 0.1})
+    assert p["bark"] > 0.7
+
+
+def test_dog_obeys_stand_up_command_even_if_jev_action_says_none():
+    # 실측: "일어나!"에 Jev 동작 없음 0.6·서기 0.38. 동작 질문이 기분 위주라 명령을 '하던 대로'로 읽는다
+    p = _p(calm_dog(), {"none": 0.6, "stand": 0.38, "sit": 0.01}, {"stand": 0.85, "none": 0.15})
+    assert p["stand"] > 0.7
+
+
+def test_angry_or_scared_dog_obeys_less():
+    calm, cross = calm_dog(), calm_dog()
+    cross.mood["분노"] = cross.personality.baseline["분노"] + 0.4
+    jev, cmd = {"none": 0.6, "stand": 0.38}, {"stand": 0.85}
+    assert _p(cross, jev, cmd)["stand"] < _p(calm, jev, cmd)["stand"] - 0.2
+
+
+def test_no_command_changes_nothing():
+    dog = calm_dog()
+    jev = {"sit": 0.5, "stand": 0.5}
+    assert _p(dog, jev, {"none": 1.0}) == _p(dog, jev, None)
+
+
+def test_own_words_do_not_change_posture():
+    # 강아지가 자기 말을 한 직후에는 동작을 다시 뽑지 않는다: 말한 동작 = 뽑힌 동작이 바로 바뀌던 문제 (검수 011)
+    p = model.probabilities(model.action_scores({"stand": 0.8, "beg": 0.2}, calm_dog(), "none", ["dog_spoke"], T))
+    assert p == {"none": 1.0}
+
+
+def test_command_outweighs_mood_based_action_reading():
+    # 실측(대화 중): "일어나!" 시킨 동작 서기 0.73, Jev 동작 없음 0.68·서기 0.15. 시킨 게 분명할수록 동작 질문은 덜 믿는다
+    p = _p(calm_dog(), {"none": 0.68, "stand": 0.15, "lie_down": 0.1}, {"stand": 0.73, "none": 0.25, "sit": 0.01})
+    assert p["stand"] > 0.6

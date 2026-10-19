@@ -188,18 +188,32 @@ def dominant_mood(dog: Dog, t: Tuning) -> str:
     return MOOD_REACTION_ID[mood] if rise >= t.dominant_threshold else "calm"
 
 
-def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[str], t: Tuning) -> dict[str, float]:
-    """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(기준값 대비) + 반응 + Jev 약한 조정, 온도로 나눈다."""
+def obedience(dog: Dog, t: Tuning) -> float:
+    """시킨 동작을 따르려는 마음 (검수 011): 친할수록 크고, 평소보다 화나거나 무서우면 작다."""
+    m, b = dog.mood, dog.personality.baseline
+    upset = max(0.0, m["분노"] - b["분노"], m["무서움"] - b["무서움"])
+    return t.obey_k * (0.5 + dog.intimacy) * max(0.0, 1 - 2 * upset)
+
+
+def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[str], t: Tuning,
+                  command: dict[str, float] | None = None) -> dict[str, float]:
+    """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(기준값 대비) + 반응 + Jev 약한 조정 + 시킨 동작, 온도로 나눈다."""
+    if kinds and all(k == "dog_spoke" for k in kinds):
+        return {"none": 0.0}  # 자기 말 뒤에는 자세를 바꾸지 않는다: 말한 동작 = 뽑힌 동작이 바로 뒤집혔다 (검수 011)
     T = temperature(dog)
     m, b = dog.mood, dog.personality.baseline
+    obey = obedience(dog, t) if command else 0.0
     # 메시지는 글 내용("앉아", "엎드려")이 동작을 정할 수 있어 Jev 동작 판단을 더 믿는다 (검수 010: 명령을 안 따름)
     w_jev = t.w_jev_action_message if kinds and kinds[-1] == "message" else t.w_jev_action
+    if command:  # 시킨 게 분명할수록 기분 위주인 동작 질문은 덜 믿는다: "일어나"를 '하던 대로'로 읽었다 (검수 011)
+        w_jev *= command.get("none", 0.0)
     scores = {}
     for a in ACTIONS:
         x = (ACTION_BASE.get(a, 0.0) + sum(EVENT_ACTION.get(k, {}).get(a, 0.0) for k in kinds)
              + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
-             + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor))
+             + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor)
+             + (obey * command.get(a, 0.0) if command and a != "none" else 0.0))  # 시킨 동작 확률만큼 따른다. 없음은 "시킨 게 없다"
         if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
             x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다. 변덕(온도)으로도 뒤집히지 않게 크게 (검수 003)
         scores[a] = x / T
