@@ -26,7 +26,7 @@ ARCHETYPES = {  # 성격 유형 (기준값, 민감도, 변덕). 성격 유형 �
 }
 # 스펙 10절 (평균 성격 기준). 끼어들기는 15% → 30% (사용자 요청 "타이핑하는 동안 반응을 더 많이", 기분 8개 스펙)
 # 연달아 2번+ 실사용 목표 20%(검수 006). 실사용이 시뮬레이션의 약 2배로 나와(검수 008: 40% vs 19%) 시뮬레이션 목표는 10%
-TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.10}
+TARGETS = {"typing": 0.30, "message": 0.85, "quiet": 1 / 3, "chain2plus": 0.10}  # message = 물음표 없는 소식에 답하기 (검수 015)
 START = datetime(2026, 10, 19).timestamp()  # 월요일 0시
 P_MESSAGE, P_POKE, P_PET, P_THROW = 0.03, 0.005, 0.005, 0.002  # 분당 (잠정값)
 P_ASK = 0.4          # 사용자 메시지 중 질문 비율 (잠정값, 검수 004)
@@ -116,6 +116,8 @@ class World:
             0.0 if kind == "typing" and self.interjected else \
             model.speak_probability(rd.speak, dog, kind, self.streak, self.waiting, t, asked, hurting, self.unanswered)
         spoke = self.rng.random() < p
+        # 답하기 목표(85%)는 물음표 없는 소식에 건다. 질문·사과는 대답 보정으로 거의 늘 답하니 따로 센다 (검수 015: 소식 74%)
+        tag = "message_asked" if kind == "message" and asked else tag
         n, s = self.stats.counts.get(tag or kind, (0, 0))
         self.stats.counts[tag or kind] = (n + 1, s + int(spoke))
         self.last = self.now
@@ -239,7 +241,7 @@ def _row(name: str, s: Stats) -> str:
 
 
 def report(rec: Recording, t: Tuning, days: int = 7, dogs: int = 100, weeks: int = 8) -> str:
-    head = ["| 대상 | 끼어들기 (typing) | 답하기 (message) | 먼저 말 걸기 (quiet) | 연달아 2번+ | 가장 흔한 동작 비율 | 기분 고착 |",
+    head = ["| 대상 | 끼어들기 (typing) | 소식에 답하기 (message, 질문 빼고) | 먼저 말 걸기 (quiet) | 연달아 2번+ | 가장 흔한 동작 비율 | 기분 고착 |",
             "|---|---|---|---|---|---|---|",
             f"| **목표** | {TARGETS['typing']:.2f} | {TARGETS['message']:.2f} | {TARGETS['quiet']:.2f} | {TARGETS['chain2plus']:.2f} | ≤ 0.50 | ≤ 0.20 |"]
     rows = [_row(name, run(archetype_dog(name), rec, t, days, 1).stats) for name in ARCHETYPES]

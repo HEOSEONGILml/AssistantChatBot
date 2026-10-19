@@ -13,7 +13,7 @@ from brain.questions import jev_state
 PRESETS = {"기본": {}, "심심함": {"심심함": 0.9}, "졸림": {"졸림": 0.9}, "분노": {"분노": 0.9}, "들뜸": {"들뜸": 0.9}, "시무룩": {"시무룩": 0.9},
            "궁금함": {"궁금함": 0.9}, "놀람": {"놀람": 0.9}, "무서움": {"무서움": 0.9}, "행복": {"행복": 0.9}}
 INTIMACY = (0.2, 0.8)
-CONTEXTS = {"typing": {"text": "회의록 정리해야 하는데 자료가"}, "message": {"text": "오늘 점심 뭐 먹지"},
+CONTEXTS = {"typing": {"text": "회의록 정리해야 하는데 자료가"}, "message": {"text": "오늘 점심 진짜 맛있었어"},
             "dog_spoke": {"text": "멍! 간식 먹을래?"}, "quiet": {"seconds": 600}, "returned": {"away_seconds": 3600},
             "house_in": {}, "house_out": {"away_seconds": 7200}, "poke": {}, "pet": {"seconds": 3},
             "throw": {"impact": 0.7, "bounces": 2, "flight_seconds": 1.2}}

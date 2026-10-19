@@ -40,3 +40,11 @@ def test_fit_returns_bias_for_four_kinds():
 
 def test_archetypes_differ():
     assert simulate.archetype_dog("과묵·차분").personality != simulate.archetype_dog("활발·변덕쟁이").personality
+
+
+def test_message_target_counts_plain_news_only():
+    # 검수 015: 답하기 85% 목표에 질문(거의 늘 대답)이 섞여 물음표 없는 소식은 74%였다. 소식과 질문을 따로 센다
+    from brain.tuning import Tuning
+    s = simulate.run(simulate.archetype_dog("평균"), simulate.Recording.load(), Tuning(), days=2, seed=1).stats
+    assert s.counts["message"][0] > 0 and s.counts["message_asked"][0] > 0
+    assert s.rate("message_asked") > s.rate("message")
