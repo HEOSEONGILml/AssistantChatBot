@@ -648,3 +648,42 @@ def test_command_outweighs_mood_based_action_reading():
     # 실측(대화 중): "일어나!" 시킨 동작 서기 0.73, Jev 동작 없음 0.68·서기 0.15. 시킨 게 분명할수록 동작 질문은 덜 믿는다
     p = _p(calm_dog(), {"none": 0.68, "stand": 0.15, "lie_down": 0.1}, {"stand": 0.73, "none": 0.25, "sit": 0.01})
     assert p["stand"] > 0.6
+
+
+# ---- 검수 012 묶음 1: 평범한 말은 서운함이 아니다 ----
+
+
+def _sad_rise(change, **kw):
+    dog = calm_dog()
+    before = dog.mood["시무룩"]
+    model.apply_change(dog, change, [("message", {"text": "…"})], random.Random(0), QUIET, **kw)
+    return dog.mood["시무룩"] - before
+
+
+def test_going_to_work_is_not_rejection():
+    # 실측: "나 이제 일 좀 할게"에 Jev 시무룩↑ 0.34·친밀도↓ 0.19, 속상함 0.3, 조용히 0.51 → 평균 강아지 시무룩 +0.11
+    assert _sad_rise({"시무룩↑": 0.34, "친밀도↓": 0.19, "변화없음": 0.26}, user_down=0.3, soothe=0.08, hush=0.51) < 0.06
+
+
+def test_never_mind_is_only_a_small_slight():
+    # 실측: "아 아니다 됐어 신경 쓰지 마"에 시무룩↑ 0.48·친밀도↓ 0.27, 속상함 0.53, 조용히 0.67 → 시무룩 +0.18
+    assert _sad_rise({"시무룩↑": 0.48, "친밀도↓": 0.27}, user_down=0.53, soothe=0.17, hush=0.67) < 0.07
+
+
+def test_insult_still_hurts():
+    # "너 싫어": 친밀도↓ 0.8, 조용히 0.13. 부탁이 아닌 거절은 그대로 서운하다
+    assert _sad_rise({"친밀도↓": 0.8, "분노↑": 0.1}, user_down=0.46, soothe=0.03, hush=0.13) > 0.1
+
+
+def test_three_readings_of_one_slight_do_not_stack():
+    # 직접 시무룩↑, 관계 해석(친밀도↓), 공감(속상함)은 같은 서운함을 세 번 읽은 것이다. 가장 큰 하나만 센다
+    one = _sad_rise({"시무룩↑": 0.5})
+    three = _sad_rise({"시무룩↑": 0.5, "친밀도↓": 0.5}, user_down=0.9)
+    assert three < 1.15 * one
+
+
+def test_asking_for_space_barely_lowers_intimacy():
+    asked, insulted = calm_dog(), calm_dog()
+    model.apply_change(asked, {"친밀도↓": 0.7}, [("message", {"text": "말 걸지 마"})], random.Random(0), QUIET, hush=0.83)
+    model.apply_change(insulted, {"친밀도↓": 0.7}, [("message", {"text": "저리 가"})], random.Random(0), QUIET, hush=0.1)
+    assert 0.5 - asked.intimacy < 0.4 * (0.5 - insulted.intimacy)

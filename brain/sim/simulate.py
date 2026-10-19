@@ -96,7 +96,7 @@ class World:
         if kind == "message":
             self.interjected = False
         deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user,
-                                    user_down=rd.user_down, soothe=rd.soothe)
+                                    user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
         scores = model.action_scores(rd.action, dog, reaction, [kind], t, command=rd.command if kind == "message" else None)

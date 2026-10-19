@@ -296,7 +296,7 @@ def _combine(xs: list[float]) -> float:
 
 
 def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
-                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0, soothe: float = 0.0) -> Change:
+                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0, soothe: float = 0.0, hush: float = 0.0) -> Change:
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
@@ -325,12 +325,23 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     # 달램 (검수 006): 사과·달래는 말은 강아지를 풀어 준다. 달램이 클수록 공감(같이 시무룩)은 줄어든다
     s = soothe if talk else 0.0
     u = (user_down if talk else 0.0) * (1 - s)
+    # 혼자 있게 해 달라는 부탁("일 좀 할게", "말 걸지 마")은 거절이 아니다: 친밀도↓를 (1 − 부탁)만큼만 거절로 읽는다 (검수 012)
+    space = hush if talk else 0.0
+    cold = change.get("친밀도↓", 0.0) * (1 - space)
+    hurt = [max(jev["시무룩"], 0.0), t.empathy * u]  # 서운함의 출처들: 직접 시무룩↑, 공감, 관계 해석(아래)
+    jev["시무룩"] = min(jev["시무룩"], 0.0)
     for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
         for d, r in moods.items():
-            jev[d] += r * change.get(rel, 0.0) * ((1 - u) if rel == "친밀도↑" else 1.0)
+            x = r * change.get(rel, 0.0) * ((1 - u) if rel == "친밀도↑" else 1.0)
+            if d == "시무룩" and x > 0:
+                hurt.append(x)
+            else:
+                jev[d] += x
+    # 같은 서운함을 세 번 읽은 것이니 더하지 않고 가장 큰 하나만 센다 (검수 012: "됐어"에 시무룩 +0.18)
+    # 부탁으로 읽힌 만큼은 서운함이 아니다(Jev는 부탁 자체를 시무룩↑로도 읽는다). 주인이 일하는 조용함에 서운해하지 않는다 (검수 003)
+    jev["시무룩"] += max(hurt) * (1 - space)
     jev["궁금함"] *= (1 - u) * (1 - s)  # 털어놓음·사과에는 궁금해하지 않는다 (검수 005·009)
     jev["행복"] = min(jev["행복"], 0.0) if u >= 0.5 else jev["행복"]
-    jev["시무룩"] += t.empathy * u
     for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)
         if jev[d] > 0:
             jev[d] *= 1 - wary
@@ -357,7 +368,7 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
         deltas[d] = m[d] - before
     deltas.signal = signal
     deltas.scared = max(0.0, m["무서움"] - b["무서움"])
-    delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - change.get("친밀도↓", 0.0))
+    delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - cold)
              + sum(appraisal_intimacy(k, ctx or {}) for k, ctx in events)) * damp
     dog.intimacy = clip(dog.intimacy + delta)
     deltas["친밀도"] = delta

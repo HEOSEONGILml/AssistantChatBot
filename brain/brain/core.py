@@ -249,7 +249,7 @@ class Brain:
             self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
-        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe,
+        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush,
                                     waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
         a_scores = model.action_scores(rd.action, dog, reaction, kinds, t, command=rd.command if kinds[-1] == "message" else None)
