@@ -63,6 +63,7 @@ def test_system_instruction_mentions_numbers_and_style():
 
 
 def test_trim_line():
-    assert persona.trim_line("멍! 뭐 해? 나도 볼래 멍멍.") == "멍! 뭐 해?"
+    assert persona.trim_line("멍! 뭐 해? 나도 볼래 멍멍.") == "멍! 뭐 해? 나도 볼래 멍멍."  # 의성어 문장은 다음 문장에 붙여 센다 (검수 013)
+    assert persona.trim_line("뭐 해? 나도 볼래. 같이 하자.") == "뭐 해? 나도 볼래."
     assert persona.trim_line('강아지: "산책 가자 멍!"') == "산책 가자 멍!"
     assert persona.trim_line("  \n ") == ""

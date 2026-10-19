@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, command_fact, date_facts, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import HOUSE_ROLE, annotate_dates, sound_only, command_fact, date_facts, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -305,10 +305,11 @@ class Brain:
                      ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
             if "returned" in kinds:  # 돌아온 순간에는 "곁에 있다" 대신 이 사실만 (검수 007: "옆에 있는 거 다 아는데")
                 facts = ["주인이 자리를 비웠다가 방금 돌아왔다"]
+            house_back = "house_out" in kinds or any(e.kind == "house_out" and now - e.ts < 600 for e in recent)
             if "house_out" in kinds:
                 facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
             elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
-                facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 밖에 있었다")
+                facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 어디에도 가지 않고 밖(곁)에 있었다")
             # 집에 넣은 쪽은 주인이고, 넣기 직전 주인 말이 이유일 수 있다 (검수 011: "왜 집에 있었는지 알아?" → "밖이 조용해서")
             put_in = [e for e in recent if e.kind == "house_in" and now - e.ts < 1800]
             if put_in:
@@ -335,13 +336,18 @@ class Brain:
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
                                                                                           conversation, v["지시"], owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh), facts,
                                                                                           _MOOD_KO.get(model.dominant_mood(dog, t), ""),
-                                                                                          frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:])
+                                                                                          frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:],
+                             banned=HOUSE_ROLE if house_back else None)
         except AuthError:
             await self._set_ai("bad_key")
             return
         except CallError as e:
             log.warning("Gemini 실패(%s). 대사 없이 넘어간다", e)
             return
+        # 메시지에 의성어로만 답하면 말하지 않는다(반응·동작만 보인다). 짖으라고 시켰으면 의성어가 답이다 (검수 013)
+        if kinds[-1] == "message" and sound_only(line) and rd.command.get("bark", 0.0) < 0.5:
+            entry["utterance_dropped"] = line
+            line = ""
         if not line:
             return
         await self._emit({"type": "reaction", "utterance": line})

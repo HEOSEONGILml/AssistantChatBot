@@ -229,7 +229,11 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
 
 # 검수 012: 하지 않은 일·없는 물건("방금 먹고 왔어", "문밖만 보고", "장난감으로", "문 열어 줘"). '문제'·'질문'은 걸리지 않게 문 뒤를 본다
 _BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지|장난감|먹고 왔|(?<![가-힣])문(밖|앞|만| 앞| 밖| 열|을|이 )")
-_BODY = re.compile(r"꼬리")  # 그림이 보여 주는 몸짓. 최근에 말했으면 다시 말하지 않는다 (검수 011)
+# 그림이 보여 주는 몸짓·자세 해설과 동작 이름. 다른 말이 있으면 빼고, 그것뿐이면 최근에 말하지 않았을 때만 둔다 (검수 011·013: 대사 10%가 자세 해설, "몸이 근질거려" 6번)
+_BODY = re.compile(r"꼬리|근질|찌뿌둥|꼼지락|발로 툭툭|(앉아|서|엎드려|엎드린 채로?) 있(어|잖|는데|으니|으려니|을게)|(조르기|짖기|엎드리기|앉기|서기) 시작")
+_SOUND = re.compile(r"^[\s,.!?~…]*((멍|왈|킁|헥|낑|끙|컹|깽|으르렁)+[\s,.!?~…]*)+$")
+# 집에서 꺼낸 뒤 주인이 떠났던 것처럼 말함 (검수 013: "너는 어디 다녀온 거야?", "네가 언제 나오나 기다렸어"). 집에서 나온 뒤에만 쓴다
+HOUSE_ROLE = re.compile(r"다녀(왔|온|오)|네가 (언제 )?나오|돌아오(길|기만|기를)")
 _NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
 _STOCK_OPENING = re.compile(r"드디어\s*,?\s*")  # 어디에 있든 (검수 008: "우와, 드디어 왔네")
 _QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
@@ -237,7 +241,12 @@ _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
 _LABEL = re.compile(r"^강아지\s*[:：]\s*")
 
 
-def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None) -> str:
+def sound_only(text: str) -> bool:
+    """의성어(멍·왈·킁·헥헥…)뿐인 말인가."""
+    return bool(text.strip()) and bool(_SOUND.match(text))
+
+
+def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None, banned: re.Pattern | None = None) -> str:
     """LLM 출력을 말풍선 대사로 다듬는다: 줄바꿈·이름표·따옴표를 없애고 앞의 몇 문장만 남긴다."""
     t = " ".join(line.strip() for line in text.splitlines() if line.strip())
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
@@ -245,9 +254,20 @@ def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None
     t = _NON_WORD.sub("", t).strip()
     t = t.replace("사용자", "너")  # 시스템 낱말이 대사에 새지 않게 (검수 010)
     # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
-    parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p)]
+    parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p) and not (banned and banned.search(p))]
     # 몸짓 해설 문장은 다른 말이 있으면 빼고, 그것뿐이면 최근에 안 했을 때만 둔다 (검수 011: 열 마디에 한 번 "꼬리")
     body_said = any(_BODY.search(line) for line in (recent or []))
     rest = [p for p in parts if not _BODY.search(p)]
     parts = rest if rest or body_said else parts
-    return " ".join(parts[:max_sentences])
+    # 의성어뿐인 문장은 다음 문장에 붙여 센다: "멍." 하나로 한 문장 몫을 다 쓰지 않게 (검수 013)
+    units: list[str] = []
+    pending = ""
+    for p in parts:
+        if sound_only(p):
+            pending = f"{pending} {p}".strip()
+        else:
+            units.append(f"{pending} {p}".strip())
+            pending = ""
+    if pending:
+        units = units[:-1] + [f"{units[-1]} {pending}"] if units else [pending]
+    return " ".join(units[:max_sentences])

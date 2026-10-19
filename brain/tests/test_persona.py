@@ -283,3 +283,33 @@ def test_harsh_words_are_not_the_owner_being_upset():
     assert space_fact(0.83, harsh=0.83) is None          # "말 걸지 마 짜증나니까"는 담백한 부탁이 아니다
     assert space_fact(0.61, harsh=0.08)                   # "일 좀 할게"
     assert "위로하지" in harsh_fact(0.9) and harsh_fact(0.2) is None
+
+
+# ---- 검수 013 묶음 3: 의성어만 남는 대답, 몸 해설, 집 역할 ----
+
+
+def test_sound_only_sentence_does_not_use_up_the_sentence_limit():
+    # 과묵(한 문장)에서 "멍. 나는 간식이 좋아!"가 "멍."만 남았다 (검수 013: 질문에 "멍."·고백에 "헥헥.")
+    from brain.persona import trim_line
+    assert trim_line("멍. 나는 간식이 제일 좋아! 너는?", 1) == "멍. 나는 간식이 제일 좋아!"
+    assert trim_line("왈! 멍멍!", 1) == "왈! 멍멍!"
+
+
+def test_sound_only_detection():
+    from brain.persona import sound_only
+    assert sound_only("헥헥.") and sound_only("멍멍! 왈!") and sound_only("킁...")
+    assert not sound_only("멍, 좋아") and not sound_only("")
+
+
+def test_trim_drops_body_commentary_when_there_is_something_else_to_say():
+    from brain.persona import trim_line
+    assert trim_line("몸이 근질거려. 뭐 해?") == "뭐 해?"
+    assert trim_line("나랑 더 놀자! 조르기 시작!") == "나랑 더 놀자!"
+    assert trim_line("엎드려서 발끝만 꼼지락거리고 있잖아! 심심해") == "심심해"
+
+
+def test_trim_drops_owner_went_away_lines_after_the_dog_was_in_the_house():
+    from brain.persona import HOUSE_ROLE, trim_line
+    assert trim_line("그냥 멍하니 있었어. 너는 어디 다녀온 거야?", banned=HOUSE_ROLE) == "그냥 멍하니 있었어."
+    assert trim_line("네가 언제 나오나 기다리고 있었어. 조용했어", banned=HOUSE_ROLE) == "조용했어"
+    assert trim_line("네가 돌아오길 기다렸어! 멍", banned=HOUSE_ROLE) == "멍"

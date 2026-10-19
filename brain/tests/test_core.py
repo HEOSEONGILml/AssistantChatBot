@@ -622,3 +622,21 @@ async def test_listening_dog_keeps_its_posture_while_typing(make):
         await env.brain.drain()
     moved = [m["action"] for m in env.out if m["type"] == "reaction" and m.get("action", "none") != "none"]
     assert len(moved) <= 1
+
+
+async def test_reply_that_is_only_a_sound_is_not_spoken(make):
+    # 검수 013: "그냥 다 내 잘못 같아서 마음이 무거워" → "헥헥." 의성어뿐이면 차라리 말하지 않는다
+    env = await make(tuning=SPEAK)
+    env.talker.line = "헥헥."
+    await env.brain.handle_event("message", {"text": "너는 뭐 좋아해?"})
+    await env.brain.drain()
+    assert utterances(env.out) == []
+
+
+async def test_sound_reply_to_a_bark_command_is_fine(make):
+    env = await make(tuning=SPEAK)
+    env.jev.readout = Readout({"bark": 1.0}, 0.9, {"변화없음": 1.0}, command={"bark": 0.95, "none": 0.05})
+    env.talker.line = "멍멍!"
+    await env.brain.handle_event("message", {"text": "짖어 봐"})
+    await env.brain.drain()
+    assert utterances(env.out) == ["멍멍!"]
