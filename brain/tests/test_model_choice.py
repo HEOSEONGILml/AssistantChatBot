@@ -701,3 +701,18 @@ def test_told_to_sleep_lies_down_even_if_not_sleepy():
 def test_holding_posture_keeps_the_current_action():
     p = model.probabilities(model.action_scores({"beg": 0.9}, calm_dog(), "curious", ["typing"], T, hold=True))
     assert p == {"none": 1.0}
+
+
+# ---- 검수 013 묶음 1: 부탁과 모진 거절을 가른다 ----
+
+
+def test_harsh_rejection_hurts_even_if_it_asks_for_space():
+    # 실측: "저리 가 귀찮아" 친밀도↓ 0.48·시무룩↑ 0.18, 조용히 0.72, 모진 말 0.91 → 시무룩 +0.017뿐이었다
+    assert _sad_rise({"친밀도↓": 0.48, "시무룩↑": 0.18}, user_down=0.4, soothe=0.03, hush=0.72, harsh=0.91) > 0.08
+
+
+def test_harsh_rejection_lowers_intimacy_more_than_a_plain_request():
+    plain, harsh = calm_dog(), calm_dog()
+    model.apply_change(plain, {"친밀도↓": 0.5}, [("message", {"text": "일 좀 할게"})], random.Random(0), QUIET, hush=0.7, harsh=0.08)
+    model.apply_change(harsh, {"친밀도↓": 0.5}, [("message", {"text": "저리 가 귀찮아"})], random.Random(0), QUIET, hush=0.7, harsh=0.91)
+    assert 0.5 - harsh.intimacy > 2 * (0.5 - plain.intimacy)

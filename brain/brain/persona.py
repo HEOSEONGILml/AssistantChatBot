@@ -152,17 +152,24 @@ def quiet_topics(user_lines: list[str], mood: str, action: str) -> list[str]:
     return topics or ["혼자 조용히 있는 지금"]
 
 
-def owner_upset(user_down: float, soothe: float, hush: float) -> bool:
-    """주인이 속상해 보이나. 사과·달램이거나, 혼자 있게 해 달라는 부탁인데 분명히 속상하지는 않으면 아니다 (검수 006·012)."""
-    return user_down >= 0.5 and soothe < 0.5 and not (hush >= 0.5 and user_down < 0.7)
+def owner_upset(user_down: float, soothe: float, hush: float, harsh: float = 0.0) -> bool:
+    """주인이 속상해 보이나. 사과·달램, 나를 향한 모진 말(검수 013), 혼자 있게 해 달라는 부탁인데 분명히 속상하지는 않으면 아니다 (검수 006·012)."""
+    return user_down >= 0.5 and soothe < 0.5 and harsh < 0.5 and not (hush * (1 - harsh) >= 0.5 and user_down < 0.7)
 
 
-def space_fact(hush: float) -> str | None:
-    """혼자 있게 해 달라는 부탁의 뜻을 사실로 준다 (검수 012: "일 좀 할게" → "벌써 자려는 거야?", "됐어" → 위로)."""
-    if hush < 0.5:
+def space_fact(hush: float, harsh: float = 0.0) -> str | None:
+    """담백한 부탁(혼자 있게 해 줘, 모진 말 빼고)의 뜻을 사실로 준다 (검수 012: "일 좀 할게" → "벌써 자려는 거야?", "됐어" → 위로)."""
+    if hush * (1 - harsh) < 0.5:
         return None
     return ("주인은 지금 할 일이 있거나 잠깐 혼자 있고 싶어 한다. 떠나거나 자러 가는 게 아니고 화난 것도 아니다. "
             "짧게 알겠다고 하고 캐묻거나 위로하지 않는다")
+
+
+def harsh_fact(harsh: float) -> str | None:
+    """나를 향한 모진 말을 사실로 준다 (검수 013: "너 진짜 짜증나"에 "무슨 일 있어? 곁에 있을게")."""
+    if harsh < 0.5:
+        return None
+    return "주인이 나를 향해 모진 말을 했다(내 탓·귀찮음·핀잔). 주인을 위로하지 않는다. 지금 기분대로 서운하거나 투덜대며 짧게 받는다"
 
 
 def command_fact(command: dict[str, float], action: str) -> str | None:

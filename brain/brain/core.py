@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, command_fact, date_facts, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import annotate_dates, command_fact, date_facts, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -251,7 +251,7 @@ class Brain:
             self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
-        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush,
+        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush, harsh=rd.harsh,
                                     waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
         # 듣는 동안은 한 번 잡은 자세를 지킨다. 글 내용으로 반응이 바뀌면(궁금함 → 서운함 등) 다시 고른다 (검수 012)
@@ -271,14 +271,14 @@ class Brain:
             text = str(last.data.get("text", ""))
             # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
-            hurting = last.kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush) or deltas.signal.get("시무룩", 0.0) >= 0.05)
+            hurting = last.kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh) or deltas.signal.get("시무룩", 0.0) >= 0.05)
             asked = asked or (last.kind == "message" and rd.soothe >= 0.5)  # 사과는 받아 준다 (검수 010)
             ignored = self._unanswered if self._flow not in ("message", "typing") else 0
             p_speak = model.chain_probability(dog, self._streak, t, ignored, now < self._hush_until) if kinds[-1] == "dog_spoke" else \
                 model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered,
                                         now < self._hush_until)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3), "command": _top(rd.command)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3), "harsh": round(rd.harsh, 3), "command": _top(rd.command)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})
@@ -318,7 +318,7 @@ class Brain:
                 said_now = talk[-1].data.get("text", "") if talk and talk[-1].kind == "message" else ""
                 facts.append(f"주인이 방금 '{said_now}'라고 했다. 이것은 주인 자신의 일이다. 주인이 이미 했다고 한 일은 했느냐고 되묻지 않는다. "
                              "나는 먹거나 마시거나 냄새 맡지 않았다")
-                for f in (command_fact(rd.command, action), space_fact(rd.hush)):  # 주인 말의 뜻은 Jev가 읽은 것을 사실로 준다 (검수 012)
+                for f in (command_fact(rd.command, action), space_fact(rd.hush, rd.harsh), harsh_fact(rd.harsh)):  # 주인 말의 뜻은 Jev가 읽은 것을 사실로 준다 (검수 012)
                     if f:
                         facts.append(f)
             facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
@@ -333,7 +333,7 @@ class Brain:
                 heard = [e.data.get("text", "") for e in talk if e.kind == "message" and now - e.ts < 6 * 3600]
                 topic = self._rng.choice(quiet_topics(heard, _MOOD_KO.get(model.dominant_mood(dog, t), ""), model.ACTION_NAMES.get(action, "")))
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], owner_upset(rd.user_down, rd.soothe, rd.hush), facts,
+                                                                                          conversation, v["지시"], owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh), facts,
                                                                                           _MOOD_KO.get(model.dominant_mood(dog, t), ""),
                                                                                           frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:])
         except AuthError:

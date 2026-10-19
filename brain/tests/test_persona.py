@@ -273,3 +273,13 @@ def test_trim_drops_things_the_dog_never_did_or_has():
     assert trim_line("내가 좋아하는 장난감으로 놀자. 심심해!") == "심심해!"
     assert trim_line("얼른 문 열어 줘! 왈!") == "왈!"
     assert trim_line("무슨 문제 있어? 질문해도 돼") == "무슨 문제 있어? 질문해도 돼"
+
+
+def test_harsh_words_are_not_the_owner_being_upset():
+    # 검수 013: "너 진짜 짜증나"(속상함 0.39~0.47, 모진 말 0.9)에 "무슨 일 있어? 곁에 있을게"
+    from brain.persona import harsh_fact, owner_upset, space_fact
+    assert not owner_upset(0.55, 0.03, 0.2, harsh=0.9)
+    assert owner_upset(0.89, 0.06, 0.06, harsh=0.05)
+    assert space_fact(0.83, harsh=0.83) is None          # "말 걸지 마 짜증나니까"는 담백한 부탁이 아니다
+    assert space_fact(0.61, harsh=0.08)                   # "일 좀 할게"
+    assert "위로하지" in harsh_fact(0.9) and harsh_fact(0.2) is None

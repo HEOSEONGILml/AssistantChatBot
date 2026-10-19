@@ -302,7 +302,7 @@ def _combine(xs: list[float]) -> float:
 
 
 def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
-                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0, soothe: float = 0.0, hush: float = 0.0) -> Change:
+                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0, soothe: float = 0.0, hush: float = 0.0, harsh: float = 0.0) -> Change:
     """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
     Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
     kinds = [k for k, _ in events]
@@ -332,7 +332,8 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     s = soothe if talk else 0.0
     u = (user_down if talk else 0.0) * (1 - s)
     # 혼자 있게 해 달라는 부탁("일 좀 할게", "말 걸지 마")은 거절이 아니다: 친밀도↓를 (1 − 부탁)만큼만 거절로 읽는다 (검수 012)
-    space = hush if talk else 0.0
+    # 모진 말이 섞인 부탁("저리 가 귀찮아")은 거절이다: 담백한 부탁만큼만 뺀다 (검수 013)
+    space = hush * (1 - harsh) if talk else 0.0
     cold = change.get("친밀도↓", 0.0) * (1 - space)
     hurt = [max(jev["시무룩"], 0.0), t.empathy * u]  # 서운함의 출처들: 직접 시무룩↑, 공감, 관계 해석(아래)
     jev["시무룩"] = min(jev["시무룩"], 0.0)

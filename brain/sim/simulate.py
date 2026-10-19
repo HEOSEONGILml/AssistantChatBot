@@ -47,7 +47,7 @@ class Recording:
         preset = min(self.moods, key=lambda p: sum((dog.mood[d] - self.moods[p][d]) ** 2 for d in MOODS))
         intimacy = min(INTIMACY, key=lambda x: abs(x - dog.intimacy))
         r = self.data[f"{kind}|{preset}|{intimacy}|{min(streak, 2) if kind == 'dog_spoke' else 0}"]
-        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0), r.get("hush", 0.0), r.get("command", {}))
+        return Readout(r["action"], r["speak"], r["change"], r.get("user_down", 0.0), r.get("soothe", 0.0), r.get("hush", 0.0), r.get("command", {}), r.get("harsh", 0.0))
 
 
 @dataclass
@@ -98,7 +98,7 @@ class World:
             self.interjected = False
             self.posed = ""
         deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user,
-                                    user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush)
+                                    user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush, harsh=rd.harsh)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
         hold = kind == "typing" and bool(self.posed) and reaction in ("curious", "none", self.posed)  # 듣는 동안 자세 유지 (검수 012)
@@ -110,7 +110,7 @@ class World:
         if kind != "dog_spoke":  # 자기 말 뒤에는 동작을 고르지 않는다 (검수 011)
             self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
-        hurting = kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush) or deltas.signal.get("시무룩", 0.0) >= 0.05)
+        hurting = kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh) or deltas.signal.get("시무룩", 0.0) >= 0.05)
         asked = asked or (kind == "message" and rd.soothe >= 0.5)
         p = model.chain_probability(dog, self.streak, t, self.unanswered if self.flow == "quiet" else 0) if kind == "dog_spoke" else \
             0.0 if kind == "typing" and self.interjected else \
