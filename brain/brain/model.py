@@ -271,6 +271,9 @@ class Change(dict):
     scared: float = 0.0
 
 
+SOOTHE_MOODS = (("시무룩", 1.0), ("분노", 0.6), ("무서움", 0.25))  # 달램이 푸는 기분과 비율: 말은 서운함을 크게, 무서움은 조금 (검수 008)
+
+
 def _combine(xs: list[float]) -> float:
     """같은 기분에 온 충격들을 확률의 합처럼 합친다: 연타가 몇 배로 쌓이지 않는다 (검수 002)."""
     up = 1.0 - math.prod(1 - min(x, 0.99) for x in xs if x > 0)
@@ -317,9 +320,14 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
     for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)
         if jev[d] > 0:
             jev[d] *= 1 - wary
-    for d, f in (("시무룩", 1.0), ("분노", 0.6), ("무서움", 0.25)):  # 말은 서운함을 크게, 무서움은 조금 던다 (검수 008)
-        jev[d] -= t.soothe_k * f * s
+    for d, _ in SOOTHE_MOODS:  # 사과 글이 던진 일을 말해도 뜻은 사과다: 부정 기분의 Jev ↑를 (1 − s)배로 (검수 011)
+        if jev[d] > 0:
+            jev[d] *= 1 - s
     signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
+    rest = {d: rest_point(dog, d, dog.updated_at) for d, _ in SOOTHE_MOODS}
+    for d, f in SOOTHE_MOODS:  # 달램은 넘친 만큼(기분 − 돌아갈 자리)을 덜어 준다. 말은 서운함을 크게, 무서움은 조금 (검수 008·011)
+        if s > 0 and m[d] > rest[d]:
+            signal[d] -= t.soothe_k * f * s * (m[d] - rest[d]) / m[d]  # 음의 신호는 기분 × 신호만큼 내린다
     rises = dict(signal)
     for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
         signal[c] -= t.inhibit * max(rises[a], 0.0)
@@ -329,6 +337,9 @@ def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dic
         x = signal[d] + rng.gauss(0, t.change_noise)
         before = m[d]
         m[d] = clip(before + (x * (1 - before) if x > 0 else x * before))  # 끝에 가까울수록 덜 움직인다
+        if talk and d in rest:  # 말은 한 번에 넘친 만큼의 일부만, 기준값 아래로는 누르지 않는다. 예민하면 몇 번 달래야 풀린다 (검수 011)
+            cap = min(1.0, t.talk_ease * (1.5 - sens[d]))
+            m[d] = max(m[d], min(before, max(rest[d], before - cap * (before - rest[d]))))
         deltas[d] = m[d] - before
     deltas.signal = signal
     deltas.scared = max(0.0, m["무서움"] - b["무서움"])

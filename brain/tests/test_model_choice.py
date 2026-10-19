@@ -584,7 +584,6 @@ def test_poke_wakes_a_sleepy_dog():
 # ---- 검수 011: 사과는 기준값 쪽으로 풀어 준다 ----
 
 
-@pytest.mark.xfail(strict=True, reason="검수 011 묶음 2 진행 중: 구현하면 xfail을 지운다")
 def test_apology_after_throw_eases_fear_even_if_jev_reads_fear_up():
     # 실측: "던져서 미안해 다신 안 그럴게"에 Jev 무서움↑ 0.66~0.87, 달램 0.9. 글이 던진 일을 말해도 뜻은 사과다
     dog = calm_dog()
@@ -594,7 +593,6 @@ def test_apology_after_throw_eases_fear_even_if_jev_reads_fear_up():
     assert dog.mood["무서움"] < 0.45
 
 
-@pytest.mark.xfail(strict=True, reason="검수 011 묶음 2 진행 중: 구현하면 xfail을 지운다")
 def test_one_apology_does_not_fully_heal_a_sensitive_dog():
     # 예민한 강아지: "아까 짜증낸 거 미안해" 한 마디에 시무룩 0.54 → 0.19(기준값 0.40 아래)였다. 말은 기준값 아래로 누르지 않고 몇 번 달래야 풀린다
     dog = calm_dog()
