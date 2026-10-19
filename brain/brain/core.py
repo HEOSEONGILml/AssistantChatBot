@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, date_facts, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import annotate_dates, command_fact, date_facts, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -48,6 +48,7 @@ class Brain:
         self._hush_until = 0.0             # 이 시각까지 먼저 말 걸지 않는다("말 걸지 마", 검수 007)
         self._unanswered = 0               # 먼저 말을 건 뒤 사용자 대꾸가 없었던 횟수 (검수 006)
         self._interjected = False          # 이번 메시지를 치는 동안 이미 끼어들었다 (검수 006: 한 문장에 세 번)
+        self._posed = ""                   # 이번 메시지를 치는 동안 자세를 잡았을 때의 반응 (검수 012: 듣는 동안 자세 유지)
         self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
         self._user_away = False            # 사용자가 자리를 비웠다(화면이 30분 조용함을 보냄). 대사에 사실로 준다 (검수 005)
         self._in_house = False             # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002)
@@ -159,6 +160,7 @@ class Brain:
             self._unanswered = 0
         if kind == "message":
             self._interjected = False
+            self._posed = ""
             self._hush_until = 0.0  # 사용자가 다시 말을 걸면 부탁은 끝난다(새 메시지가 다시 부탁이면 판단에서 다시 켠다)
         elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
             self._user_away = True
@@ -252,8 +254,12 @@ class Brain:
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush,
                                     waiting=waiting, alone_s=now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
-        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t, command=rd.command if kinds[-1] == "message" else None)
+        # 듣는 동안은 한 번 잡은 자세를 지킨다. 글 내용으로 반응이 바뀌면(궁금함 → 서운함 등) 다시 고른다 (검수 012)
+        hold = kinds[-1] == "typing" and bool(self._posed) and reaction in ("curious", "none", self._posed)
+        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t, command=rd.command if kinds[-1] == "message" else None, hold=hold)
         action = model.pick(a_scores, self._rng)
+        if kinds[-1] == "typing" and action != "none":
+            self._posed = reaction
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
         # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
         # 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002). 조용함이 오면 다시 말을 걸 수 있다
@@ -312,6 +318,9 @@ class Brain:
                 said_now = talk[-1].data.get("text", "") if talk and talk[-1].kind == "message" else ""
                 facts.append(f"주인이 방금 '{said_now}'라고 했다. 이것은 주인 자신의 일이다. 주인이 이미 했다고 한 일은 했느냐고 되묻지 않는다. "
                              "나는 먹거나 마시거나 냄새 맡지 않았다")
+                obeyed = command_fact(rd.command, action)
+                if obeyed:
+                    facts.append(obeyed)
             facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
             if kinds[-1] == "message":  # 끼어들며 한 말도 내 말이다: 메시지에 답할 때 뒤집지 않는다 (검수 006)
                 said = [e.data["utterance"] for e in talk[:-1] if e.kind == "dog"]

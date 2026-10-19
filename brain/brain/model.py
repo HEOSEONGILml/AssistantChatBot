@@ -188,6 +188,11 @@ def dominant_mood(dog: Dog, t: Tuning) -> str:
     return MOOD_REACTION_ID[mood] if rise >= t.dominant_threshold else "calm"
 
 
+def _asked(command: dict[str, float], a: str) -> float:
+    """동작 a를 시킨 확률. "자"는 엎드리기도 시킨 것으로 본다: 졸리지 않으면 잠은 막히니 적어도 엎드린다 (검수 012: "이제 자" 0/4)."""
+    return command.get(a, 0.0) + (command.get("sleep", 0.0) if a == "lie_down" else 0.0)
+
+
 def obedience(dog: Dog, t: Tuning) -> float:
     """시킨 동작을 따르려는 마음 (검수 011): 친할수록 크고, 평소보다 화나거나 무서우면 작다."""
     m, b = dog.mood, dog.personality.baseline
@@ -196,10 +201,11 @@ def obedience(dog: Dog, t: Tuning) -> float:
 
 
 def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[str], t: Tuning,
-                  command: dict[str, float] | None = None) -> dict[str, float]:
+                  command: dict[str, float] | None = None, hold: bool = False) -> dict[str, float]:
     """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(기준값 대비) + 반응 + Jev 약한 조정 + 시킨 동작, 온도로 나눈다."""
-    if kinds and all(k == "dog_spoke" for k in kinds):
-        return {"none": 0.0}  # 자기 말 뒤에는 자세를 바꾸지 않는다: 말한 동작 = 뽑힌 동작이 바로 뒤집혔다 (검수 011)
+    if hold or (kinds and all(k == "dog_spoke" for k in kinds)):
+        # 자기 말 뒤(검수 011)와 듣는 동안(hold, 검수 012)에는 자세를 바꾸지 않는다: 1~2초마다 자세가 바뀌었다
+        return {"none": 0.0}
     T = temperature(dog)
     m, b = dog.mood, dog.personality.baseline
     obey = obedience(dog, t) if command else 0.0
@@ -213,7 +219,7 @@ def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[st
              + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
              + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor)
-             + (obey * command.get(a, 0.0) if command and a != "none" else 0.0))  # 시킨 동작 확률만큼 따른다. 없음은 "시킨 게 없다"
+             + (obey * _asked(command, a) if command and a != "none" else 0.0))  # 시킨 동작 확률만큼 따른다. 없음은 "시킨 게 없다"
         if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
             x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다. 변덕(온도)으로도 뒤집히지 않게 크게 (검수 003)
         scores[a] = x / T

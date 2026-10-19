@@ -76,7 +76,7 @@ class World:
     def __init__(self, dog: model.Dog, rec: Recording, rng: random.Random, t: Tuning):
         self.dog, self.rec, self.rng, self.t = dog, rec, rng, t
         self.now = self.last = self.last_user = dog.updated_at
-        self.unanswered, self.interjected, self.flow = 0, False, ""
+        self.unanswered, self.interjected, self.flow, self.posed = 0, False, "", ""
         self.streak, self.waiting = 0, False
         self.stats = Stats()
 
@@ -95,12 +95,16 @@ class World:
             self.unanswered = 0
         if kind == "message":
             self.interjected = False
+            self.posed = ""
         deltas = model.apply_change(dog, rd.change, [(kind, {})], self.rng, t, waiting=self.waiting, alone_s=self.now - self.last_user,
                                     user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush)
         reaction = model.reaction_from(deltas, [kind], t)
         self.stats.reactions[reaction] = self.stats.reactions.get(reaction, 0) + 1
-        scores = model.action_scores(rd.action, dog, reaction, [kind], t, command=rd.command if kind == "message" else None)
+        hold = kind == "typing" and bool(self.posed) and reaction in ("curious", "none", self.posed)  # 듣는 동안 자세 유지 (검수 012)
+        scores = model.action_scores(rd.action, dog, reaction, [kind], t, command=rd.command if kind == "message" else None, hold=hold)
         a = model.pick(scores, self.rng)
+        if kind == "typing" and a != "none":
+            self.posed = reaction
         self.stats.judged += 1
         if kind != "dog_spoke":  # 자기 말 뒤에는 동작을 고르지 않는다 (검수 011)
             self.stats.actions[a] = self.stats.actions.get(a, 0) + 1

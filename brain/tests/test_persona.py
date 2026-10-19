@@ -241,3 +241,13 @@ def test_rules_for_known_world_body_and_roles():
     for rule in ("그림이 보여", "날씨", "냄새", "주인 자신의 일", "기록에 있는 것만"):
         assert rule in s
     assert "꼬리 살랑" not in s  # 지시에 쓴 몸짓 낱말이 틀이 된다
+
+
+def test_command_fact_says_whether_the_dog_obeyed():
+    # 검수 012: "엎드려"에 앉아 놓고 "납작하게 배 깔고 있을게"라고 말했다
+    from brain.persona import command_fact
+    assert "하지 않았다" in command_fact({"lie_down": 0.9, "none": 0.1}, "sit")
+    assert "엎드리기" in command_fact({"lie_down": 0.9, "none": 0.1}, "sit")
+    assert "했다" in command_fact({"lie_down": 0.9, "none": 0.1}, "lie_down")
+    assert command_fact({"none": 0.9, "sit": 0.1}, "sit") is None
+    assert command_fact({}, "sit") is None

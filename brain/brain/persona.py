@@ -152,6 +152,17 @@ def quiet_topics(user_lines: list[str], mood: str, action: str) -> list[str]:
     return topics or ["혼자 조용히 있는 지금"]
 
 
+def command_fact(command: dict[str, float], action: str) -> str | None:
+    """주인이 시킨 동작을 했는지 사실로 준다 (검수 012: 앉아 놓고 "납작하게 배 깔고 있을게")."""
+    asked, p = max(((a, v) for a, v in command.items() if a != "none"), key=lambda x: x[1], default=("none", 0.0))
+    if p < 0.5:
+        return None
+    if action == asked or (asked == "sleep" and action == "lie_down"):
+        return f"주인이 시킨 {ACTION_NAMES[asked]}를 했다(지금 동작: {ACTION_NAMES[action]})"
+    return (f"주인이 {ACTION_NAMES[asked]}를 시켰지만 나는 하지 않았다(지금 동작: {ACTION_NAMES[action]}). "
+            "했다고 말하지 않는다. 하기 싫으면 싫다고, 아니면 다른 핑계를 짧게 말한다")
+
+
 def _span(seconds: float) -> str:
     s = int(max(0, seconds))
     if s < 60:

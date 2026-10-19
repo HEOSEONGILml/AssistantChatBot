@@ -611,3 +611,14 @@ async def test_quiet_line_gets_a_topic(make):
     await env.brain.handle_event("quiet", {"seconds": 600})
     await env.brain.drain()
     assert "꺼낼 이야기" in env.talker.calls[-1][1]
+
+
+async def test_listening_dog_keeps_its_posture_while_typing(make):
+    # 검수 012: 한 문장을 치는 동안 앉기 → 조르기 → 조르기 → 앉기처럼 1~2초마다 자세가 바뀌었다
+    env = await make()
+    env.jev.readout = Readout({"beg": 1.0}, 0.0, {"궁금함↑": 0.6})
+    for text in ("오늘은 회사에서", "오늘은 회사에서 회의가", "오늘은 회사에서 회의가 길었는데"):
+        await env.brain.handle_event("typing", {"text": text})
+        await env.brain.drain()
+    moved = [m["action"] for m in env.out if m["type"] == "reaction" and m.get("action", "none") != "none"]
+    assert len(moved) <= 1

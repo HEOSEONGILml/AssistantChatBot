@@ -687,3 +687,17 @@ def test_asking_for_space_barely_lowers_intimacy():
     model.apply_change(asked, {"친밀도↓": 0.7}, [("message", {"text": "말 걸지 마"})], random.Random(0), QUIET, hush=0.83)
     model.apply_change(insulted, {"친밀도↓": 0.7}, [("message", {"text": "저리 가"})], random.Random(0), QUIET, hush=0.1)
     assert 0.5 - asked.intimacy < 0.4 * (0.5 - insulted.intimacy)
+
+
+# ---- 검수 012 묶음 2: 시킨 잠, 듣는 동안 자세 유지 ----
+
+
+def test_told_to_sleep_lies_down_even_if_not_sleepy():
+    # 실측: "이제 자"에 시킨 동작 잠 0.67~0.76인데 0/4(졸림 문턱이 잠을 막고 서기가 뽑힘). 졸리지 않아도 적어도 엎드린다
+    p = _p(calm_dog(), {"stand": 0.4, "none": 0.4, "lie_down": 0.1}, {"sleep": 0.72, "none": 0.28})
+    assert p["lie_down"] + p["sleep"] > 0.7
+
+
+def test_holding_posture_keeps_the_current_action():
+    p = model.probabilities(model.action_scores({"beg": 0.9}, calm_dog(), "curious", ["typing"], T, hold=True))
+    assert p == {"none": 1.0}
