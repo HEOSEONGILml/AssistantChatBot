@@ -235,7 +235,7 @@ _SOUND = re.compile(r"^[\s,.!?~…]*((멍|왈|킁|헥|낑|끙|컹|깽|으르렁)
 # 집에서 꺼낸 뒤 주인이 떠났던 것처럼 말함 (검수 013: "너는 어디 다녀온 거야?", "네가 언제 나오나 기다렸어"). 집에서 나온 뒤에만 쓴다
 HOUSE_ROLE = re.compile(r"다녀(왔|온|오)|네가 (언제 )?나오|돌아오(길|기만|기를)")
 _NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
-_STOCK_OPENING = re.compile(r"드디어\s*,?\s*")  # 어디에 있든 (검수 008: "우와, 드디어 왔네")
+_STOCK_OPENING = re.compile(r"드디어\s*[,!~.]*\s*")  # 어디에 있든, 뒤따르는 문장부호까지 (검수 008: "우와, 드디어 왔네", 검수 014: "! 신나게 달려볼까?")
 _QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
 _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
 _LABEL = re.compile(r"^강아지\s*[:：]\s*")
@@ -251,7 +251,7 @@ def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None
     t = " ".join(line.strip() for line in text.splitlines() if line.strip())
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
     t = _STOCK_OPENING.sub("", t).strip()  # 반기는 말이 늘 "드디어"로 시작하던 틀을 걷는다 (검수 008, 규칙만으로는 안 지켜짐)
-    t = _NON_WORD.sub("", t).strip()
+    t = _NON_WORD.sub("", t).strip().lstrip("!?,.~… ")  # 걷어 낸 자리에 남은 문장부호로 시작하지 않게 (검수 014)
     t = t.replace("사용자", "너")  # 시스템 낱말이 대사에 새지 않게 (검수 010)
     # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
     parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p) and not (banned and banned.search(p))]

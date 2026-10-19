@@ -313,3 +313,11 @@ def test_trim_drops_owner_went_away_lines_after_the_dog_was_in_the_house():
     assert trim_line("그냥 멍하니 있었어. 너는 어디 다녀온 거야?", banned=HOUSE_ROLE) == "그냥 멍하니 있었어."
     assert trim_line("네가 언제 나오나 기다리고 있었어. 조용했어", banned=HOUSE_ROLE) == "조용했어"
     assert trim_line("네가 돌아오길 기다렸어! 멍", banned=HOUSE_ROLE) == "멍"
+
+
+def test_trim_leaves_no_stray_punctuation_after_stock_opening():
+    # 검수 014: "드디어! 신나게 달려볼까?" → "! 신나게 달려볼까? 멍!"
+    from brain.persona import trim_line
+    assert trim_line("드디어! 신나게 달려볼까? 멍!") == "신나게 달려볼까? 멍!"
+    assert trim_line("우와, 드디어! 왔네") == "우와, 왔네"
+    assert trim_line("!! 왈, 설레!") == "왈, 설레!"

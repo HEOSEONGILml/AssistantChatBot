@@ -640,3 +640,17 @@ async def test_sound_reply_to_a_bark_command_is_fine(make):
     await env.brain.handle_event("message", {"text": "짖어 봐"})
     await env.brain.drain()
     assert utterances(env.out) == ["멍멍!"]
+
+
+async def test_sound_only_reply_is_asked_again_once(make):
+    # 검수 014: 말하기 확률 0.99인데 Gemini가 "멍!"만 줘서 버리니 직접 물어도 침묵이었다. 한 번 다시 묻는다
+    env = await make(tuning=SPEAK)
+    lines = iter(["멍!", "응원해! 넌 잘할 거야, 멍."])
+    async def say(system, prompt):
+        env.talker.calls.append((system, prompt))
+        return next(lines)
+    env.talker.say = say
+    await env.brain.handle_event("message", {"text": "나 좀 응원해 줄래"})
+    await env.brain.drain()
+    assert utterances(env.out) == ["응원해! 넌 잘할 거야, 멍."]
+    assert "의성어만" in env.talker.calls[1][1]

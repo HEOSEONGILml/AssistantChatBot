@@ -333,11 +333,16 @@ class Brain:
             if kinds[-1] == "quiet":  # 혼자 둘 때 말의 실마리를 우리 모형이 뽑는다 (검수 011)
                 heard = [e.data.get("text", "") for e in talk if e.kind == "message" and now - e.ts < 6 * 3600]
                 topic = self._rng.choice(quiet_topics(heard, _MOOD_KO.get(model.dominant_mood(dog, t), ""), model.ACTION_NAMES.get(action, "")))
-            line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh), facts,
-                                                                                          _MOOD_KO.get(model.dominant_mood(dog, t), ""),
-                                                                                          frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:],
-                             banned=HOUSE_ROLE if house_back else None)
+            prompt = dialogue_prompt(state, reaction, action, kinds, own, now - last_user, conversation, v["지시"],
+                                     owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh), facts,
+                                     _MOOD_KO.get(model.dominant_mood(dog, t), ""), frequent_phrases(lines40), topic)
+            banned = HOUSE_ROLE if house_back else None
+            line = trim_line(await self._talker.say(system_instruction(), prompt), v["문장 수"], lines40[-10:], banned=banned)
+            # 메시지에 의성어로만 답하면 한 번 다시 묻는다(짖으라고 시킨 때는 빼고). 그래도 의성어뿐이면 아래에서 버린다 (검수 013·014)
+            if kinds[-1] == "message" and sound_only(line) and rd.command.get("bark", 0.0) < 0.5:
+                entry["utterance_retry"] = line
+                line = trim_line(await self._talker.say(system_instruction(), prompt + "\n의성어만 쓰지 말고, 주인 말에 내용이 있는 말로 답한다."),
+                                 v["문장 수"], lines40[-10:], banned=banned)
         except AuthError:
             await self._set_ai("bad_key")
             return
