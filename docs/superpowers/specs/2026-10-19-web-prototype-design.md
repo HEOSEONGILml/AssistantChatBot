@@ -70,6 +70,13 @@ cd ../brain && uv run python -m brain.web            # http://127.0.0.1:8787
 uv run python -m brain.web --host 0.0.0.0 --port 8787   # 다른 기기에서 접속 (주의: 키 공유)
 ```
 
+도커(서버 배포): 저장소 최상위의 `Dockerfile`·`compose.yaml`. `docker compose up -d --build`.
+
+- 이미지 두 단계: node로 `app/dist-web/`을 빌드하고, python 이미지에서 `uv sync --frozen --no-dev` 뒤 `python -m brain.web --host 0.0.0.0`.
+- 키는 `.env`의 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`(컨테이너에는 자격 저장소가 없다).
+- 데이터: `APPDATA=/data`로 두어 `config.web_data_dir()`가 `/data/TamagotchiChatBot/brain/web/`이 된다. `brain-data` 볼륨으로 보존한다.
+- 포트는 전체 공개 `8787:8787`(사용자 요청, 2026-10-19). 키 공유 한계는 위와 같다.
+
 ## 6. 남기는 것 (프로토타입 빚)
 
 - 그리기 코드가 `character.ts`와 `web/main.ts`에 두 벌 있다. 웹을 정식으로 하면 공통 모듈로 뽑는다.

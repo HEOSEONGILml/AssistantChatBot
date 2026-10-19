@@ -518,6 +518,7 @@ flowchart LR
 - 판단은 PC 두뇌와 같은 `Brain`·`Link`다. 데이터는 `…\brain\web\`로 따로 둔다(웹 강아지 ≠ PC 강아지). `brain.json`은 쓰지 않는다.
 - 키는 자격 증명 관리자, 없으면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`(`config.py`).
 - 웹 화면은 두뇌를 띄우지 않고 같은 주소로 2초마다 다시 접속한다. 자리 비움은 페이지 안 입력 1분 없음 또는 탭 숨김이다. 화면 설정은 `localStorage`.
+- 서버 배포는 도커(`Dockerfile`, `compose.yaml`)다. 이미지가 웹 화면을 빌드하고 웹 모드 두뇌를 `0.0.0.0:8787`로 띄운다. 키는 `.env` 환경 변수, 데이터는 `brain-data` 볼륨(`APPDATA=/data`).
 
 ## 11. 오류 처리
 

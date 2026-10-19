@@ -1,0 +1,9 @@
+.git
+**/node_modules
+app/dist
+app/dist-web
+app/src-tauri/target
+brain/.venv
+brain/review/out
+**/__pycache__
+.env
