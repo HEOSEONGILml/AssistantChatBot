@@ -46,6 +46,7 @@ class Brain:
         self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
         self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
         self._hush_until = 0.0             # 이 시각까지 먼저 말 걸지 않는다("말 걸지 마", 검수 007)
+        self._bed_until = 0.0              # 이 시각까지 잠자리다("잘 자", 검수 014). 사용자가 다시 말하면 끝
         self._unanswered = 0               # 먼저 말을 건 뒤 사용자 대꾸가 없었던 횟수 (검수 006)
         self._interjected = False          # 이번 메시지를 치는 동안 이미 끼어들었다 (검수 006: 한 문장에 세 번)
         self._posed = ""                   # 이번 메시지를 치는 동안 자세를 잡았을 때의 반응 (검수 012: 듣는 동안 자세 유지)
@@ -162,6 +163,7 @@ class Brain:
             self._interjected = False
             self._posed = ""
             self._hush_until = 0.0  # 사용자가 다시 말을 걸면 부탁은 끝난다(새 메시지가 다시 부탁이면 판단에서 다시 켠다)
+            self._bed_until = 0.0
         elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
             self._user_away = True
         if kind in ("house_in", "house_out"):
@@ -246,13 +248,18 @@ class Brain:
         kinds = [e.kind for e in batch]
         if kinds[-1] == "message" and rd.hush >= 0.5:
             self._hush_until = now + t.hush_s
-        waiting = self._waiting
+        if kinds[-1] == "message" and rd.command.get("sleep", 0.0) >= 0.5:
+            # "잘 자"·"이제 자자": 잠자리. 먼저 말 걸지 않고, 조용함은 무시가 아니라 잘 시간이다 (검수 014)
+            self._bed_until = now + t.bed_s
+            self._hush_until = max(self._hush_until, self._bed_until)
+        bed = now < self._bed_until
+        waiting = self._waiting and not bed
         if kinds[-1] == "quiet":
             self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
         # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
         last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
         deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush, harsh=rd.harsh,
-                                    waiting=waiting, alone_s=now - last_user)
+                                    waiting=waiting, alone_s=max(now - last_user, t.bed_alone_s) if bed else now - last_user)
         reaction = model.reaction_from(deltas, kinds, t)
         # 듣는 동안은 한 번 잡은 자세를 지킨다. 글 내용으로 반응이 바뀌면(궁금함 → 서운함 등) 다시 고른다 (검수 012)
         hold = kinds[-1] == "typing" and bool(self._posed) and reaction in ("curious", "none", self._posed)

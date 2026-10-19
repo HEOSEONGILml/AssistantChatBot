@@ -654,3 +654,24 @@ async def test_sound_only_reply_is_asked_again_once(make):
     await env.brain.drain()
     assert utterances(env.out) == ["응원해! 넌 잘할 거야, 멍."]
     assert "의성어만" in env.talker.calls[1][1]
+
+
+async def test_goodnight_puts_the_dog_to_bed(make):
+    # 검수 014: 새벽 "이제 자자 잘 자"(시킨 잠 0.92~0.96) 뒤 10분마다 지루함·서운함, 새벽 2시 반에 말을 걸었다
+    from brain.tuning import Tuning
+    env = await make(tuning=Tuning())
+    env.jev.readout = Readout({"lie_down": 1.0}, 0.9, {"졸림↑": 0.4}, command={"sleep": 0.94, "none": 0.06})
+    await env.brain.handle_event("message", {"text": "이제 자자 잘 자"})
+    await env.brain.drain()
+    env.brain._waiting = True  # 강아지가 "벌써 시간이 이렇게 됐어?"라고 물었어도
+    env.jev.readout = Readout({"none": 1.0}, 0.7, {"변화없음": 1.0})
+    sleepy = env.brain.dog.mood["졸림"]
+    picks = []
+    for _ in range(3):
+        env.clock.t += 600
+        await env.brain.handle_event("quiet", {"seconds": 600})
+        await env.brain.drain()
+        picks.append(env.brain.log_snapshot()["judgements"][-1])
+    assert all(j["picked"]["reaction"] not in ("bored", "sad") for j in picks)
+    assert all(j["model"]["speak"] < 0.05 for j in picks)
+    assert env.brain.dog.mood["졸림"] > sleepy + 0.1
