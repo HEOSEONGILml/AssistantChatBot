@@ -1,0 +1,12 @@
+{"name": "probe-r14-sad-bark", "description": "서운한 말(네 성격): 서운함 반응에 짖기 동작이 붙나(02에서 '아 됐어' 세 번 모두 서운함+짖기)",
+ "personality": "all", "seed": 143, "start": "2026-10-22T15:00",
+ "steps": [
+  {"say": "아 됐어"},
+  {"wait": 20, "quiet": false},
+  {"say": "너랑 얘기 안 할래"},
+  {"wait": 20, "quiet": false},
+  {"say": "저리 가"},
+  {"wait": 20, "quiet": false},
+  {"say": "너 별로야"},
+  {"wait": 20, "quiet": false}
+ ]}

@@ -1,0 +1,11 @@
+{"name": "probe-r14-night-sleep", "description": "새벽 1시 30분 비웠다 돌아와 '이제 자자'(네 성격): 신남+잠 동작이 함께 나오나, 자자고 한 뒤 30분 조용함에 서운해하거나 계속 말을 거나",
+ "personality": "all", "seed": 144, "start": "2026-10-23T01:00",
+ "steps": [
+  {"say": "편의점 다녀올게"},
+  {"wait": 1800, "away": true},
+  {"event": "returned", "context": {"away_seconds": 1800}},
+  {"wait": 30, "quiet": false},
+  {"say": "이제 자자 잘 자"},
+  {"wait": 1800, "quiet": true},
+  {"get_state": true}
+ ]}
