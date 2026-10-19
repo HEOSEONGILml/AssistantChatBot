@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import HOUSE_ROLE, annotate_dates, sound_only, command_fact, date_facts, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import HOUSE_ROLE, annotate_dates, sound_only, command_fact, date_facts, departure_fact, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -312,6 +312,13 @@ class Brain:
                      ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
             if "returned" in kinds:  # 돌아온 순간에는 "곁에 있다" 대신 이 사실만 (검수 007: "옆에 있는 거 다 아는데")
                 facts = ["주인이 자리를 비웠다가 방금 돌아왔다"]
+            # 돌아온 뒤 10분 동안은 떠나기 전 주인 말(행선지)을 사실로 준다 (검수 015)
+            back = [e for e in [*recent, *batch] if e.kind == "returned" and now - e.ts < 600]
+            if back:
+                gone = departure_fact([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"],
+                                      back[-1].ts, float(back[-1].data.get("away_seconds") or 0))
+                if gone:
+                    facts.append(gone)
             house_back = "house_out" in kinds or any(e.kind == "house_out" and now - e.ts < 600 for e in recent)
             if "house_out" in kinds:
                 facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")

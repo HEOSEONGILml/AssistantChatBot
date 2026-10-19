@@ -172,6 +172,18 @@ def harsh_fact(harsh: float) -> str | None:
     return "주인이 나를 향해 모진 말을 했다(내 탓·귀찮음·핀잔). 주인을 위로하지 않는다. 지금 기분대로 서운하거나 투덜대며 짧게 받는다"
 
 
+def departure_fact(messages: list[tuple[float, str]], returned_ts: float, away_s: float) -> str | None:
+    """돌아온 주인이 떠나기 전(10분 안)에 한 말을 사실로 준다 (검수 015: "편의점 다녀올게" 뒤 "어디 갔다 온 거야?")."""
+    if away_s <= 0:
+        return None
+    left = returned_ts - away_s
+    said = [text for ts, text in messages if 0 <= left - ts <= 600 and text]
+    if not said:
+        return None
+    return (f"주인이 자리를 비우기 전에 '{said[-1]}'라고 했다. 그 말대로 다녀왔다. "
+            f"어디 갔었는지 되묻지 않고 그 일을 이어서 말한다. 실제로 비운 시간: {_span(away_s)}")
+
+
 def command_fact(command: dict[str, float], action: str) -> str | None:
     """주인이 시킨 동작을 했는지 사실로 준다 (검수 012: 앉아 놓고 "납작하게 배 깔고 있을게")."""
     asked, p = max(((a, v) for a, v in command.items() if a != "none"), key=lambda x: x[1], default=("none", 0.0))
@@ -228,7 +240,7 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
 
 
 # 검수 012: 하지 않은 일·없는 물건("방금 먹고 왔어", "문밖만 보고", "장난감으로", "문 열어 줘"). '문제'·'질문'은 걸리지 않게 문 뒤를 본다
-_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지|장난감|먹고 왔|(?<![가-힣])문(밖|앞|만| 앞| 밖| 열|을|이 )")
+_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠|눈 빠|장난감|먹고 왔|(?<![가-힣])문(밖|앞|만| 앞| 밖| 열|을|이 )")
 # 그림이 보여 주는 몸짓·자세 해설과 동작 이름. 다른 말이 있으면 빼고, 그것뿐이면 최근에 말하지 않았을 때만 둔다 (검수 011·013: 대사 10%가 자세 해설, "몸이 근질거려" 6번)
 _BODY = re.compile(r"꼬리|근질|찌뿌둥|꼼지락|발로 툭툭|(앉아|서|엎드려|엎드린 채로?) 있(어|잖|는데|으니|으려니|을게)|(조르기|짖기|엎드리기|앉기|서기) 시작")
 _SOUND = re.compile(r"^[\s,.!?~…]*((멍|왈|킁|헥|낑|끙|컹|깽|으르렁)+[\s,.!?~…]*)+$")

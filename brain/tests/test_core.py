@@ -675,3 +675,13 @@ async def test_goodnight_puts_the_dog_to_bed(make):
     assert all(j["picked"]["reaction"] not in ("bored", "sad") for j in picks)
     assert all(j["model"]["speak"] < 0.05 for j in picks)
     assert env.brain.dog.mood["졸림"] > sleepy + 0.1
+
+
+async def test_return_greeting_knows_where_the_owner_went(make):
+    env = await make(tuning=SPEAK)
+    await env.brain.handle_event("message", {"text": "편의점 다녀올게"})
+    await env.brain.drain()
+    env.clock.t += 1800
+    await env.brain.handle_event("returned", {"away_seconds": 1800})
+    await env.brain.drain()
+    assert "편의점 다녀올게" in env.talker.calls[-1][1] and "되묻지" in env.talker.calls[-1][1]

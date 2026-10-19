@@ -321,3 +321,21 @@ def test_trim_leaves_no_stray_punctuation_after_stock_opening():
     assert trim_line("드디어! 신나게 달려볼까? 멍!") == "신나게 달려볼까? 멍!"
     assert trim_line("우와, 드디어! 왔네") == "우와, 왔네"
     assert trim_line("!! 왈, 설레!") == "왈, 설레!"
+
+
+def test_departure_fact_remembers_where_the_owner_went():
+    # 검수 015: "편의점 다녀올게" 뒤 30분 비우고 돌아오니 "어디 갔다 이제야 온 거야?"(5번 중 3번)
+    from brain.persona import departure_fact
+    back = 10_000.0
+    msgs = [(back - 1800 - 3000, "오늘 바쁘다"), (back - 1800 - 5, "편의점 다녀올게")]
+    f = departure_fact(msgs, back, 1800)
+    assert "편의점 다녀올게" in f and "되묻지" in f and "오늘 바쁘다" not in f
+    assert departure_fact([(back - 1800 - 3000, "오늘 바쁘다")], back, 1800) is None   # 떠나기 10분 안에 한 말만
+    assert departure_fact(msgs, back, 0) is None
+
+
+def test_trim_drops_neck_and_eye_waiting_cliches():
+    # 검수 015: 금지어 "목 빠지"가 "목 빠질 뻔했어"·"눈 빠질 뻔했어"를 못 걸렀다
+    from brain.persona import trim_line
+    assert trim_line("기다리느라 목 빠질 뻔했어! 뭐 사 왔어?") == "뭐 사 왔어?"
+    assert trim_line("눈 빠지게 기다렸어. 왔구나!") == "왔구나!"
