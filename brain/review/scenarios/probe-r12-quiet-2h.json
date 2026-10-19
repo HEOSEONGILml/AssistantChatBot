@@ -1,0 +1,7 @@
+{"name": "probe-r12-quiet-2h", "description": "평균 강아지 곁에서 말없이 2시간 일함(오후): 먼저 말 거는 빈도, 대꾸 없을 때 줄어드나, 혼잣말 반복",
+ "personality": "평균", "seed": 123, "start": "2026-10-26T14:00",
+ "steps": [
+  {"say": "오늘 일 많다"},
+  {"wait": 7200},
+  {"get_state": true}
+ ]}
