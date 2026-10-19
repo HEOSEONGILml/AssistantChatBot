@@ -12,6 +12,7 @@ from datetime import datetime
 
 from brain import model
 from brain.core import USER_KINDS
+from brain.persona import owner_upset
 from brain.clients import Readout
 from brain.tuning import BASELINE_RANGE, BIRTH_BASELINE, MOODS, Tuning
 
@@ -109,7 +110,7 @@ class World:
         if kind != "dog_spoke":  # 자기 말 뒤에는 동작을 고르지 않는다 (검수 011)
             self.stats.actions[a] = self.stats.actions.get(a, 0) + 1
         asked = kind == "message" and self.rng.random() < P_ASK
-        hurting = kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
+        hurting = kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush) or deltas.signal.get("시무룩", 0.0) >= 0.05)
         asked = asked or (kind == "message" and rd.soothe >= 0.5)
         p = model.chain_probability(dog, self.streak, t, self.unanswered if self.flow == "quiet" else 0) if kind == "dog_spoke" else \
             0.0 if kind == "typing" and self.interjected else \

@@ -251,3 +251,25 @@ def test_command_fact_says_whether_the_dog_obeyed():
     assert "했다" in command_fact({"lie_down": 0.9, "none": 0.1}, "lie_down")
     assert command_fact({"none": 0.9, "sit": 0.1}, "sit") is None
     assert command_fact({}, "sit") is None
+
+
+# ---- 검수 012 묶음 3: 주인 말의 뜻을 사실로 준다 ----
+
+
+def test_space_request_is_not_read_as_upset():
+    # "아 아니다 됐어 신경 쓰지 마": 속상함 0.48~0.53, 조용히 0.58~0.67 → "말하기 어려우면 곁에 있을게"(위로)였다
+    from brain.persona import owner_upset, space_fact
+    assert not owner_upset(0.53, 0.17, 0.67)
+    assert owner_upset(0.89, 0.06, 0.06)          # "오늘 회의 너무 힘들었어"
+    assert owner_upset(0.85, 0.05, 0.7)           # 힘들어서 혼자 있고 싶다: 속상한 것은 맞다
+    assert space_fact(0.61) and "자러" in space_fact(0.61)   # "일 좀 할게" → "벌써 자려는 거야?"였다
+    assert space_fact(0.2) is None
+
+
+def test_trim_drops_things_the_dog_never_did_or_has():
+    from brain.persona import trim_line
+    assert trim_line("나는 방금 먹고 왔어! 너는 뭐 먹었어?") == "너는 뭐 먹었어?"
+    assert trim_line("집 안에서 문밖만 보고 있었어. 나왔다, 멍!") == "나왔다, 멍!"
+    assert trim_line("내가 좋아하는 장난감으로 놀자. 심심해!") == "심심해!"
+    assert trim_line("얼른 문 열어 줘! 왈!") == "왈!"
+    assert trim_line("무슨 문제 있어? 질문해도 돼") == "무슨 문제 있어? 질문해도 돼"

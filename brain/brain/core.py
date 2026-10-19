@@ -11,7 +11,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import annotate_dates, command_fact, date_facts, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import annotate_dates, command_fact, date_facts, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -271,7 +271,7 @@ class Brain:
             text = str(last.data.get("text", ""))
             # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
             asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
-            hurting = last.kind == "message" and rd.soothe < 0.5 and (rd.user_down >= 0.5 or deltas.signal.get("시무룩", 0.0) >= 0.05)
+            hurting = last.kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush) or deltas.signal.get("시무룩", 0.0) >= 0.05)
             asked = asked or (last.kind == "message" and rd.soothe >= 0.5)  # 사과는 받아 준다 (검수 010)
             ignored = self._unanswered if self._flow not in ("message", "typing") else 0
             p_speak = model.chain_probability(dog, self._streak, t, ignored, now < self._hush_until) if kinds[-1] == "dog_spoke" else \
@@ -318,9 +318,9 @@ class Brain:
                 said_now = talk[-1].data.get("text", "") if talk and talk[-1].kind == "message" else ""
                 facts.append(f"주인이 방금 '{said_now}'라고 했다. 이것은 주인 자신의 일이다. 주인이 이미 했다고 한 일은 했느냐고 되묻지 않는다. "
                              "나는 먹거나 마시거나 냄새 맡지 않았다")
-                obeyed = command_fact(rd.command, action)
-                if obeyed:
-                    facts.append(obeyed)
+                for f in (command_fact(rd.command, action), space_fact(rd.hush)):  # 주인 말의 뜻은 Jev가 읽은 것을 사실로 준다 (검수 012)
+                    if f:
+                        facts.append(f)
             facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
             if kinds[-1] == "message":  # 끼어들며 한 말도 내 말이다: 메시지에 답할 때 뒤집지 않는다 (검수 006)
                 said = [e.data["utterance"] for e in talk[:-1] if e.kind == "dog"]
@@ -333,7 +333,7 @@ class Brain:
                 heard = [e.data.get("text", "") for e in talk if e.kind == "message" and now - e.ts < 6 * 3600]
                 topic = self._rng.choice(quiet_topics(heard, _MOOD_KO.get(model.dominant_mood(dog, t), ""), model.ACTION_NAMES.get(action, "")))
             line = trim_line(await self._talker.say(system_instruction(), dialogue_prompt(state, reaction, action, kinds, own, now - last_user,
-                                                                                          conversation, v["지시"], rd.user_down >= 0.5 and rd.soothe < 0.5, facts,
+                                                                                          conversation, v["지시"], owner_upset(rd.user_down, rd.soothe, rd.hush), facts,
                                                                                           _MOOD_KO.get(model.dominant_mood(dog, t), ""),
                                                                                           frequent_phrases(lines40), topic)), v["문장 수"], lines40[-10:])
         except AuthError:

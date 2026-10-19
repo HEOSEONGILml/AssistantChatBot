@@ -152,6 +152,19 @@ def quiet_topics(user_lines: list[str], mood: str, action: str) -> list[str]:
     return topics or ["혼자 조용히 있는 지금"]
 
 
+def owner_upset(user_down: float, soothe: float, hush: float) -> bool:
+    """주인이 속상해 보이나. 사과·달램이거나, 혼자 있게 해 달라는 부탁인데 분명히 속상하지는 않으면 아니다 (검수 006·012)."""
+    return user_down >= 0.5 and soothe < 0.5 and not (hush >= 0.5 and user_down < 0.7)
+
+
+def space_fact(hush: float) -> str | None:
+    """혼자 있게 해 달라는 부탁의 뜻을 사실로 준다 (검수 012: "일 좀 할게" → "벌써 자려는 거야?", "됐어" → 위로)."""
+    if hush < 0.5:
+        return None
+    return ("주인은 지금 할 일이 있거나 잠깐 혼자 있고 싶어 한다. 떠나거나 자러 가는 게 아니고 화난 것도 아니다. "
+            "짧게 알겠다고 하고 캐묻거나 위로하지 않는다")
+
+
 def command_fact(command: dict[str, float], action: str) -> str | None:
     """주인이 시킨 동작을 했는지 사실로 준다 (검수 012: 앉아 놓고 "납작하게 배 깔고 있을게")."""
     asked, p = max(((a, v) for a, v in command.items() if a != "none"), key=lambda x: x[1], default=("none", 0.0))
@@ -207,7 +220,8 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
 
-_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지")
+# 검수 012: 하지 않은 일·없는 물건("방금 먹고 왔어", "문밖만 보고", "장난감으로", "문 열어 줘"). '문제'·'질문'은 걸리지 않게 문 뒤를 본다
+_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠지|장난감|먹고 왔|(?<![가-힣])문(밖|앞|만| 앞| 밖| 열|을|이 )")
 _BODY = re.compile(r"꼬리")  # 그림이 보여 주는 몸짓. 최근에 말했으면 다시 말하지 않는다 (검수 011)
 _NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
 _STOCK_OPENING = re.compile(r"드디어\s*,?\s*")  # 어디에 있든 (검수 008: "우와, 드디어 왔네")
