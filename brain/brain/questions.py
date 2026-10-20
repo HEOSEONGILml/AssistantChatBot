@@ -30,7 +30,9 @@ CHANGE_TEXT["없음"] = "없음: 이 글로 강아지에게 특별한 기분이 
 QUESTIONS = {
     "action": Choice(instructions="이 강아지가 지금 할 동작은?", criteria=ACTION_TEXT),
     "speak": Noul(instructions=SPEAK_TEXT),
-    "change": Choice(instructions="사용자가 이번에 쓴 글이 강아지에게 어떤 기분을 일으키나?", criteria=CHANGE_TEXT),
+    # 지난 일(최근 기록의 모욕 등)을 다시 읽어 분노를 또 얹지 않게, 이 글이 새로 일으키는 기분만 묻는다 (2026-10-20 실측: "못생겼다" 뒤 사과에 분노 +0.13 → −0.10)
+    "change": Choice(instructions="사용자가 이번에 쓴 글이 강아지에게 새로 일으키는 기분은? 지난 일로 남아 있는 기분은 따로 계산되므로 여기서 다시 고르지 않는다. "
+                                  "지금 기분과 최근 기록은 빼고 이번 글의 내용만 본다", criteria=CHANGE_TEXT),
 }
 
 EVENT_NAMES = {"typing": "타이핑", "message": "메시지 보냄", "dog_spoke": "강아지 말이 화면에 뜸", "quiet": "조용함",

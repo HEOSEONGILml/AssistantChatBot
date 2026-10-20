@@ -79,7 +79,7 @@ class Tuning:
     # 녹화한 Jev 분포로 시뮬레이션해 맞춘 값 (docs/spikes/2026-10-15-simulation.md).
     # 질문 문구나 Jev 버전을 바꾸면 sim.record로 다시 녹화하고 sim.simulate --fit으로 다시 맞춘다
     kind_bias: dict = field(default_factory=lambda: {**{k: 0.0 for k in EVENT_KINDS},
-                                                     "typing": -0.87, "message": 1.7, "dog_spoke": -0.11, "quiet": -0.74})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
+                                                     "typing": -0.77, "message": 1.7, "dog_spoke": -0.11, "quiet": -0.73})  # dog_spoke는 쓰지 않는다(이어 말하기는 chain_*)
                                                      # 2026-10-20 단순화(0018~0020)로 말하기 보정 항이 빠져 다시 녹화하고 다시 맞췄다
     streak_penalty: float = 1.0
     # 이어 말하기(방금 한 말 뒤 한마디 더)는 우리 모형이 정한다: 갈수록 줄어든다 (검수 005: 실사용 2마디+ 44%)
