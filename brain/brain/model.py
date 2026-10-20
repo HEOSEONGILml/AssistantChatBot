@@ -185,7 +185,8 @@ def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:
     """화면에 보낼 만큼 경향이 바뀌었나 (사람이 움직임 차이를 느낄 만한 크기)."""
     if old is None or old.get("mood") != new.get("mood"):  # 평소 모습을 정하는 기분이 바뀌면 바로 보낸다
         return True
-    if any(abs(new["weights"][c] / old["weights"][c] - 1) > t.send_weight_ratio for c in MOVES):
+    # 나누지 않고 곱해 비교한다: 기분이 극단이면 반올림한 가중치가 0이 된다 (2026-10-20 웹 두뇌 오류)
+    if any(abs(new["weights"][c] - old["weights"][c]) > t.send_weight_ratio * old["weights"][c] for c in MOVES):
         return True
     return (abs(new["run"] - old["run"]) > t.send_run_delta
             or abs(new["idle_scale"] / old["idle_scale"] - 1) > t.send_idle_ratio)

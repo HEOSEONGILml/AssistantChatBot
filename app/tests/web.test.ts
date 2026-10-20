@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { brainUrls } from "../src/web/endpoint";
 import { newPresence, noteInput, setHidden, idleMs, AWAY_MS } from "../src/web/presence";
 import { loadPrefs, savePrefs, DEFAULT_PREFS } from "../src/web/prefs";
+import { retryAfterClose } from "../src/web/link";
 
 describe("brainUrls", () => {
   it("같은 출처의 /ws와 /token", () => {
@@ -51,5 +52,15 @@ describe("prefs", () => {
     const broken = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
     expect(loadPrefs(broken)).toEqual(DEFAULT_PREFS);
     expect(() => savePrefs(broken, DEFAULT_PREFS)).not.toThrow();
+  });
+});
+
+describe("retryAfterClose", () => {
+  it("다른 탭이 연결을 가져가면(4002) 다시 접속하지 않는다", () => {
+    expect(retryAfterClose(4002)).toBe(false);
+  });
+  it("그 밖의 끊김은 다시 접속한다", () => {
+    expect(retryAfterClose(1006)).toBe(true);
+    expect(retryAfterClose(1000)).toBe(true);
   });
 });

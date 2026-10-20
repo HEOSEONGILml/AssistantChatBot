@@ -131,3 +131,11 @@ def test_annoyed_dog_does_not_mostly_rest():
     dog = calm_avg()
     dog.mood["분노"] += 0.4
     assert share(model.movement(dog, T), ["rest", "sleep"]) < 0.5
+
+
+def test_changed_when_old_weight_rounded_to_zero():
+    """기분이 극단이면 가중치가 반올림돼 0이 된다. 0에서 나누지 않고 비교한다 (2026-10-20 웹 두뇌 오류)."""
+    a = model.movement(neutral(), T)
+    zero = {**a, "weights": {**a["weights"], "play": 0.0}}
+    assert model.movement_changed(zero, a, T)
+    assert not model.movement_changed(zero, zero, T)

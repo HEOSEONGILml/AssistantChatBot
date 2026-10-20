@@ -115,7 +115,13 @@ async function main() {
     if (m.action) dog = playAction(dog, ACTION_TO_DOG[m.action], Date.now(), ACTION_MS);
     if (m.utterance) { say(m.utterance); sendEvent("dog_spoke", { text: m.utterance }); }
   };
-  const brain = connectWebBrain({ onMessage: onBrain, onOpen: () => {}, onClose: () => setStatus(null) });
+  const brain = connectWebBrain({
+    onMessage: onBrain, onOpen: () => {},
+    onClose: (replaced) => {
+      setStatus(null);
+      if (replaced) { $("ai-state").textContent = "다른 탭에서 열려 있음. 새로고침하면 이 탭으로 옮겨 온다"; say("다른 탭으로 갔어! 새로고침하면 돌아올게"); }
+    },
+  });
   setStatus(null);
 
   let lastEventAt = Date.now();
