@@ -1,8 +1,10 @@
 /* 웹 프로토타입: 브라우저 창 안이 강아지의 세계다 (PC 앱은 투명 창) */
 body.web { background: linear-gradient(#eaf4ff, #f7f3e8); font: 14px "Segoe UI", "Malgun Gothic", sans-serif; }
-#talkbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px; background: rgba(255, 255, 255, 0.9); border-top: 1px solid #ccc; }
+/* 입력창은 PC(input.html)처럼 집 위에 작게 뜬다. 위치·너비는 main.ts layout()이 정한다 */
+#talkbar { position: fixed; }
 #talkbar[hidden] { display: none; }
-#talk { box-sizing: border-box; width: 100%; padding: 8px 10px; font: inherit; border: 1px solid #999; border-radius: 6px; }
+#talk { box-sizing: border-box; width: 100%; height: 56px; padding: 0 14px; border: 3px solid #222;
+  background: #fffdf5; font: 16px "Malgun Gothic", sans-serif; outline: none; }
 #panel { position: fixed; top: 16px; right: 16px; width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
   background: #fff; border: 1px solid #bbb; border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15); }
 #panel[hidden] { display: none; }

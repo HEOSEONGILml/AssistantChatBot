@@ -44,7 +44,7 @@ flowchart LR
 | 구성 요소 | 맡는 일 | 위치 |
 |---|---|---|
 | 화면 | 강아지 그리기, 입력·클릭·창 감지, 이벤트 판정, 평소 행동 뽑기, 입력창·설정 창 | `app/` (Tauri: Rust + TypeScript) |
-| 웹 화면 (프로토타입) | 같은 몸 로직을 브라우저 창 안에서. 창 위 올라앉기·단축키·트레이 없음, 입력줄과 설정 패널은 페이지 안 | `app/web.html`, `app/src/web/` |
+| 웹 화면 (프로토타입) | 같은 몸 로직을 브라우저 창 안에서. 창 위 올라앉기·단축키·트레이 없음, 입력창(집 위에 작게)과 설정 패널은 페이지 안 | `app/web.html`, `app/src/web/` |
 | 두뇌 | 강아지 상태, 판단, 기분 시계, 이벤트 기록, API 키 보관 | `brain/` (파이썬, WebSocket 서버) |
 | Jev | 상황에 대한 판단 분포(선택지 확률, 예/아니오 확률). 대사는 쓰지 않는다 | TypeSafe System One ([요약](docs/references/typesafe-jev.md)) |
 | Gemini | 대사 한마디 | `gemini-3.1-flash-lite` ([0007](docs/decisions/0007-dialogue-llm.md)) |

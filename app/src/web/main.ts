@@ -23,6 +23,7 @@ const bubbleEl = $("bubble");
 const talkbar = $("talkbar"), talk = $<HTMLInputElement>("talk"), panel = $("panel");
 
 const HOUSE_SCALE = 3, ICON_GAP = 10, BUBBLE_GAP = 10, MARGIN = 16;
+const TALK_W = 380, TALK_GAP = 8; // PC 입력창(tauri.conf.json input 380×56)처럼 집 위에 작게 뜬다
 const ACTION_MS = 2500, WALK_SPEED = 70, RUN_SPEED = 180, PET_MS = 2000; // character.ts와 같은 값
 const DRAG_START_PX = 6, THROW_SAMPLE_MS = 80;
 
@@ -61,17 +62,22 @@ async function main() {
   const houseW = HOUSE_PX.width * HOUSE_SCALE, houseH = HOUSE_PX.height * HOUSE_SCALE;
   const chatW = CHAT_PX.width * HOUSE_SCALE, chatH = CHAT_PX.height * HOUSE_SCALE;
   const gearW = GEAR_PX.width * HOUSE_SCALE, gearH = GEAR_PX.height * HOUSE_SCALE;
-  // 세계 = 브라우저 창. 아래 입력줄이 열려 있으면 그만큼 위까지
+  // 세계 = 브라우저 창. 입력창은 집 위에 떠 있어 세계를 줄이지 않는다
   let houseBox: Box, chatBox: Box, gearBox: Box, world: World;
   const layout = () => {
     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     ctx.imageSmoothingEnabled = false;
-    const h = window.innerHeight - (talkbar.hidden ? 0 : talkbar.offsetHeight);
+    const h = window.innerHeight;
     houseBox = { left: window.innerWidth - houseW - 40, top: h - houseH - MARGIN, width: houseW, height: houseH };
     chatBox = { left: houseBox.left - chatW - ICON_GAP, top: h - chatH - MARGIN - 4, width: chatW, height: chatH };
     gearBox = { left: chatBox.left - gearW - ICON_GAP, top: h - gearH - MARGIN - 4, width: gearW, height: gearH };
     world = { width: window.innerWidth, height: h - MARGIN, dogWidth: dogW, dogHeight: dogH,
       houseX: houseBox.left + houseW / 2 - dogW / 2, houseY: h - MARGIN - dogH, walkSpeed: WALK_SPEED, runSpeed: RUN_SPEED };
+    // 입력창: 집 오른쪽 끝에 맞춰 집 위에 (PC placeAbove와 같은 규칙), 화면 밖으로 나가지 않게
+    const talkW = Math.min(TALK_W, window.innerWidth - 2 * MARGIN);
+    talkbar.style.width = `${talkW}px`;
+    talkbar.style.left = `${Math.max(MARGIN, houseBox.left + houseW - talkW)}px`;
+    talkbar.style.bottom = `${h - houseBox.top + TALK_GAP}px`;
   };
   layout();
   window.addEventListener("resize", layout);
@@ -122,7 +128,6 @@ async function main() {
   // ---- 집, 입력줄, 설정 패널 ----
   const showTalk = (on: boolean) => {
     talkbar.hidden = !on;
-    layout();
     if (on) talk.focus();
   };
   const doToggleHouse = () => {
