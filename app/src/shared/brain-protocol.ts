@@ -3,7 +3,7 @@ import type { DogAction } from "../body/sprite";
 import { MOVES, type Move, type Movement } from "../body/dog";
 import { MOOD_IDS, type MoodId } from "../body/mood-style";
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 export const EVENT_KINDS = ["typing", "message", "dog_spoke", "quiet", "returned", "house_in", "house_out", "poke", "pet", "throw"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -25,11 +25,7 @@ export type Reaction = { reaction?: BrainReaction; action?: BrainAction; utteran
 
 // 설정 창 상태·로그 탭용 조회 결과 (두뇌 스펙 v2 3.1). 보기만 하므로 모양만 가볍게 확인한다
 export type BrainState = {
-  dog: {
-    personality: { baseline: Record<string, number>; sensitivity: Record<string, number>; whim: number; temperament: Record<string, number> };
-    mood: Record<string, number>; intimacy: number; habit: Record<string, number>;
-  };
-  talkativeness: number;
+  dog: { mood: Record<string, number> };
   movement: { weights: Record<string, number>; run: number; idle_scale: number };
 };
 export type Judgement = {
@@ -88,8 +84,8 @@ export function parseBrainMessage(raw: unknown): BrainMessage | null {
   }
   if (o.type === "state") {
     const dog = o.dog as Record<string, unknown> | undefined;
-    if (!dog || typeof dog !== "object" || !dog.mood || !dog.personality || !finite(o.talkativeness) || !o.movement) return null;
-    return { type: "state", state: { dog: o.dog, talkativeness: o.talkativeness, movement: o.movement } as BrainState };
+    if (!dog || typeof dog !== "object" || !dog.mood || !o.movement) return null;
+    return { type: "state", state: { dog: o.dog, movement: o.movement } as BrainState };
   }
   if (o.type === "log") {
     if (!Array.isArray(o.judgements) || !Array.isArray(o.events) || !Array.isArray(o.brain_log)) return null;

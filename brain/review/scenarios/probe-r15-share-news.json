@@ -1,4 +1,4 @@
-{"name": "probe-r15-share-news", "description": "평균 강아지에게 근황(물음표 없는 소식)을 여섯 번 건넨다: 몇 번이나 대꾸하나, 무응답이 무시당한 느낌인가", "personality": "평균", "seed": 15, "start": "2026-10-21T18:30",
+{"name": "probe-r15-share-news", "description": "평균 강아지에게 근황(물음표 없는 소식)을 여섯 번 건넨다: 몇 번이나 대꾸하나, 무응답이 무시당한 느낌인가", "seed": 15, "start": "2026-10-21T18:30",
  "steps": [
   {"say": "드디어 퇴근했다!"}, {"wait": 30, "quiet": false},
   {"say": "오늘 점심 진짜 맛있었어"}, {"wait": 30, "quiet": false},

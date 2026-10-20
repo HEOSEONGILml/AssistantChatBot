@@ -206,7 +206,7 @@ async function main() {
     msg.textContent = brain.send({ type: "clear_history" }) ? "대화 기록을 지웠습니다." : "두뇌에 연결되지 않아 지우지 못했어요";
   });
   $("reset").addEventListener("click", () => {
-    if (!confirm("강아지를 초기화할까요? 성격·기분·친밀도와 대화 기록이 모두 사라지고 새 강아지가 태어나요.")) return;
+    if (!confirm("강아지를 초기화할까요? 기분과 대화 기록이 모두 사라지고 처음 상태로 돌아가요.")) return;
     msg.textContent = brain.send({ type: "reset" }) ? "새 강아지가 태어났습니다." : "두뇌에 연결되지 않아 초기화하지 못했어요";
   });
 

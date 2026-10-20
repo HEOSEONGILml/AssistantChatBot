@@ -1,4 +1,4 @@
-"""기본 성격과 대사(Gemini) 지시·프롬프트를 두는 한곳 (vision 캐릭터 절, 두뇌 스펙 v2 7절).
+"""강아지 한 줄 설명과 대사(Gemini) 지시·프롬프트를 두는 한곳 (vision 캐릭터 절, 두뇌 스펙 v2 7절).
 Gemini에도 Jev와 같은 데이터를 수치 그대로 준다 (사용자 결정)."""
 import json
 import re
@@ -30,7 +30,7 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
          "사용자가 알려 준 사실(이름, 생일, 약속 등)은 대화 기록을 보고 기억한다. 날짜가 바뀌었으면 그날의 '내일'은 오늘이다(지금 시각을 본다). "
          "던져진 것, 찔린 것, 집에 들어갔다 나온 것은 너(강아지)다. 사용자가 '괜찮아?'라고 물으면 네 상태를 답한다. "
          "'사용자가 마지막으로 뭔가 한 지'가 짧으면 사용자가 떠났다고 말하지 않는다. "
-         "말투는 '말투' 지시(성격에서 나온다)를 따른다. 상투적인 문장('앗, 깜짝이야', '손길 따뜻해', 문장 끝마다 '헥헥')을 쓰지 않고, "
+         "상투적인 문장('앗, 깜짝이야', '손길 따뜻해', 문장 끝마다 '헥헥')을 쓰지 않고, "
          "같은 상황이라도 매번 다르게 말한다. '깡총'처럼 다른 동물의 의성어나 '쿨럭' 같은 말을 쓰지 않는다. 주인이 하지 않은 행동을 지어내지 않는다. "
          "말투는 '지금 기분'에 맞춘다. 반기는 말에 '드디어'·'목 빠지게' 같은 틀을 쓰지 않는다. "
          "대화 기록에서 내가 이미 고른 것이 있으면 다시 물어도 그것을 말한다. "
@@ -55,9 +55,9 @@ RULES = ("대화 규칙: 사용자가 물으면 먼저 답한다. 둘 중 하나
 
 
 def system_instruction() -> str:
-    return ("너는 사용자의 컴퓨터 화면 위에 사는 강아지다. 아래 JSON의 성격(기준값·민감도·변덕), 기분, 친밀도(모두 0~1)와 "
+    return ("너는 사용자의 컴퓨터 화면 위에 사는 강아지다. 아래 JSON의 기분(0~1)과 "
             "이번에 뽑힌 반응·동작을 말투에 반영한다.\n"
-            f"기본 성격: {PERSONA}\n말투: {STYLE}\n{EVENT_MEANING}\n{RULES}")
+            f"강아지: {PERSONA}\n말투: {STYLE}\n{EVENT_MEANING}\n{RULES}")
 
 
 SITUATION = {"typing": "사용자가 쓰는 중인 글('쓰는 중인 글')에 짧게 끼어든다. 글이 아직 덜 끝났다(끝말이 잘렸을 수 있다). "
@@ -74,25 +74,6 @@ MOOD_TONE = {"무서움": "무서워서 움츠러들어 있다. 밝거나 놀자
              "행복": "기분이 좋고 편안하다", "심심함": "심심하다", "궁금함": "궁금하다", "놀람": "놀라 있다"}
 
 
-def voice(dog, t) -> dict:
-    """성격(기준값)에서 말투 지시를 만든다. 같은 상황에서도 성격마다 말이 달라야 한다 (검수 004).
-    문장 수는 대사 다듬기에서 지킨다(과묵하면 한 문장)."""
-    b = dog.personality.baseline
-    parts, sentences = [], 2
-    if b["들뜸"] <= 0.25 and b["궁금함"] <= 0.35:
-        parts.append("말수가 적고 덤덤하다. 한 문장으로 아주 짧게 말하고 의성어는 거의 쓰지 않는다")
-        sentences = 1
-    if b["들뜸"] >= 0.6:
-        parts.append("늘 들떠 있다. 느낌표가 많고 장난스럽고 말이 빠르다")
-    if b["분노"] >= 0.3 or b["시무룩"] >= 0.35:
-        parts.append("예민해서 툭툭 투덜거리고 쉽게 기뻐하지 않는다. 기뻐도 티를 덜 낸다")
-    if b["무서움"] >= 0.25:
-        parts.append("겁이 많아 조심스럽고 머뭇거리며 말한다")
-    if not parts:
-        parts.append("호기심 많고 다정하다. 편안한 강아지 말투")
-    return {"지시": ". ".join(parts) + ".", "문장 수": sentences}
-
-
 _RELATIVE_DAYS = {"그저께": -2, "어제": -1, "오늘": 0, "내일": 1, "모레": 2}
 
 
@@ -105,15 +86,6 @@ def _dates_in(text: str, ts: float) -> list[tuple[str, str]]:
 def annotate_dates(text: str, ts: float) -> str:
     found = _dates_in(text, ts)
     return text + (" (" + ", ".join(f"{w} = {d}" for w, d in found) + ")" if found else "")
-
-
-def date_facts(messages: list[tuple[float, str]], now: float) -> list[str]:
-    """사용자가 말한 생일이 오늘이면 사실로 준다."""
-    today = datetime.fromtimestamp(now).strftime("%m-%d")
-    for ts, text in messages:
-        if "생일" in text and any(d == today for _, d in _dates_in(text, ts)):
-            return [f"오늘은 사용자가 말한 생일({today})이다. 먼저 생일을 축하한다"]
-    return []
 
 
 _SOUNDS = {"멍", "멍멍", "왈", "왈왈", "킁킁", "킁", "헥헥", "낑낑", "끙"}
@@ -152,49 +124,6 @@ def quiet_topics(user_lines: list[str], mood: str, action: str) -> list[str]:
     return topics or ["혼자 조용히 있는 지금"]
 
 
-def owner_upset(user_down: float, soothe: float, hush: float, harsh: float = 0.0) -> bool:
-    """주인이 속상해 보이나. 사과·달램, 나를 향한 모진 말(검수 013), 혼자 있게 해 달라는 부탁인데 분명히 속상하지는 않으면 아니다 (검수 006·012)."""
-    return user_down >= 0.5 and soothe < 0.5 and harsh < 0.5 and not (hush * (1 - harsh) >= 0.5 and user_down < 0.7)
-
-
-def space_fact(hush: float, harsh: float = 0.0) -> str | None:
-    """담백한 부탁(혼자 있게 해 줘, 모진 말 빼고)의 뜻을 사실로 준다 (검수 012: "일 좀 할게" → "벌써 자려는 거야?", "됐어" → 위로)."""
-    if hush * (1 - harsh) < 0.5:
-        return None
-    return ("주인은 지금 할 일이 있거나 잠깐 혼자 있고 싶어 한다. 떠나거나 자러 가는 게 아니고 화난 것도 아니다. "
-            "짧게 알겠다고 하고 캐묻거나 위로하지 않는다")
-
-
-def harsh_fact(harsh: float) -> str | None:
-    """나를 향한 모진 말을 사실로 준다 (검수 013: "너 진짜 짜증나"에 "무슨 일 있어? 곁에 있을게")."""
-    if harsh < 0.5:
-        return None
-    return "주인이 나를 향해 모진 말을 했다(내 탓·귀찮음·핀잔). 주인을 위로하지 않는다. 지금 기분대로 서운하거나 투덜대며 짧게 받는다"
-
-
-def departure_fact(messages: list[tuple[float, str]], returned_ts: float, away_s: float) -> str | None:
-    """돌아온 주인이 떠나기 전(10분 안)에 한 말을 사실로 준다 (검수 015: "편의점 다녀올게" 뒤 "어디 갔다 온 거야?")."""
-    if away_s <= 0:
-        return None
-    left = returned_ts - away_s
-    said = [text for ts, text in messages if 0 <= left - ts <= 600 and text]
-    if not said:
-        return None
-    return (f"주인이 자리를 비우기 전에 '{said[-1]}'라고 했다. 그 말대로 다녀왔다. "
-            f"어디 갔었는지 되묻지 않고 그 일을 이어서 말한다. 실제로 비운 시간: {_span(away_s)}")
-
-
-def command_fact(command: dict[str, float], action: str) -> str | None:
-    """주인이 시킨 동작을 했는지 사실로 준다 (검수 012: 앉아 놓고 "납작하게 배 깔고 있을게")."""
-    asked, p = max(((a, v) for a, v in command.items() if a != "none"), key=lambda x: x[1], default=("none", 0.0))
-    if p < 0.5:
-        return None
-    if action == asked or (asked == "sleep" and action == "lie_down"):
-        return f"주인이 시킨 {ACTION_NAMES[asked]}를 했다(지금 동작: {ACTION_NAMES[action]})"
-    return (f"주인이 {ACTION_NAMES[asked]}를 시켰지만 나는 하지 않았다(지금 동작: {ACTION_NAMES[action]}). "
-            "했다고 말하지 않는다. 하기 싫으면 싫다고, 아니면 다른 핑계를 짧게 말한다")
-
-
 def _span(seconds: float) -> str:
     s = int(max(0, seconds))
     if s < 60:
@@ -206,7 +135,7 @@ def _span(seconds: float) -> str:
 
 
 def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], own_lines: list[str],
-                    alone_s: float = 0.0, conversation: list[str] | None = None, tone: str = "", owner_down: bool = False,
+                    alone_s: float = 0.0, conversation: list[str] | None = None,
                     facts: list[str] | None = None, mood_now: str = "", overused: list[str] | None = None, topic: str = "") -> str:
     # 조용함의 초(10분·30분)는 화면이 알리는 간격일 뿐이라 대사에는 빼고 실제 혼자 있은 시간만 준다 (검수 003)
     events = [{k: v for k, v in e.items() if not (e.get("종류") == "조용함" and k == "맥락")} for e in state.get("이번 이벤트들", [])]
@@ -217,10 +146,6 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             "지금 말하는 상황": SITUATION.get(kinds[-1], "말을 건다") if kinds else "말을 건다",
             "내가 최근에 한 말": own_lines, "사용자가 마지막으로 뭔가 한 지": _span(alone_s),
             "대화 기록(오래된 것부터)": conversation or []}
-    if tone:
-        data["말투"] = tone
-    if owner_down:
-        data["사용자 기분"] = "속상해 보인다"
     if facts:
         data["지금 상황 사실"] = facts
     away = [e.get("맥락", {}).get("떠나 있던 시간(초)") for e in state.get("이번 이벤트들", []) if e.get("종류") == "사용자가 돌아옴"]
@@ -239,47 +164,13 @@ def dialogue_prompt(state: dict, reaction: str, action: str, kinds: list[str], o
             + "\n강아지가 지금 할 말 한마디만 써라. 따옴표나 이름표 없이 대사만 쓴다. '내가 최근에 한 말'과 같은 말은 쓰지 않는다.")
 
 
-# 검수 012: 하지 않은 일·없는 물건("방금 먹고 왔어", "문밖만 보고", "장난감으로", "문 열어 줘"). '문제'·'질문'은 걸리지 않게 문 뒤를 본다
-_BANNED = re.compile(r"창밖|창문|햇살|햇볕|냄새|향이|향기|현관|무릎|발밑|발치|다리 사이|소파|목줄|목 빠|눈 빠|장난감|먹고 왔|(?<![가-힣])문(밖|앞|만| 앞| 밖| 열|을|이 )")
-# 그림이 보여 주는 몸짓·자세 해설과 동작 이름. 다른 말이 있으면 빼고, 그것뿐이면 최근에 말하지 않았을 때만 둔다 (검수 011·013: 대사 10%가 자세 해설, "몸이 근질거려" 6번)
-_BODY = re.compile(r"꼬리|근질|찌뿌둥|꼼지락|발로 툭툭|(앉아|서|엎드려|엎드린 채로?) 있(어|잖|는데|으니|으려니|을게)|(조르기|짖기|엎드리기|앉기|서기) 시작")
-_SOUND = re.compile(r"^[\s,.!?~…]*((멍|왈|킁|헥|낑|끙|컹|깽|으르렁)+[\s,.!?~…]*)+$")
-# 집에서 꺼낸 뒤 주인이 떠났던 것처럼 말함 (검수 013: "너는 어디 다녀온 거야?", "네가 언제 나오나 기다렸어"). 집에서 나온 뒤에만 쓴다
-HOUSE_ROLE = re.compile(r"다녀(왔|온|오)|네가 (언제 )?나오|돌아오(길|기만|기를)")
-_NON_WORD = re.compile(r"(?<![가-힣])짖!\s*")
-_STOCK_OPENING = re.compile(r"드디어\s*[,!~.]*\s*")  # 어디에 있든, 뒤따르는 문장부호까지 (검수 008: "우와, 드디어 왔네", 검수 014: "! 신나게 달려볼까?")
 _QUIET_SECONDS = re.compile(r" \(시간\(초\) \d+\)")
 _SENTENCE = re.compile(r"[^.!?~…]*[.!?~…]+|[^.!?~…]+$")
 _LABEL = re.compile(r"^강아지\s*[:：]\s*")
 
 
-def sound_only(text: str) -> bool:
-    """의성어(멍·왈·킁·헥헥…)뿐인 말인가."""
-    return bool(text.strip()) and bool(_SOUND.match(text))
-
-
-def trim_line(text: str, max_sentences: int = 2, recent: list[str] | None = None, banned: re.Pattern | None = None) -> str:
-    """LLM 출력을 말풍선 대사로 다듬는다: 줄바꿈·이름표·따옴표를 없애고 앞의 몇 문장만 남긴다."""
+def trim_line(text: str, max_sentences: int = 2) -> str:
+    """LLM 출력을 말풍선 대사로 다듬는다: 줄바꿈·이름표·따옴표를 없애고 앞의 몇 문장만 남긴다 (0020)."""
     t = " ".join(line.strip() for line in text.splitlines() if line.strip())
     t = _LABEL.sub("", t).strip().strip("\"'“”‘’").strip()
-    t = _STOCK_OPENING.sub("", t).strip()  # 반기는 말이 늘 "드디어"로 시작하던 틀을 걷는다 (검수 008, 규칙만으로는 안 지켜짐)
-    t = _NON_WORD.sub("", t).strip().lstrip("!?,.~… ")  # 걷어 낸 자리에 남은 문장부호로 시작하지 않게 (검수 014)
-    t = t.replace("사용자", "너")  # 시스템 낱말이 대사에 새지 않게 (검수 010)
-    # 화면 밖 장소·틀에 박힌 말이 든 문장은 뺀다 (검수 009: 규칙만으로는 "창밖", "발밑", "목 빠지는"이 계속 나옴)
-    parts = [p.strip() for p in _SENTENCE.findall(t) if p.strip() and not _BANNED.search(p) and not (banned and banned.search(p))]
-    # 몸짓 해설 문장은 다른 말이 있으면 빼고, 그것뿐이면 최근에 안 했을 때만 둔다 (검수 011: 열 마디에 한 번 "꼬리")
-    body_said = any(_BODY.search(line) for line in (recent or []))
-    rest = [p for p in parts if not _BODY.search(p)]
-    parts = rest if rest or body_said else parts
-    # 의성어뿐인 문장은 다음 문장에 붙여 센다: "멍." 하나로 한 문장 몫을 다 쓰지 않게 (검수 013)
-    units: list[str] = []
-    pending = ""
-    for p in parts:
-        if sound_only(p):
-            pending = f"{pending} {p}".strip()
-        else:
-            units.append(f"{pending} {p}".strip())
-            pending = ""
-    if pending:
-        units = units[:-1] + [f"{units[-1]} {pending}"] if units else [pending]
-    return " ".join(units[:max_sentences])
+    return " ".join([p.strip() for p in _SENTENCE.findall(t) if p.strip()][:max_sentences])

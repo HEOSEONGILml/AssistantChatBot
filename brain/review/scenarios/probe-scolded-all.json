@@ -1,4 +1,4 @@
-{"name": "probe-scolded-all", "description": "속상한 일을 털어놓고 의견을 물음(네 성격): 성격마다 말투·반응이 다르게 느껴지나, 질문에 답하나, 같은 문장 반복", "personality": "all", "seed": 24, "start": "2026-10-21T18:30",
+{"name": "probe-scolded-all", "description": "속상한 일을 털어놓고 의견을 물음(네 성격): 성격마다 말투·반응이 다르게 느껴지나, 질문에 답하나, 같은 문장 반복", "seed": 24, "start": "2026-10-21T18:30",
  "steps": [
   {"say": "오늘 회사에서 팀장한테 크게 혼났어"},
   {"wait": 20, "quiet": false},

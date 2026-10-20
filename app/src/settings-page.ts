@@ -54,9 +54,9 @@ $("clear-history").addEventListener("click", async () => {
   msg.textContent = "대화 기록을 지웠습니다.";
 });
 
-// 초기화: 강아지가 새 성격으로 다시 태어나고 기록도 지운다. 앱 설정과 API 키는 남는다
+// 초기화: 강아지 기분을 처음으로 되돌리고 기록도 지운다. 앱 설정과 API 키는 남는다
 $("reset").addEventListener("click", async () => {
-  if (!confirm("강아지를 초기화할까요? 지금 강아지의 성격·기분·친밀도와 대화 기록이 모두 사라지고 새 강아지가 태어나요. 되돌릴 수 없어요.")) return;
+  if (!confirm("강아지를 초기화할까요? 지금 강아지의 기분과 대화 기록이 모두 사라지고 처음 상태로 돌아가요. 되돌릴 수 없어요.")) return;
   if (aiStatus === null) { msg.textContent = "두뇌에 연결되지 않아 초기화하지 못했어요"; return; }
   await emit("brain-reset");
   msg.textContent = "새 강아지가 태어났습니다.";

@@ -68,8 +68,8 @@ async def test_serves_page_and_token(site):
 async def test_websocket_from_same_origin_connects(site):
     port, link = site
     async with connect(f"ws://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}") as ws:
-        await ws.send(json.dumps({"v": 3, "type": "hello", "token": "tok"}))
-        await ws.send(json.dumps({"v": 3, "type": "noop"}))  # 처리 순서상 hello 뒤에 온다
+        await ws.send(json.dumps({"v": 4, "type": "hello", "token": "tok"}))
+        await ws.send(json.dumps({"v": 4, "type": "noop"}))  # 처리 순서상 hello 뒤에 온다
         await ws.close()
     assert link.brain.on[:1] == [True]
 

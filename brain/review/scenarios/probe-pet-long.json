@@ -1,5 +1,4 @@
-{"name": "probe-pet-long", "description": "1초 쓰다듬기와 20초 쓰다듬기의 크기 차이, 그리고 아주 살짝 던지기(충격 0.1)와 세게 던지기(0.95)의 차이: 크기가 자극에 비례하나",
- "personality": "평균", "seed": 24, "start": "2026-10-20T10:00",
+{"name": "probe-pet-long", "description": "1초 쓰다듬기와 20초 쓰다듬기의 크기 차이, 그리고 아주 살짝 던지기(충격 0.1)와 세게 던지기(0.95)의 차이: 크기가 자극에 비례하나", "seed": 24, "start": "2026-10-20T10:00",
  "steps": [
   {"event": "pet", "context": {"seconds": 1.0}},
   {"wait": 1200, "quiet": false},

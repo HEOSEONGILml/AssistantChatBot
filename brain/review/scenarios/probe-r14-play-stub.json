@@ -1,5 +1,4 @@
-{"name": "probe-r14-play-stub", "description": "놀자·반가움 말(네 성격): 대사가 '!'처럼 잘린 조각으로 시작하나(검수 014에서 '! 신나게 달려볼까?' 두 번)",
- "personality": "all", "seed": 142, "start": "2026-10-22T18:00",
+{"name": "probe-r14-play-stub", "description": "놀자·반가움 말(네 성격): 대사가 '!'처럼 잘린 조각으로 시작하나(검수 014에서 '! 신나게 달려볼까?' 두 번)", "seed": 142, "start": "2026-10-22T18:00",
  "steps": [
   {"say": "드디어 퇴근했다!"},
   {"wait": 20, "quiet": false},

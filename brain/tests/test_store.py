@@ -19,10 +19,10 @@ def test_persists_events_and_dog(tmp_path):
     db = tmp_path / "brain.db"
     s = Store(db)
     s.add(Event(1.0, "user", "poke", {}))
-    s.save_dog({"intimacy": 0.4})
+    s.save_dog({"mood": {"분노": 0.4}})
     again = Store(db)
     assert again.recent(5) == [Event(1.0, "user", "poke", {})]
-    assert again.load_dog() == {"intimacy": 0.4}
+    assert again.load_dog() == {"mood": {"분노": 0.4}}
 
 
 def test_no_dog_yet(tmp_path):

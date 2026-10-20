@@ -1,4 +1,4 @@
-{"name": "probe-away-long", "description": "낮에 8시간 자리 비움 뒤 돌아옴: 심심함이 1에 붙나, 서운함, 반기는 말, 먼저 말 걸기 빈도", "personality": "평균", "seed": 10, "start": "2026-10-20T09:00",
+{"name": "probe-away-long", "description": "낮에 8시간 자리 비움 뒤 돌아옴: 심심함이 1에 붙나, 서운함, 반기는 말, 먼저 말 걸기 빈도", "seed": 10, "start": "2026-10-20T09:00",
  "steps": [
   {"say": "다녀올게! 저녁에 봐"},
   {"wait": 28800, "away": true},

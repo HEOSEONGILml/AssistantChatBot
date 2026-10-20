@@ -1,4 +1,4 @@
-{"name": "probe-excited-mood", "description": "평균 강아지와 신나게 놀아 줌(돌아옴, 쓰다듬기, 놀자는 말): 들뜸이 두드러져 놀기·달리기가 눈에 띄게 늘었다가 10분 안팎에 가라앉나, 행복과 들뜸이 구분되나", "personality": "평균", "seed": 33, "start": "2026-10-22T16:00",
+{"name": "probe-excited-mood", "description": "평균 강아지와 신나게 놀아 줌(돌아옴, 쓰다듬기, 놀자는 말): 들뜸이 두드러져 놀기·달리기가 눈에 띄게 늘었다가 10분 안팎에 가라앉나, 행복과 들뜸이 구분되나", "seed": 33, "start": "2026-10-22T16:00",
  "steps": [
   {"event": "returned", "context": {"away_seconds": 7200}},
   {"say": "나 왔다! 우리 공놀이 하자!"},

@@ -13,10 +13,9 @@ def ev(kind, data=None, ago=0.0, source="user"):
 
 def test_question_vocabulary():
     q = questions.QUESTIONS
-    assert set(q) == {"action", "speak", "change", "user_down", "soothe", "hush", "command", "harsh"}  # 반응은 기분 변화에서 나온다. 사용자 속상함은 공감용 (검수 005)
+    assert set(q) == {"action", "speak", "change"}  # 의도·시킨 동작 질문은 없앴다 (0019)
     assert set(q["action"].criteria) == set(model.ACTIONS)
-    assert len(q["change"].criteria) == 21 and "변화없음" in q["change"].criteria and "무서움↑" in q["change"].criteria
-    assert "분노↑" in q["change"].criteria and "친밀도↓" in q["change"].criteria
+    assert set(q["change"].criteria) == {*MOODS, "없음"}  # 글이 일으키는 기분 9개 + 없음 (0019)
 
 
 def test_relative_time():
@@ -38,13 +37,12 @@ def test_log_lines():
 
 
 def test_jev_state_shape():
-    dog = model.default_dog(NOW)
+    dog = model.new_dog(NOW)
     dog.mood["분노"] = 0.123456
     state = questions.jev_state(dog, [ev("poke"), ev("poke")], [ev("message", {"text": "안녕"}, 60)], NOW)
-    assert set(state) == {"강아지 성격", "지금 시각", "이번 이벤트들", "최근 이벤트 기록", "기분", "친밀도"}
-    assert state["강아지 성격"]["기본 성격"] == persona.PERSONA
-    assert set(state["강아지 성격"]["기준값"]) == set(MOODS)
-    assert "변덕" in state["강아지 성격"] and "말수" not in state["강아지 성격"]
+    assert set(state) == {"강아지", "지금 시각", "이번 이벤트들", "최근 이벤트 기록", "기분"}
+    assert state["강아지"] == persona.PERSONA
+    assert set(state["기분"]) == set(MOODS)
     assert state["기분"]["분노"] == 0.12
     assert state["이번 이벤트들"] == [{"종류": "찌르기"}, {"종류": "찌르기"}]
     assert state["최근 이벤트 기록"] == ["1분 전 · 사용자: 안녕"]
@@ -63,7 +61,11 @@ def test_system_instruction_mentions_numbers_and_style():
 
 
 def test_trim_line():
-    assert persona.trim_line("멍! 뭐 해? 나도 볼래 멍멍.") == "멍! 뭐 해? 나도 볼래 멍멍."  # 의성어 문장은 다음 문장에 붙여 센다 (검수 013)
-    assert persona.trim_line("뭐 해? 나도 볼래. 같이 하자.") == "뭐 해? 나도 볼래."
+    # 다듬기는 줄바꿈·이름표·따옴표 정리와 앞의 두 문장만 (0020)
+    assert persona.trim_line("멍! 뭐 해? 나도 볼래 멍멍.") == "멍! 뭐 해?"
+    assert persona.trim_line("뭐 해?\n나도 볼래. 같이 하자.") == "뭐 해? 나도 볼래."
     assert persona.trim_line('강아지: "산책 가자 멍!"') == "산책 가자 멍!"
+    assert persona.trim_line("창밖 좀 봐! 멍.") == "창밖 좀 봐! 멍."  # 금지어 걸러내기는 없다
     assert persona.trim_line("  \n ") == ""
+
+

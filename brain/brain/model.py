@@ -1,12 +1,9 @@
-"""확률 모델 (두뇌 스펙 v2 4·6·6.5절). 화면·전송·저장을 모르는 순수 함수다. 시각과 난수는 인자로 받는다."""
+"""확률 모델 (두뇌 스펙 v2 4·6·6.5절, 단순화 스펙 15절). 화면·전송·저장을 모르는 순수 함수다. 시각과 난수는 인자로 받는다."""
 import math
-from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from dataclasses import asdict, dataclass
 
-from .tuning import (IDLE_BASELINE, RUN_BASELINE, RELATION_MOOD, CIRCADIAN, CIRCADIAN_PEAK_HOUR, ACTION_BASE, EVENT_ACTION, JEV_WEIGHT, JEV_WEIGHT_OTHER, OPPOSITES, appraisal, appraisal_intimacy, BASELINE_RANGE, BIRTH_BASELINE, BIRTH_SD, BIRTH_SENS, BIRTH_WHIM, HABIT_KINDS,
-                     IDLE_MOOD, INTIMACY_START, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_BASELINE,
-                     MOVE_INTIMACY, MOVE_MOOD, REACTION_ACTION, RUN_BASE, RUN_MOOD, SENS_RANGE, SENS_SD,
-                     TALK_BASELINE, TALK_MOOD, WHIM_SD, Tuning)
+from .tuning import (ACTION_BASE, EVENT_ACTION, IDLE_MOOD, MOOD_ACTION, MOOD_REACTION_ID, MOODS, MOVE_BASE, MOVE_MOOD,
+                     OPPOSITES, REACTION_ACTION, REST, RUN_BASE, RUN_MOOD, TEXT_KINDS, Tuning, appraisal)
 
 LN2 = math.log(2)
 
@@ -16,105 +13,25 @@ def clip(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 @dataclass
-class Personality:
-    baseline: dict[str, float]      # 기분마다 기준값: 아무 일 없을 때 돌아가는 값. 겪은 일로 천천히 변한다
-    sensitivity: dict[str, float]   # 기분마다 민감도: 같은 일에 움직이는 폭. 태어날 때 고정
-    whim: float                     # 변덕: 뽑기 온도. 태어날 때 고정
-    temperament: dict[str, float] = field(default_factory=dict)  # 타고난 기질: 태어날 때의 기준값. 기준값이 아주 약하게 되돌아가는 자리
-
-    def __post_init__(self):
-        if not self.temperament:  # 기질이 없던 예전 저장본은 지금 기준값을 기질로 본다
-            self.temperament = dict(self.baseline)
-
-
-@dataclass
 class Dog:
-    personality: Personality
-    mood: dict[str, float]
-    intimacy: float
+    mood: dict[str, float]          # 기분 9개 (0~1)
     updated_at: float
-    day: str                        # 기분 하루 평균을 모으는 날 (YYYY-MM-DD)
-    day_sum: dict[str, float] = field(default_factory=lambda: {d: 0.0 for d in MOODS})
-    day_count: int = 0
-    habit: dict[str, float] = field(default_factory=lambda: {k: 0.0 for k in HABIT_KINDS})
 
 
-def _day(ts: float) -> str:
-    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+def new_dog(now: float) -> Dog:
+    """처음 기분은 돌아가는 자리다. 초기화도 이것으로 한다 (단순화 스펙 3절)."""
+    return Dog(mood=dict(REST), updated_at=now)
 
 
-def _new(p: Personality, now: float) -> Dog:
-    return Dog(personality=p, mood=dict(p.baseline), intimacy=INTIMACY_START, updated_at=now, day=_day(now))
-
-
-def default_dog(now: float) -> Dog:
-    """탄생 분포의 평균. 저장된 상태를 읽지 못했을 때 쓴다."""
-    return _new(Personality(dict(BIRTH_BASELINE), {d: BIRTH_SENS for d in MOODS}, BIRTH_WHIM), now)
-
-
-def birth(rng, now: float) -> Dog:
-    return _new(Personality(
-        baseline={d: clip(rng.gauss(BIRTH_BASELINE[d], BIRTH_SD), *BASELINE_RANGE) for d in MOODS},
-        sensitivity={d: clip(rng.gauss(BIRTH_SENS, SENS_SD), *SENS_RANGE) for d in MOODS},
-        whim=clip(rng.gauss(BIRTH_WHIM, WHIM_SD))), now)
-
-
-def circadian(hour: float) -> float:
-    """하루 리듬값: 새벽 3시 +0.5, 오후 3시 −0.5, 하루 평균 0."""
-    return 0.5 * math.cos(2 * math.pi * (hour - CIRCADIAN_PEAK_HOUR) / 24)
-
-
-def rest_point(dog: "Dog", mood: str, ts: float, push: float = 0.0) -> float:
-    """기분이 돌아가는 자리: 기준값 + 하루 리듬 (시간 모형 스펙) − 반대 기분이 누르는 만큼(push, 검수 004)."""
-    dt = datetime.fromtimestamp(ts)
-    base = clip(dog.personality.baseline[mood] + CIRCADIAN.get(mood, 0.0) * circadian(dt.hour + dt.minute / 60))
-    return max(0.25 * base, base - push)  # 눌려도 자리의 4분의 1 아래로는 내려가지 않는다(0에 붙지 않게)
-
-
-def half_life(t: Tuning, mood: str, baseline: float) -> float:
-    # 기준값이 높은 기분일수록 늦게 풀린다 (사용자 결정: 반감기도 기존 성격에서)
-    return t.half_life_s[mood] * (0.5 + baseline)
-
-
-def advance(dog: Dog, now: float, rng, t: Tuning) -> None:
-    """지난 갱신 뒤로 흐른 시간만큼 기분·친밀도·습관화를 평균 회귀시키고, 날이 바뀌었으면 기준값을 옮긴다."""
+def advance(dog: Dog, now: float, t: Tuning) -> None:
+    """지난 갱신 뒤로 흐른 시간만큼 기분을 기분별 반감기로 돌아가는 자리(REST)에 가깝게 한다 (0020)."""
     dt = now - dog.updated_at
-    if dt > 0:
-        b, m0 = dog.personality.baseline, dict(dog.mood)
-        lam = {d: LN2 / half_life(t, d, b[d]) for d in MOODS}
-        # 반대 기분이 기준값보다 높은 만큼 돌아갈 자리를 누른다: 겁먹은 동안 들뜸도 가라앉는다 (검수 004).
-        # 그 높은 정도도 이 시간 동안 풀리므로 구간 평균(1 − e^−λΔt)/(λΔt)을 쓴다
-        avg = {d: (1 - math.exp(-lam[d] * dt)) / (lam[d] * dt) for d in MOODS}
-        push = {d: 0.0 for d in MOODS}
-        for a, c in OPPOSITES:
-            push[c] += t.rest_inhibit * max(0.0, m0[a] - b[a]) * avg[a]
-            push[a] += t.rest_inhibit * max(0.0, m0[c] - b[c]) * avg[c]
-        for d in MOODS:
-            mu = rest_point(dog, d, now, push[d])
-            e = math.exp(-lam[d] * dt)
-            dog.mood[d] = clip(mu + (m0[d] - mu) * e + t.mood_noise * math.sqrt(1 - e * e) * rng.gauss(0, 1))
-        e = math.exp(-LN2 / t.intimacy_half_life_s * dt)
-        dog.intimacy = clip(INTIMACY_START + (dog.intimacy - INTIMACY_START) * e)
-        e = math.exp(-LN2 / t.habit_half_life_s * dt)
-        dog.habit = {k: h * e for k, h in dog.habit.items()}
-        dog.updated_at = now
-    today = _day(now)
-    if today != dog.day:
-        if dog.day_count:
-            b = dog.personality.baseline
-            for d in MOODS:
-                # 겪은 일(어제 기분 평균) 쪽으로 끌리고, 타고난 기질 쪽으로 약하게 되돌아간다: 개성이 경험에 다 지워지지 않게
-                mean = dog.day_sum[d] / dog.day_count
-                pull = dog.personality.temperament[d] - b[d]
-                b[d] = clip(b[d] + t.drift_rate * (mean - b[d]) + t.temperament_pull * pull, *BASELINE_RANGE)
-        dog.day, dog.day_sum, dog.day_count = today, {d: 0.0 for d in MOODS}, 0
-
-
-def record_mood(dog: Dog) -> None:
-    """하루 기분 평균에 지금 기분을 더한다 (기분 시계가 일정 간격으로 부른다)."""
+    if dt <= 0:
+        return
     for d in MOODS:
-        dog.day_sum[d] += dog.mood[d]
-    dog.day_count += 1
+        e = math.exp(-LN2 / t.half_life_s[d] * dt)
+        dog.mood[d] = REST[d] + (dog.mood[d] - REST[d]) * e
+    dog.updated_at = now
 
 
 def dog_to_dict(dog: Dog) -> dict:
@@ -122,18 +39,10 @@ def dog_to_dict(dog: Dog) -> dict:
 
 
 def dog_from_dict(data: dict) -> Dog:
-    """저장본에서 강아지를 만든다. 모양이 어긋나면 TypeError·KeyError·ValueError가 난다(부르는 쪽이 처리)."""
-    data = dict(data)
-    p = dict(data.pop("personality"))
-    # 기분 차원이 늘면(5개 → 8개) 새 차원을 탄생 평균값으로 채운다
-    for key, default in (("baseline", BIRTH_BASELINE), ("sensitivity", {d: BIRTH_SENS for d in MOODS}), ("temperament", BIRTH_BASELINE)):
-        if key in p or key != "temperament":
-            p[key] = {**default, **p.get(key, {})}
-    data["mood"] = {**{d: p["baseline"][d] for d in MOODS}, **data.get("mood", {})}
-    data["day_sum"] = {**{d: 0.0 for d in MOODS}, **data.get("day_sum", {})}
-    dog = Dog(personality=Personality(**p), **data)
-    dog.habit = {**{k: 0.0 for k in HABIT_KINDS}, **dog.habit}  # 습관화 대상이 늘어도 예전 저장본을 읽는다
-    return dog
+    """저장본에서 강아지를 만든다. 예전 저장본의 성격·친밀도·습관화는 버린다 (단순화 스펙 3절).
+    모양이 어긋나면 TypeError·KeyError·ValueError가 난다(부르는 쪽이 처리)."""
+    mood = {**REST, **{d: float(v) for d, v in data.get("mood", {}).items() if d in REST}}
+    return Dog(mood=mood, updated_at=float(data["updated_at"]))
 
 
 # ---- 어휘 (프로토콜 v2) ----
@@ -145,10 +54,6 @@ REACTION_NAMES = {"bored": "지루함", "sleepy": "하품", "excited": "신남",
 ACTION_NAMES = {"stand": "서기", "sit": "앉기", "lie_down": "엎드리기", "sleep": "잠", "beg": "조르기", "bark": "짖기", "none": "없음"}
 
 
-def _log(p: float) -> float:
-    return math.log(max(p, 1e-6))
-
-
 def _sigmoid(x: float) -> float:
     return 1 / (1 + math.exp(-x))
 
@@ -158,25 +63,43 @@ def _logit(p: float) -> float:
     return math.log(p / (1 - p))
 
 
-def _affinity(row: dict[str, float], values: dict[str, float]) -> float:
-    return sum(w * (values[d] - 0.5) for d, w in row.items())
+# ---- 기분 변화 (단순화 스펙 14·15절) ----
+
+class Change(dict):
+    """기분 변화(실제로 움직인 양). .signal은 반대 기분 억제 뒤, 자르기 전의 신호로 반응을 뽑는 데 쓴다."""
+    signal: dict[str, float]
 
 
-# ---- 뽑기: 점수 = Jev 로그확률 / 온도 + 우리 모형 보정 (스펙 6절) ----
+def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], t: Tuning) -> Change:
+    """기분 변화: 글 없는 사건의 평가값을 더하고, 글(메시지·타이핑)이 있으면 Jev가 고른 기분 확률 × 0.3을 더한다.
+    한쪽이 오른 만큼 반대 기분을 같은 양 내린 뒤 0~1로 자른다 (0019·0020)."""
+    signal = {d: 0.0 for d in MOODS}
+    for k, ctx in events:
+        for d, v in appraisal(k, ctx or {}).items():
+            signal[d] += v
+    if any(k in TEXT_KINDS for k, _ in events):  # Jev는 묶음에 한 번 불리므로 글이 있으면 한 번 더한다
+        for d in MOODS:
+            signal[d] += t.change_k * change.get(d, 0.0)
+    rises = dict(signal)
+    for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
+        signal[c] -= t.inhibit * max(rises[a], 0.0)
+        signal[a] -= t.inhibit * max(rises[c], 0.0)
+    deltas = Change()
+    for d in MOODS:
+        before = dog.mood[d]
+        dog.mood[d] = clip(before + signal[d])
+        deltas[d] = dog.mood[d] - before
+    deltas.signal = signal
+    return deltas
 
-def temperature(dog: Dog) -> float:
-    return 0.5 + dog.personality.whim
 
+# ---- 반응·동작 (스펙 6절, 단순화 스펙 15절) ----
 
 def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
     """반응 = 이번에 가장 크게 오른 기분의 표출 (기분 8개 스펙 3절). 타이핑 판단은 늘 반응을 하나 낸다.
-    apply_change의 결과를 받으면 잡음을 뺀 신호로 뽑는다(잡음만으로 반응이 뜨지 않게, 검수 002)."""
-    blocked = {"행복", "들뜸"} if getattr(deltas, "scared", 0.0) >= t.scared_gate else set()
-    express = getattr(deltas, "express", {})
+    apply_change의 결과를 받으면 반대 기분 억제 뒤의 신호로 뽑는다(0에 붙은 기분도 신호는 남는다)."""
     deltas = getattr(deltas, "signal", deltas)
-    deltas = {d: v for d, v in deltas.items() if d not in blocked}
-    # 드러내기 쉬움을 곱한 신호가 가장 큰 기분을 고르고, 문턱은 그 기분의 실제 신호로 본다 (검수 013)
-    mood = max(MOODS, key=lambda d: deltas.get(d, 0.0) * (express.get(d, 1.0) if deltas.get(d, 0.0) > 0 else 1.0))
+    mood = max(MOODS, key=lambda d: deltas.get(d, 0.0))
     rise = deltas.get(mood, 0.0)
     if rise >= t.react_threshold:
         return MOOD_REACTION_ID[mood]
@@ -186,47 +109,26 @@ def reaction_from(deltas: dict[str, float], kinds: list[str], t: Tuning) -> str:
 
 
 def dominant_mood(dog: Dog, t: Tuning) -> str:
-    """평소 모습을 정하는 기분: 기준값보다 가장 많이 높은 기분. 충분히 높지 않으면 calm."""
-    mood, rise = max(((d, dog.mood[d] - dog.personality.baseline[d]) for d in MOODS), key=lambda x: x[1])
+    """평소 모습을 정하는 기분: 돌아가는 자리보다 가장 많이 높은 기분. 충분히 높지 않으면 calm."""
+    mood, rise = max(((d, dog.mood[d] - REST[d]) for d in MOODS), key=lambda x: x[1])
     return MOOD_REACTION_ID[mood] if rise >= t.dominant_threshold else "calm"
 
 
-def _asked(command: dict[str, float], a: str) -> float:
-    """동작 a를 시킨 확률. "자"는 엎드리기도 시킨 것으로 본다: 졸리지 않으면 잠은 막히니 적어도 엎드린다 (검수 012: "이제 자" 0/4)."""
-    return command.get(a, 0.0) + (command.get("sleep", 0.0) if a == "lie_down" else 0.0)
-
-
-def obedience(dog: Dog, t: Tuning) -> float:
-    """시킨 동작을 따르려는 마음 (검수 011): 친할수록 크고, 평소보다 화나거나 무서우면 작다."""
-    m, b = dog.mood, dog.personality.baseline
-    upset = max(0.0, m["분노"] - b["분노"], m["무서움"] - b["무서움"])
-    return t.obey_k * (0.5 + dog.intimacy) * max(0.0, 1 - 2 * upset)
-
-
-def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[str], t: Tuning,
-                  command: dict[str, float] | None = None, hold: bool = False) -> dict[str, float]:
-    """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(기준값 대비) + 반응 + Jev 약한 조정 + 시킨 동작, 온도로 나눈다."""
-    if hold or (kinds and all(k == "dog_spoke" for k in kinds)):
-        # 자기 말 뒤(검수 011)와 듣는 동안(hold, 검수 012)에는 자세를 바꾸지 않는다: 1~2초마다 자세가 바뀌었다
-        return {"none": 0.0}
-    T = temperature(dog)
-    m, b = dog.mood, dog.personality.baseline
-    obey = obedience(dog, t) if command else 0.0
-    # 메시지는 글 내용("앉아", "엎드려")이 동작을 정할 수 있어 Jev 동작 판단을 더 믿는다 (검수 010: 명령을 안 따름)
-    w_jev = t.w_jev_action_message if kinds and kinds[-1] == "message" else t.w_jev_action
-    if command:  # 시킨 게 분명할수록 기분 위주인 동작 질문은 덜 믿는다: "일어나"를 '하던 대로'로 읽었다 (검수 011)
-        w_jev *= command.get("none", 0.0)
+def action_scores(jev: dict[str, float], dog: Dog, reaction: str, kinds: list[str], t: Tuning) -> dict[str, float]:
+    """동작 점수 (동작 모형 스펙): 기본 + 이벤트 사전값 + 기분(자리 대비) + 반응. 메시지만 Jev 동작 판단을 더한다 (0020)."""
+    if kinds and all(k == "dog_spoke" for k in kinds):
+        return {"none": 0.0}  # 자기 말 뒤에는 자세를 바꾸지 않는다 (검수 011)
+    m = dog.mood
+    message = bool(kinds) and kinds[-1] == "message"  # "앉아"처럼 글 내용이 동작을 정할 수 있다 (검수 010)
     scores = {}
     for a in ACTIONS:
         x = (ACTION_BASE.get(a, 0.0) + sum(EVENT_ACTION.get(k, {}).get(a, 0.0) for k in kinds)
-             + t.w_mood * sum(w * (m[d] - b[d]) for d, w in MOOD_ACTION.get(a, {}).items())
+             + t.w_mood * sum(w * (m[d] - REST[d]) for d, w in MOOD_ACTION.get(a, {}).items())
              + t.w_react * REACTION_ACTION.get(reaction, {}).get(a, 0)
-             + t.act_personality * sum(w * (b[d] - BIRTH_BASELINE[d]) for d, w in MOOD_ACTION.get(a, {}).items())  # 기질 (검수 013)
-             + w_jev * math.log(jev.get(a, 0.0) + t.jev_action_floor)
-             + (obey * _asked(command, a) if command and a != "none" else 0.0))  # 시킨 동작 확률만큼 따른다. 없음은 "시킨 게 없다"
-        if a == "sleep" and m["졸림"] - b["졸림"] < t.sleep_gate:
-            x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다. 변덕(온도)으로도 뒤집히지 않게 크게 (검수 003)
-        scores[a] = x / T
+             + (t.w_jev_action_message * math.log(jev.get(a, 0.0) + t.jev_action_floor) if message else 0.0))
+        if a == "sleep" and m["졸림"] - REST["졸림"] < t.sleep_gate:
+            x -= 10.0  # 평소보다 졸리지 않으면 자지 않는다 (검수 003)
+        scores[a] = x
     return scores
 
 
@@ -246,149 +148,20 @@ def pick(scores: dict[str, float], rng) -> str:
     return key
 
 
-# ---- 말하기 (스펙 6절 3) ----
+# ---- 말하기 (스펙 6절 3, 단순화 스펙 15절) ----
 
-def talkativeness(dog: Dog, t: Tuning) -> float:
-    """말수는 독립 파라미터가 아니라 친밀도·지금 기분·기준값에서 계산한다 (사용자 결정)."""
-    return t.talk_scale * ((dog.intimacy - 0.5) + _affinity(TALK_MOOD, dog.mood)
-                           + _affinity(TALK_BASELINE, dog.personality.baseline))
-
-
-def speak_probability(p_jev: float, dog: Dog, kind: str, streak: int, waiting: bool, t: Tuning,
-                      asked: bool = False, hurting: bool = False, unanswered: int = 0, hushed: bool = False) -> float:
-    """말할 확률. 사용자가 직접 물었거나(asked) 속상한 이야기를 털어놓았으면(hurting) 거의 늘 대답한다 (검수 004)."""
+def speak_probability(p_jev: float, kind: str, streak: int, t: Tuning) -> float:
+    """말할 확률 = σ(logit P_Jev + 이벤트 종류 보정 − 연달아 말한 횟수). 연달아 상한이면 0."""
     if streak >= t.max_streak:
         return 0.0
-    x = (_logit(p_jev) + talkativeness(dog, t) + t.kind_bias.get(kind, 0.0)
-         - t.streak_penalty * streak - (t.waiting_penalty if waiting else 0.0)
-         + (t.ask_bonus if asked else 0.0) + (t.comfort_bonus if hurting else 0.0)
-         - (t.ignored_penalty * unanswered if kind == "quiet" else 0.0)  # 대꾸 없으면 점점 덜 조른다
-         - (t.hush_penalty if hushed and kind == "quiet" else 0.0)  # "말 걸지 마"를 지킨다 (검수 007)
-         - t.fear_hush * max(0.0, dog.mood["무서움"] - dog.personality.baseline["무서움"]))  # 겁먹으면 입을 다문다 (검수 007)
-    return _sigmoid(x)
+    return _sigmoid(_logit(p_jev) + t.kind_bias.get(kind, 0.0) - t.streak_penalty * streak)
 
 
-def chain_probability(dog: Dog, streak: int, t: Tuning, ignored: int = 0, hushed: bool = False) -> float:
-    """방금 한 말에 한마디 더 할 확률 (검수 005). Jev는 이어 말하기를 잘 판단하지 못해(실사용 44% vs 녹화 시뮬레이션 28%)
-    우리 모형이 정한다: 말수가 적으면 거의 한 마디, 이어 갈수록 줄어든다."""
-    if streak >= t.max_streak or hushed:  # "말 걸지 마" 동안은 덧말이 없다 (검수 009)
+def chain_probability(streak: int, t: Tuning) -> float:
+    """방금 한 말에 한마디 더 할 확률 (검수 005). Jev는 이어 말하기를 잘 판단하지 못해 우리 모형이 정한다: 이어 갈수록 줄어든다."""
+    if streak >= t.max_streak:
         return 0.0
-    ref = talkativeness(default_dog(dog.updated_at), t)  # 말수는 평균 강아지 대비로 본다
-    first = min(t.chain_cap, t.chain_base * math.exp(t.chain_talk * (talkativeness(dog, t) - ref)))
-    b = dog.personality.baseline
-    jolt = max(0.0, dog.mood["무서움"] - b["무서움"], dog.mood["놀람"] - b["놀람"])
-    hush = max(0.0, 1 - 3 * jolt)  # 겁먹거나 놀란 직후에는 덧말이 거의 없다("이제 괜찮아졌어" 해설, 검수 008)
-    # 대꾸 없는 흐름에서는 덧말이 갈수록 준다 (검수 009: 무시당한 흐름의 덧말 0.26 > 답할 때 0.13)
-    return first * hush * t.chain_decay ** max(0, streak - 1) * t.chain_ignored ** ignored
-
-
-# ---- 기분·친밀도 변화와 습관화 (스펙 4.3·4.5) ----
-
-def habit_level(dog: Dog, kinds: list[str]) -> float:
-    return max((dog.habit[k] for k in kinds if k in HABIT_KINDS), default=0.0)
-
-
-class Change(dict):
-    """기분 변화(실제로 움직인 양). .signal은 잡음을 뺀 신호(사전값 + Jev)로 반응을 뽑는 데 쓴다 (검수 002).
-    .scared는 판단 뒤 무서움이 기준값보다 높은 정도: 겁먹은 동안은 기쁨·신남 반응을 내지 않는다 (검수 007)."""
-    signal: dict[str, float]
-    scared: float = 0.0
-    express: dict[str, float] = {}  # 기분별 드러내기 쉬움(기질 × 이미 놀란 정도). 반응을 고를 때 신호에 곱한다 (검수 013)
-
-
-SOOTHE_MOODS = (("시무룩", 1.0), ("분노", 0.6), ("무서움", 0.25))  # 달램이 푸는 기분과 비율: 말은 서운함을 크게, 무서움은 조금 (검수 008)
-
-
-def _combine(xs: list[float]) -> float:
-    """같은 기분에 온 충격들을 확률의 합처럼 합친다: 연타가 몇 배로 쌓이지 않는다 (검수 002)."""
-    up = 1.0 - math.prod(1 - min(x, 0.99) for x in xs if x > 0)
-    down = 1.0 - math.prod(1 - min(-x, 0.99) for x in xs if x < 0)
-    return up - down
-
-
-def apply_change(dog: Dog, change: dict[str, float], events: list[tuple[str, dict]], rng, t: Tuning,
-                 waiting: bool = False, alone_s: float = 0.0, user_down: float = 0.0, soothe: float = 0.0, hush: float = 0.0, harsh: float = 0.0) -> Change:
-    """기분 변화 (평가 사전값 스펙 + 기분 갱신 수식 스펙): 이벤트마다 사전값(대상 기분만 습관화)을 모아 포화 합산하고,
-    Jev 조정을 더한 뒤 반대 기분을 억제한다. 기분에는 흔들림을 더해 남은 여유에 비례해 움직인다."""
-    kinds = [k for k, _ in events]
-    damp = 1 - habit_level(dog, kinds)   # 친밀도 조정에 쓰는 습관화 (묶음 시작 때)
-    # Jev 조정도 습관화 대상 기분만 줄인다 (검수 002: 타이핑의 궁금함만 무뎌지고 글 내용의 기분은 남게)
-    jev_damp = {d: 1 - max((dog.habit[k] for k in kinds if HABIT_KINDS.get(k) == d), default=0.0) for d in MOODS}
-    w = JEV_WEIGHT.get(kinds[-1], JEV_WEIGHT_OTHER) if kinds else JEV_WEIGHT_OTHER
-    sens = dog.personality.sensitivity
-    m, b = dog.mood, dog.personality.baseline
-    # 화나거나 무서운 정도(절대 수준): 성마른 강아지(분노 기준값이 높음)는 평소에도 잘 안 풀린다 (검수 004)
-    wary = min(1.0, 2 * max(0.0, max(m["분노"], m["무서움"]) - 0.15))
-    parts: dict[str, list[float]] = {d: [] for d in MOODS}
-    seen: dict[str, int] = {}
-    for k, ctx in events:
-        h = dog.habit.get(k, 0.0)
-        seen[k] = seen.get(k, 0) + 1
-        dim = 1 / math.sqrt(seen[k])  # 한 묶음 안 같은 자극은 k번째를 1/√k만 센다 (검수 006: 연타 분노 0.90)
-        for d, v in appraisal(k, ctx or {}, h, wary, waiting, alone_s).items():
-            parts[d].append(v * 2 * sens[d] * dim * ((1 - h) if HABIT_KINDS.get(k) == d else 1.0))
-        if k in HABIT_KINDS:  # 같은 자극이 오면 익숙해진다. 민감한 강아지일수록 천천히 (사용자 결정). 묶음 안에서도 쌓인다
-            lam = t.habit_rate * (1.5 - sens[HABIT_KINDS[k]])
-            dog.habit[k] += lam * (1 - dog.habit[k])
-    jev = {d: change.get(f"{d}↑", 0.0) - change.get(f"{d}↓", 0.0) for d in MOODS}
-    # 공감 (검수 005): 사용자가 글로 속상함을 털어놓으면 강아지도 시무룩해지고, 궁금함과 털어놓음을 친밀로 읽은 기쁨은 꺼진다
-    talk = bool(kinds) and kinds[-1] in ("message", "typing")
-    # 달램 (검수 006): 사과·달래는 말은 강아지를 풀어 준다. 달램이 클수록 공감(같이 시무룩)은 줄어든다
-    s = soothe if talk else 0.0
-    u = (user_down if talk else 0.0) * (1 - s)
-    # 혼자 있게 해 달라는 부탁("일 좀 할게", "말 걸지 마")은 거절이 아니다: 친밀도↓를 (1 − 부탁)만큼만 거절로 읽는다 (검수 012)
-    # 모진 말이 섞인 부탁("저리 가 귀찮아")은 거절이다: 담백한 부탁만큼만 뺀다 (검수 013)
-    space = hush * (1 - harsh) if talk else 0.0
-    cold = change.get("친밀도↓", 0.0) * (1 - space)
-    hurt = [max(jev["시무룩"], 0.0), t.empathy * u]  # 서운함의 출처들: 직접 시무룩↑, 공감, 관계 해석(아래)
-    jev["시무룩"] = min(jev["시무룩"], 0.0)
-    for rel, moods in RELATION_MOOD.items():  # 거절은 서운함, 다정함은 행복 (관계 해석, 검수 002)
-        for d, r in moods.items():
-            x = r * change.get(rel, 0.0) * ((1 - u) if rel == "친밀도↑" else 1.0)
-            if d == "시무룩" and x > 0:
-                hurt.append(x)
-            else:
-                jev[d] += x
-    # 같은 서운함을 세 번 읽은 것이니 더하지 않고 가장 큰 하나만 센다 (검수 012: "됐어"에 시무룩 +0.18)
-    # 부탁으로 읽힌 만큼은 서운함이 아니다(Jev는 부탁 자체를 시무룩↑로도 읽는다). 주인이 일하는 조용함에 서운해하지 않는다 (검수 003)
-    jev["시무룩"] += max(hurt) * (1 - space)
-    jev["궁금함"] *= (1 - u) * (1 - s)  # 털어놓음·사과에는 궁금해하지 않는다 (검수 005·009)
-    jev["행복"] = min(jev["행복"], 0.0) if u >= 0.5 else jev["행복"]
-    for d in ("행복", "들뜸"):  # 화나거나 무서우면 Jev가 기쁨을 줘도 덜 기쁘다 (검수 007: 겁먹은 채 기뻐하며 조름)
-        if jev[d] > 0:
-            jev[d] *= 1 - wary
-    for d, _ in SOOTHE_MOODS:  # 사과 글이 던진 일을 말해도 뜻은 사과다: 부정 기분의 Jev ↑를 (1 − s)배로 (검수 011)
-        if jev[d] > 0:
-            jev[d] *= 1 - s
-    signal = {d: _combine(parts[d]) + t.change_k * w * jev[d] * 2 * sens[d] * jev_damp[d] for d in MOODS}
-    rest = {d: rest_point(dog, d, dog.updated_at) for d, _ in SOOTHE_MOODS}
-    for d, f in SOOTHE_MOODS:  # 달램은 넘친 만큼(기분 − 돌아갈 자리)을 덜어 준다. 말은 서운함을 크게, 무서움은 조금 (검수 008·011)
-        if s > 0 and m[d] > rest[d]:
-            signal[d] -= t.soothe_k * f * s * (m[d] - rest[d]) / m[d]  # 음의 신호는 기분 × 신호만큼 내린다
-    rises = dict(signal)
-    for a, c in OPPOSITES:  # 한쪽이 오른 만큼 반대쪽이 내린다
-        signal[c] -= t.inhibit * max(rises[a], 0.0)
-        signal[a] -= t.inhibit * max(rises[c], 0.0)
-    deltas = Change()
-    # 기질: 기준값이 탄생 평균보다 높은 기분일수록 쉽게 드러낸다(성마르면 짜증). 이미 놀란 상태면 또 놀라기보다 다른 기분이 드러난다 (검수 013)
-    startled = max(0.0, m["놀람"] - b["놀람"])
-    deltas.express = {d: math.exp(t.react_temper * (b[d] - BIRTH_BASELINE[d])) for d in MOODS}
-    deltas.express["놀람"] *= max(0.0, 1 - t.startle_repeat * startled)
-    for d in MOODS:
-        x = signal[d] + rng.gauss(0, t.change_noise)
-        before = m[d]
-        m[d] = clip(before + (x * (1 - before) if x > 0 else x * before))  # 끝에 가까울수록 덜 움직인다
-        if talk and d in rest:  # 말은 한 번에 넘친 만큼의 일부만, 기준값 아래로는 누르지 않는다. 예민하면 몇 번 달래야 풀린다 (검수 011)
-            cap = min(1.0, t.talk_ease * (1.5 - sens[d]))
-            m[d] = max(m[d], min(before, max(rest[d], before - cap * (before - rest[d]))))
-        deltas[d] = m[d] - before
-    deltas.signal = signal
-    deltas.scared = max(0.0, m["무서움"] - b["무서움"])
-    delta = (t.intimacy_k * w * (change.get("친밀도↑", 0.0) - cold)
-             + sum(appraisal_intimacy(k, ctx or {}) for k, ctx in events)) * damp
-    dog.intimacy = clip(dog.intimacy + delta)
-    deltas["친밀도"] = delta
-    return deltas
+    return t.chain_base * t.chain_decay ** max(0, streak - 1)
 
 
 # ---- 평소 움직임 경향 (스펙 6.5): 두뇌가 계산하고 화면이 샘플링한다 ----
@@ -397,23 +170,15 @@ MOVES = tuple(MOVE_BASE)
 
 
 def movement(dog: Dog, t: Tuning) -> dict:
-    """평소 움직임 경향. 기분은 기준값 대비(하루 리듬 포함)로 크게, 성격은 기준값으로 작게 (검수 001, K-5)."""
-    m, b = dog.mood, dog.personality.baseline
-    dev = {d: m[d] - b[d] for d in MOODS}
+    """평소 움직임 경향. 기분은 돌아가는 자리 대비로 본다 (검수 001)."""
+    dev = {d: dog.mood[d] - REST[d] for d in MOODS}
 
     def mood_term(row):
-        return sum(w * dev[d] for d, w in row.items())
-
-    def trait_term(row):  # 성격의 평소 수준: 탄생 평균 대비
-        return t.move_personality * sum(w * (b[d] - BIRTH_BASELINE[d]) for d, w in row.items())
-    weights = {}
-    for c in MOVES:
-        x = (t.move_scale * mood_term(MOVE_MOOD[c]) + trait_term(MOVE_BASELINE.get(c, {}))
-             + MOVE_INTIMACY.get(c, 0) * (dog.intimacy - 0.5))
-        weights[c] = round(MOVE_BASE[c] * math.exp(x), 4)
+        return t.move_scale * sum(w * dev[d] for d, w in row.items())
+    weights = {c: round(MOVE_BASE[c] * math.exp(mood_term(MOVE_MOOD[c])), 4) for c in MOVES}
     return {"weights": weights, "mood": dominant_mood(dog, t),
-            "run": round(_sigmoid(_logit(RUN_BASE) + t.move_scale * mood_term(RUN_MOOD) + trait_term(RUN_BASELINE)), 4),
-            "idle_scale": round(math.exp(t.move_scale * mood_term(IDLE_MOOD) + trait_term(IDLE_BASELINE)), 4)}
+            "run": round(_sigmoid(_logit(RUN_BASE) + mood_term(RUN_MOOD)), 4),
+            "idle_scale": round(math.exp(mood_term(IDLE_MOOD)), 4)}
 
 
 def movement_changed(old: dict | None, new: dict, t: Tuning) -> bool:

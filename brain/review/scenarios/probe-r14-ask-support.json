@@ -1,5 +1,4 @@
-{"name": "probe-r14-ask-support", "description": "속상한 일 뒤 대놓고 말을 청함(네 성격): '응원해 줄래', '너라면?', '한마디만 해 줘'에 의성어 하나라 말이 버려져 침묵하나",
- "personality": "all", "seed": 141, "start": "2026-10-22T19:00",
+{"name": "probe-r14-ask-support", "description": "속상한 일 뒤 대놓고 말을 청함(네 성격): '응원해 줄래', '너라면?', '한마디만 해 줘'에 의성어 하나라 말이 버려져 침묵하나", "seed": 141, "start": "2026-10-22T19:00",
  "steps": [
   {"say": "오늘 발표 망쳤어"},
   {"wait": 20, "quiet": false},

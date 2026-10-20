@@ -1,7 +1,7 @@
 # 0015. 기분 변화는 우리 평가 사전값이 정하고 Jev는 조정만 한다
 
 - 날짜: 2026-10-16
-- 상태: 채택 (검수 루프 결정, [검수 001](../review/rounds/001.md))
+- 상태: 대체됨([0019](0019-message-mood-from-one-question.md)) (원래 검수 루프 결정, [검수 001](../review/rounds/001.md))
 - 고치는 결정: [0014](0014-probabilistic-model-with-jev-distributions.md)의 기분 변화 부분
 
 ## 맥락

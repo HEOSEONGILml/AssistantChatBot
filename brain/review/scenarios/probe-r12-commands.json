@@ -1,5 +1,4 @@
-{"name": "probe-r12-commands", "description": "시킨 동작과 실제 동작·대사가 맞나(다른 시드, 네 성격)",
- "personality": "all", "seed": 122, "start": "2026-10-26T15:00",
+{"name": "probe-r12-commands", "description": "시킨 동작과 실제 동작·대사가 맞나(다른 시드, 네 성격)", "seed": 122, "start": "2026-10-26T15:00",
  "steps": [
   {"say": "앉아"},
   {"wait": 20, "quiet": false},

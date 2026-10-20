@@ -11,8 +11,8 @@ from brain.store import Store
 from brain.tuning import EVENT_KINDS, Tuning
 
 BOTH_KEYS = {"typesafe": "t-key", "gemini": "g-key"}
-_CALM = Tuning(mood_noise=0.0, change_noise=0.0)
-SPEAK = replace(_CALM, kind_bias={k: 30.0 for k in EVENT_KINDS}, chain_base=0.9, chain_decay=1.0, chain_cap=1.0)  # 거의 늘 말함(이어 말하기 포함)
+_CALM = Tuning()
+SPEAK = replace(_CALM, kind_bias={k: 30.0 for k in EVENT_KINDS}, chain_base=0.9, chain_decay=1.0)  # 거의 늘 말함(이어 말하기 포함)
 SILENT = replace(_CALM, kind_bias={k: -30.0 for k in EVENT_KINDS}, chain_base=0.0)                 # 거의 안 말함
 
 
@@ -27,7 +27,7 @@ class FakeClock:
 class FakeJev:
     def __init__(self):
         self.calls: list[dict] = []
-        self.readout = Readout({"beg": 1.0}, 0.5, {"들뜸↑": 1.0})  # 들뜸이 올라 신남 반응이 나온다
+        self.readout = Readout({"beg": 1.0}, 0.5, {"들뜸": 1.0})  # 글이면 들뜸이 올라 신남 반응이 나온다
         self.error: Exception | None = None
         self.gate: asyncio.Event | None = None
 

@@ -1,4 +1,4 @@
-{"name": "probe-poke-spam", "description": "빠른 연타 8번(묶음) 뒤, 30초 간격 찌르기 5번: 판단 엉킴, 습관화 속도, 분노 회복", "personality": "예민·성마름", "seed": 3, "start": "2026-10-19T10:00",
+{"name": "probe-poke-spam", "description": "빠른 연타 8번(묶음) 뒤, 30초 간격 찌르기 5번: 판단 엉킴, 습관화 속도, 분노 회복", "seed": 3, "start": "2026-10-19T10:00",
  "steps": [
   {"event": "poke", "nowait": true}, {"event": "poke", "nowait": true}, {"event": "poke", "nowait": true}, {"event": "poke", "nowait": true},
   {"event": "poke", "nowait": true}, {"event": "poke", "nowait": true}, {"event": "poke", "nowait": true}, {"event": "poke"},

@@ -1,5 +1,4 @@
-{"name": "probe-r12-throw-ok", "description": "세게 던지고 2분 뒤 '괜찮아?'(사과 없이): 말이 무서움 수치와 맞나, 행복·들뜸과 함께 높지 않나",
- "personality": "all", "seed": 124, "start": "2026-10-26T11:00",
+{"name": "probe-r12-throw-ok", "description": "세게 던지고 2분 뒤 '괜찮아?'(사과 없이): 말이 무서움 수치와 맞나, 행복·들뜸과 함께 높지 않나", "seed": 124, "start": "2026-10-26T11:00",
  "steps": [
   {"event": "throw", "context": {"impact": 1.0, "bounces": 3, "flight_seconds": 1.6}},
   {"wait": 120, "quiet": false},

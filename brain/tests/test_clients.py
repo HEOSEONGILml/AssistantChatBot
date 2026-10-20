@@ -6,15 +6,13 @@ import pytest
 from brain import clients
 
 
-def test_to_readout_reads_all_four_answers():
+def test_to_readout_reads_all_three_answers():
     resp = SimpleNamespace(
         choices={"action": SimpleNamespace(probabilities={"beg": 1.0}),
-                 "change": SimpleNamespace(probabilities={"변화없음": 1.0}),
-                 "command": SimpleNamespace(probabilities={"sit": 0.9, "none": 0.1})},
-        nouls={"speak": SimpleNamespace(noul=0.4), "user_down": SimpleNamespace(noul=0.7), "soothe": SimpleNamespace(noul=0.2),
-               "hush": SimpleNamespace(noul=0.1), "harsh": SimpleNamespace(noul=0.3)},
+                 "change": SimpleNamespace(probabilities={"없음": 1.0})},
+        nouls={"speak": SimpleNamespace(noul=0.4)},
     )
-    assert clients.to_readout(resp) == clients.Readout({"beg": 1.0}, 0.4, {"변화없음": 1.0}, 0.7, 0.2, 0.1, {"sit": 0.9, "none": 0.1}, 0.3)
+    assert clients.to_readout(resp) == clients.Readout({"beg": 1.0}, 0.4, {"없음": 1.0})
 
 
 async def test_jev_unexpected_shape_becomes_call_error(monkeypatch):
@@ -79,8 +77,3 @@ async def test_gemini_returns_text(monkeypatch):
     assert await talker.say("sys", "prompt") == "멍! 안녕"
     assert seen["model"] == clients.GEMINI_MODEL and seen["contents"] == "prompt"
     await talker.aclose()
-
-
-def test_readout_has_owner_down_default():
-    from brain.clients import Readout
-    assert Readout({}, 0.5, {}).user_down == 0.0

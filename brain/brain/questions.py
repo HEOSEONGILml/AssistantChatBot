@@ -1,4 +1,4 @@
-"""Jev 질문 6개(동작·말하기·변화·사용자 속상함·달램·조용히 부탁)와 선택지 정책 설명. 반응은 따로 묻지 않고 기분 변화에서 나온다(기분 8개 스펙), Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
+"""Jev 질문 3개(동작·말하기·글이 일으키는 기분, 0019)와 선택지 정책 설명. 반응은 따로 묻지 않고 기분 변화에서 나온다(기분 8개 스펙), Jev state를 두는 한곳 (CLAUDE.md 4절, 두뇌 스펙 v2 5절).
 문구를 바꾸면 분포가 달라지므로 Jev를 다시 녹화하고 보정값을 다시 맞춘다 (brain/sim)."""
 from datetime import datetime
 
@@ -18,36 +18,19 @@ ACTION_TEXT = {
     "bark": "짖기: 짖는다. 놀라거나 짜증 나거나 무섭거나 아주 신날 때",
     "none": "없음: 특별한 동작 없이 하던 대로 한다. 대부분의 평범한 순간",
 }
-# 시킨 동작은 따로 묻는다: 동작 질문은 기분 위주라 "일어나"를 '하던 대로'로 읽었다 (검수 011). 따를지는 우리 모형이 정한다
-COMMAND_TEXT = {
-    "stand": "서기: 일어나라고(몸을 일으켜 서라고), 서 있으라고 시킨다",  # "일어나"를 잠 깨라는 말로 읽어 없음 0.77이었다
-    "sit": "앉기: 앉으라고 시킨다",
-    "lie_down": "엎드리기: 엎드리라고 시킨다",
-    "sleep": "잠: 자라고 시킨다",
-    "beg": "조르기: 두 발로 서라고, 손을 달라고 시킨다",
-    "bark": "짖기: 짖으라고 시킨다",
-    "none": "없음: 강아지에게 동작을 시키지 않는다",
-}
 # 첫 실측에서 상황 순서(보냄 > 방금 말함 > 타이핑·조용함)를 바로잡은 "차례" 문구
 SPEAK_TEXT = ("대화 흐름상 지금은 강아지가 말할 차례다. 사용자의 대답을 기다려야 하거나 "
               "사용자가 아직 할 말을 다 하지 않았다면 강아지의 차례가 아니다")
-CHANGE_TEXT = {f"{d}{s}": f"이 일 자체로 강아지의 {d}이(가) {'올라간다' if s == '↑' else '내려간다'}"
-               for d in (*MOODS, "친밀도") for s in ("↑", "↓")}
-CHANGE_TEXT["변화없음"] = "이 일로 기분과 친밀도는 거의 변하지 않는다. 시간이 흘러 생기는 변화(혼자 있으면 심심해짐 등)는 여기서 따지지 않는다"
+# 메시지·타이핑이 일으키는 기분 하나를 고른다 (0019). 선택지 확률 × 0.3이 기분 변화다. 글 없는 사건에는 쓰지 않는다
+MOOD_HINT = {"심심함": "심심하다", "졸림": "졸리다", "들뜸": "신나고 들뜬다", "시무룩": "서운하고 시무룩하다", "분노": "짜증 나고 화난다",
+             "궁금함": "궁금하다", "놀람": "놀란다", "무서움": "무섭다", "행복": "편안하게 기쁘다"}
+CHANGE_TEXT = {d: f"{d}: 이 글을 듣고 강아지가 {h}" for d, h in MOOD_HINT.items()}
+CHANGE_TEXT["없음"] = "없음: 이 글로 강아지에게 특별한 기분이 일지 않는다"
 
 QUESTIONS = {
     "action": Choice(instructions="이 강아지가 지금 할 동작은?", criteria=ACTION_TEXT),
     "speak": Noul(instructions=SPEAK_TEXT),
-    "change": Choice(instructions="이번 이벤트(들) 자체로 강아지의 기분·친밀도는 어떻게 변하나?", criteria=CHANGE_TEXT),
-    # 사용자의 감정은 Jev가 잘 판단한다. 강아지의 공감은 우리 모형이 정한다 (검수 005)
-    "user_down": Noul(instructions="사용자가 이번에 쓴 글로 보아 지금 속상하거나 힘들거나 슬프다"),
-    # 사과·달램은 사용자 속상함과 헷갈리기 쉽다. 따로 묻고 강아지가 풀리는 쪽은 우리 모형이 정한다 (검수 006)
-    "soothe": Noul(instructions="사용자가 이번에 쓴 글로 강아지에게 사과하거나 강아지를 달래고 있다"),
-    # 조용히 해 달라는 부탁은 기억해 두고 먼저 말 걸기를 줄인다 (검수 007: "말 걸지 마" 뒤 10분 만에 말 걸기)
-    "hush": Noul(instructions="사용자가 이번에 쓴 글로 강아지에게 한동안 말 걸지 말라고, 조용히 해 달라고 부탁하고 있다"),
-    # 나를 향한 모진 말은 부탁·하소연과 따로 묻는다: 친밀도↓·조용히로는 "일 좀 할게"와 "저리 가 귀찮아"가 갈리지 않았다 (검수 013)
-    "harsh": Noul(instructions="사용자가 이번에 쓴 글로 강아지를 탓하거나 귀찮아하거나 모질게 대한다"),
-    "command": Choice(instructions="사용자가 이번에 쓴 글로 강아지에게 시킨 동작은?", criteria=COMMAND_TEXT),
+    "change": Choice(instructions="사용자가 이번에 쓴 글이 강아지에게 어떤 기분을 일으키나?", criteria=CHANGE_TEXT),
 }
 
 EVENT_NAMES = {"typing": "타이핑", "message": "메시지 보냄", "dog_spoke": "강아지 말이 화면에 뜸", "quiet": "조용함",
@@ -103,14 +86,11 @@ def _r(x: float) -> float:
 
 
 def jev_state(dog: Dog, batch: list, recent: list, now: float) -> dict:
-    """Jev와 Gemini가 함께 보는 데이터 (스펙 5절). 수치는 소수 둘째 자리."""
-    p = dog.personality
+    """Jev와 Gemini가 함께 보는 데이터 (스펙 5절, 단순화 스펙 5절). 수치는 소수 둘째 자리."""
     return {
-        "강아지 성격": {"기본 성격": PERSONA, "기준값": {d: _r(p.baseline[d]) for d in MOODS},
-                     "민감도": {d: _r(p.sensitivity[d]) for d in MOODS}, "변덕": _r(p.whim)},
+        "강아지": PERSONA,
         "지금 시각": datetime.fromtimestamp(now).strftime("%Y-%m-%d (%a) %H:%M"),
         "이번 이벤트들": [describe_event(e.kind, e.data) for e in batch],
         "최근 이벤트 기록": format_log(recent, now),
         "기분": {d: _r(dog.mood[d]) for d in MOODS},
-        "친밀도": _r(dog.intimacy),
     }

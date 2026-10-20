@@ -1,4 +1,4 @@
-{"name": "probe-away-hallucinate", "description": "활발한 강아지에게 점심 간다고 하고 90분 비움: 주인이 없는데 '드디어 돌아왔어'처럼 복귀를 지어내나, 혼자 세 마디씩 연달아 말하나, 돌아왔을 때", "personality": "활발·변덕쟁이", "seed": 32, "start": "2026-10-22T12:00",
+{"name": "probe-away-hallucinate", "description": "활발한 강아지에게 점심 간다고 하고 90분 비움: 주인이 없는데 '드디어 돌아왔어'처럼 복귀를 지어내나, 혼자 세 마디씩 연달아 말하나, 돌아왔을 때", "seed": 32, "start": "2026-10-22T12:00",
  "steps": [
   {"say": "나 점심 먹고 올게"},
   {"wait": 5400, "away": true},

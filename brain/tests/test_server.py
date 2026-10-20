@@ -34,7 +34,7 @@ class FakeBrain:
         self.events.append(("reset",))
 
     def state_snapshot(self):
-        return {"dog": {"mood": {}}, "talkativeness": 0.1, "movement": {}}
+        return {"dog": {"mood": {}}, "movement": {}}
 
     def log_snapshot(self):
         return {"judgements": [], "events": ["방금 · 찌르기"]}
@@ -50,7 +50,7 @@ async def server():
         yield link, f"ws://127.0.0.1:{sock.getsockname()[1]}"
 
 
-def hello(token=TOKEN, v=3):
+def hello(token=TOKEN, v=4):
     return json.dumps({"v": v, "type": "hello", "token": token})
 
 
@@ -85,10 +85,10 @@ async def test_signal_reaches_brain_and_send_reaches_screen(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 3, "type": "event", "kind": "message", "context": {"text": "안녕"}}))
+        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "message", "context": {"text": "안녕"}}))
         await wait_for(lambda: ("event", "message", {"text": "안녕"}) in link.brain.events)
         await link.send({"type": "reaction", "utterance": "멍!"})
-        assert json.loads(await ws.recv()) == {"v": 3, "type": "reaction", "utterance": "멍!"}
+        assert json.loads(await ws.recv()) == {"v": 4, "type": "reaction", "utterance": "멍!"}
     await wait_for(lambda: link.brain.events[-1] == ("connected", False))
     assert link.brain.events[0] == ("connected", True)
 
@@ -115,10 +115,10 @@ async def test_garbage_is_ignored(server):
     async with connect(url) as ws:
         await ws.send(hello())
         await ws.send("{not json")
-        await ws.send(json.dumps({"v": 3, "type": "dance"}))
-        await ws.send(json.dumps({"v": 3, "type": "event", "kind": "poke", "context": "not-a-dict"}))
-        await ws.send(json.dumps({"v": 3, "type": "event", "kind": 3}))
-        await ws.send(json.dumps({"v": 3, "type": "event", "kind": "poke"}))
+        await ws.send(json.dumps({"v": 4, "type": "dance"}))
+        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "poke", "context": "not-a-dict"}))
+        await ws.send(json.dumps({"v": 4, "type": "event", "kind": 3}))
+        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "poke"}))
         await wait_for(lambda: ("event", "poke", {}) in link.brain.events)
 
 
@@ -129,10 +129,10 @@ async def test_set_key_and_clear_history(server, monkeypatch):
     monkeypatch.setattr(config, "read_keys", lambda: {"typesafe": None, "gemini": "g"})
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 3, "type": "set_key", "name": "gemini", "value": "g"}))
-        await ws.send(json.dumps({"v": 3, "type": "clear_history"}))
+        await ws.send(json.dumps({"v": 4, "type": "set_key", "name": "gemini", "value": "g"}))
+        await ws.send(json.dumps({"v": 4, "type": "clear_history"}))
         await wait_for(lambda: ("clear",) in link.brain.events)
-        await ws.send(json.dumps({"v": 3, "type": "reset"}))
+        await ws.send(json.dumps({"v": 4, "type": "reset"}))
         await wait_for(lambda: ("reset",) in link.brain.events)
     assert written == {"gemini": "g"}
     assert ("keys", {"typesafe": None, "gemini": "g"}) in link.brain.events
@@ -155,10 +155,10 @@ async def test_get_state_and_get_log(server, monkeypatch, tmp_path):
     monkeypatch.setattr(config, "data_dir", lambda: tmp_path)
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 3, "type": "get_state"}))
+        await ws.send(json.dumps({"v": 4, "type": "get_state"}))
         state = json.loads(await asyncio.wait_for(ws.recv(), 2))
-        await ws.send(json.dumps({"v": 3, "type": "get_log"}))
+        await ws.send(json.dumps({"v": 4, "type": "get_log"}))
         got = json.loads(await asyncio.wait_for(ws.recv(), 2))
-    assert state == {"v": 3, "type": "state", "dog": {"mood": {}}, "talkativeness": 0.1, "movement": {}}
+    assert state == {"v": 4, "type": "state", "dog": {"mood": {}}, "movement": {}}
     assert got["type"] == "log" and got["judgements"] == [] and got["events"] == ["방금 · 찌르기"]
     assert got["brain_log"][0] == "줄 10" and len(got["brain_log"]) == 30

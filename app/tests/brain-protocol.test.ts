@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ACTION_TO_DOG, outgoing, parseBrainMessage, statusText } from "../src/shared/brain-protocol";
 import { DOG_ACTIONS } from "../src/body/sprite";
 
-const msg = (o: object) => JSON.stringify({ v: 3, ...o });
+const msg = (o: object) => JSON.stringify({ v: 4, ...o });
 const weights = { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 };
 
 describe("parseBrainMessage", () => {
@@ -40,7 +40,7 @@ describe("parseBrainMessage", () => {
 
 describe("outgoing", () => {
   it("adds the protocol version", () => {
-    expect(JSON.parse(outgoing({ type: "event", kind: "poke", context: {} }))).toEqual({ v: 3, type: "event", kind: "poke", context: {} });
+    expect(JSON.parse(outgoing({ type: "event", kind: "poke", context: {} }))).toEqual({ v: 4, type: "event", kind: "poke", context: {} });
   });
 });
 
@@ -61,7 +61,7 @@ describe("statusText", () => {
 });
 
 describe("state·log 조회", () => {
-  const state = { dog: { personality: { baseline: { 분노: 0.1 }, sensitivity: { 분노: 0.5 }, whim: 0.5, temperament: { 분노: 0.1 } }, mood: { 분노: 0.2 }, intimacy: 0.3, habit: { poke: 0 } }, talkativeness: 0.4, movement: { weights: {}, run: 0.2, idle_scale: 1 } };
+  const state = { dog: { mood: { 분노: 0.2 } }, movement: { weights: {}, run: 0.2, idle_scale: 1 } };
   it("reads state", () => {
     expect(parseBrainMessage(msg({ type: "state", ...state }))).toEqual({ type: "state", state });
   });
@@ -70,12 +70,12 @@ describe("state·log 조회", () => {
     expect(parseBrainMessage(msg({ type: "log", ...log }))).toEqual({ type: "log", log });
   });
   it("rejects malformed state and log", () => {
-    expect(parseBrainMessage(msg({ type: "state", talkativeness: 1 }))).toBeNull();
+    expect(parseBrainMessage(msg({ type: "state", movement: {} }))).toBeNull();
     expect(parseBrainMessage(msg({ type: "log", judgements: "x", events: [], brain_log: [] }))).toBeNull();
   });
   it("sends get_state and get_log", () => {
-    expect(JSON.parse(outgoing({ type: "get_state" }))).toEqual({ v: 3, type: "get_state" });
-    expect(JSON.parse(outgoing({ type: "get_log" }))).toEqual({ v: 3, type: "get_log" });
+    expect(JSON.parse(outgoing({ type: "get_state" }))).toEqual({ v: 4, type: "get_state" });
+    expect(JSON.parse(outgoing({ type: "get_log" }))).toEqual({ v: 4, type: "get_log" });
   });
 });
 

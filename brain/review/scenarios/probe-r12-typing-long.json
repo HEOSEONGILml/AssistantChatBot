@@ -1,5 +1,4 @@
-{"name": "probe-r12-typing-long", "description": "긴 글을 여러 번 칠 때 끼어들기 빈도와 타이핑 중 반응이 한결같은지(활발·평균)",
- "personality": "all", "seed": 125, "start": "2026-10-26T13:00",
+{"name": "probe-r12-typing-long", "description": "긴 글을 여러 번 칠 때 끼어들기 빈도와 타이핑 중 반응이 한결같은지(활발·평균)", "seed": 125, "start": "2026-10-26T13:00",
  "steps": [
   {"say": "오늘 아침에 지하철에서 어떤 아저씨가 내 발을 밟았는데 사과도 안 하고 그냥 가버렸어"},
   {"wait": 20, "quiet": false},

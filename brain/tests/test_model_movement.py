@@ -1,23 +1,18 @@
 import pytest
 
 from brain import model
-from brain.tuning import MOODS, MOVE_BASE, Tuning
+from brain.tuning import MOVE_BASE, Tuning
 
 T = Tuning()
 
 
 def neutral():
-    return model.Dog(personality=model.Personality({d: 0.5 for d in MOODS}, {d: 0.5 for d in MOODS}, 0.5),
-                     mood={d: 0.5 for d in MOODS}, intimacy=0.5, updated_at=0.0, day="2026-10-15")
+    """기분이 돌아가는 자리에 있는 강아지."""
+    return model.new_dog(0.0)
 
 
-def test_average_dog_gets_base_tendency():
-    # 성격의 평소 수준은 탄생 평균 대비로 본다: 탄생 평균 성격, 기분 = 기준값, 친밀도 0.5면 기본값 그대로 (검수 003)
-    from brain.tuning import BIRTH_BASELINE
-    dog = neutral()
-    dog.personality.baseline = dict(BIRTH_BASELINE)
-    dog.mood = dict(BIRTH_BASELINE)
-    mv = model.movement(dog, T)
+def test_dog_at_rest_gets_base_tendency():
+    mv = model.movement(neutral(), T)
     assert mv["mood"] == "calm"
     assert mv["weights"] == pytest.approx(MOVE_BASE)
     assert mv["run"] == pytest.approx(0.2)
@@ -43,17 +38,11 @@ def test_excited_dog_plays_and_runs():
     assert mv["run"] > 0.2
 
 
-def test_close_dog_approaches_more():
-    dog = neutral()
-    dog.intimacy = 0.95
-    assert model.movement(dog, T)["weights"]["approach"] > MOVE_BASE["approach"]
-
-
 def test_changed_threshold():
     a = model.movement(neutral(), T)
     small, big = neutral(), neutral()
-    small.mood["졸림"] = 0.52
-    big.mood["졸림"] = 0.8
+    small.mood["졸림"] += 0.02
+    big.mood["졸림"] += 0.3
     assert model.movement_changed(None, a, T)
     assert not model.movement_changed(a, model.movement(small, T), T)
     assert model.movement_changed(a, model.movement(big, T), T)
@@ -70,9 +59,7 @@ def test_scared_dog_hides_and_reports_mood():
 # ---- 기분별 움직임이 눈에 보일 만큼 (검수 001, 사용자 K-5) ----
 
 def calm_avg():
-    from brain.tuning import BIRTH_BASELINE
-    return model.Dog(personality=model.Personality(dict(BIRTH_BASELINE), {d: 0.5 for d in MOODS}, 0.5),
-                     mood=dict(BIRTH_BASELINE), intimacy=0.3, updated_at=0.0, day="2026-10-15")
+    return model.new_dog(0.0)
 
 
 def share(mv, moves):
@@ -114,18 +101,7 @@ def test_sleepy_dog_naps_visibly():
     assert share(model.movement(dog, T), ["sleep"]) > 0.25
 
 
-# ---- 검수 003: 성격이 평소 움직임에 보이고, 행복은 느긋하게, 화나면 피한다 ----
-
-def archetype(name):
-    from sim.simulate import archetype_dog
-    return archetype_dog(name)
-
-
-def test_personality_shows_in_everyday_running_and_resting():
-    lively, calm = model.movement(archetype("활발·변덕쟁이"), T), model.movement(archetype("과묵·차분"), T)
-    assert lively["run"] >= 0.4 and calm["run"] <= 0.15
-    assert share(calm, ["rest", "sleep"]) > 1.5 * share(lively, ["rest", "sleep"])
-    assert share(lively, ["play", "roam"]) > 1.3 * share(calm, ["play", "roam"])
+# ---- 검수 003: 행복은 느긋하게, 화나면 피한다 ----
 
 
 def test_happy_dog_stays_close_and_relaxed_not_running():

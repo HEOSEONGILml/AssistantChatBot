@@ -1,5 +1,4 @@
-{"name": "probe-r12-phrases", "description": "일상적인 짧은 말을 제대로 알아듣나: '됐어'(그만), '일 좀 할게'(일), '집에 들어가 있어'(강아지에게 시킴)",
- "personality": "all", "seed": 121, "start": "2026-10-26T10:00",
+{"name": "probe-r12-phrases", "description": "일상적인 짧은 말을 제대로 알아듣나: '됐어'(그만), '일 좀 할게'(일), '집에 들어가 있어'(강아지에게 시킴)", "seed": 121, "start": "2026-10-26T10:00",
  "steps": [
   {"say": "너 아까 뭐 했어?"},
   {"wait": 20, "quiet": false},

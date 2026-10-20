@@ -1,7 +1,6 @@
 {
  "name": "01-ten-minutes",
  "description": "사람이 처음 10분쯤 써 보는 모습. 이것만으로 대부분 판단이 선다",
- "personality": "평균",
  "seed": 1,
  "start": "2026-10-19T09:00",
  "steps": [

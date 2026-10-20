@@ -1,4 +1,4 @@
-{"name": "probe-birthday-nextday", "description": "밤에 '내일 내 생일'이라고 하고 다음 날 아침 인사만 함(네 성격): 날짜를 맞게 계산해 오늘이 생일이라고 축하하나, '생일 전날'이라고 틀리나", "personality": "all", "seed": 42, "start": "2026-10-23T21:30",
+{"name": "probe-birthday-nextday", "description": "밤에 '내일 내 생일'이라고 하고 다음 날 아침 인사만 함(네 성격): 날짜를 맞게 계산해 오늘이 생일이라고 축하하나, '생일 전날'이라고 틀리나", "seed": 42, "start": "2026-10-23T21:30",
  "steps": [
   {"say": "내일이 내 생일이야!"},
   {"wait": 30, "quiet": false},

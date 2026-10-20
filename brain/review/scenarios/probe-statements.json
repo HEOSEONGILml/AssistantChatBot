@@ -1,5 +1,4 @@
-{"name": "probe-statements", "description": "질문이 아닌 평범한 알림 세 마디('점심 먹었어' 등)와 연달아 속상한 말 두 마디: 알림을 질문으로 잘못 읽나, 위로가 매번 '옆에 있을게' 틀인가",
- "personality": "평균", "seed": 96, "start": "2026-10-22T13:00",
+{"name": "probe-statements", "description": "질문이 아닌 평범한 알림 세 마디('점심 먹었어' 등)와 연달아 속상한 말 두 마디: 알림을 질문으로 잘못 읽나, 위로가 매번 '옆에 있을게' 틀인가", "seed": 96, "start": "2026-10-22T13:00",
  "steps": [
   {"say": "점심 먹었어"},
   {"wait": 60, "quiet": false},

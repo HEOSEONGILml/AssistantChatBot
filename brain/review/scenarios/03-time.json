@@ -1,7 +1,6 @@
 {
  "name": "03-time",
  "description": "시간이 흐를 때: 자리 비움, 밤, 다음 날 기억, 사흘 성격 변화 (호출은 적게)",
- "personality": "평균",
  "seed": 1,
  "start": "2026-10-19T18:00",
  "steps": [

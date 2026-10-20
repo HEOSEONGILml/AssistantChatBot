@@ -1,4 +1,4 @@
-{"name": "probe-bye-meeting", "description": "짧은 대화 뒤 회의 간다고 인사하고 1시간 비움, 돌아옴: 성격별 말수·말투 차이, 인사 뒤 서운함이 쌓이나, 돌아왔을 때", "personality": "all", "seed": 13, "start": "2026-10-20T13:30",
+{"name": "probe-bye-meeting", "description": "짧은 대화 뒤 회의 간다고 인사하고 1시간 비움, 돌아옴: 성격별 말수·말투 차이, 인사 뒤 서운함이 쌓이나, 돌아왔을 때", "seed": 13, "start": "2026-10-20T13:30",
  "steps": [
   {"say": "안녕 오늘 날씨 좋다"},
   {"wait": 20, "quiet": false},

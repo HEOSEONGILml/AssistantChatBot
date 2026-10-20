@@ -1,4 +1,4 @@
-{"name": "probe-harsh-words", "description": "차갑고 거친 말 세 마디 뒤 5분, 그리고 사과: 시무룩·서운함·분노가 오르나, 친밀도, 사과로 풀리나", "personality": "평균", "seed": 7, "start": "2026-10-20T11:00",
+{"name": "probe-harsh-words", "description": "차갑고 거친 말 세 마디 뒤 5분, 그리고 사과: 시무룩·서운함·분노가 오르나, 친밀도, 사과로 풀리나", "seed": 7, "start": "2026-10-20T11:00",
  "steps": [
   {"say": "너 진짜 시끄러워"},
   {"wait": 20, "quiet": false},

@@ -1,5 +1,4 @@
-{"name": "probe-happy-chat-bored", "description": "다정한 말 세 마디로 행복을 올린 뒤 곁에서 40분 조용히 둠: 기쁨이 얼마나 가나, 심심함으로 자연스럽게 넘어가나, 먼저 말 걸기 내용이 앞 대화를 잇나",
- "personality": "평균", "seed": 25, "start": "2026-10-20T15:00",
+{"name": "probe-happy-chat-bored", "description": "다정한 말 세 마디로 행복을 올린 뒤 곁에서 40분 조용히 둠: 기쁨이 얼마나 가나, 심심함으로 자연스럽게 넘어가나, 먼저 말 걸기 내용이 앞 대화를 잇나", "seed": 25, "start": "2026-10-20T15:00",
  "steps": [
   {"say": "너 진짜 귀엽다"},
   {"wait": 20, "quiet": false},

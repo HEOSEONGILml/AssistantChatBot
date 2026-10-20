@@ -1,4 +1,4 @@
-{"name": "probe-pet-repeat", "description": "예민한 강아지를 찌른 뒤 쓰다듬기 6번(20초 간격): 한 번에 분노·시무룩이 0으로 꺼지나, 습관화, 행복이 1에 붙나, 조르기가 나오나", "personality": "예민·성마름", "seed": 8, "start": "2026-10-20T14:00",
+{"name": "probe-pet-repeat", "description": "예민한 강아지를 찌른 뒤 쓰다듬기 6번(20초 간격): 한 번에 분노·시무룩이 0으로 꺼지나, 습관화, 행복이 1에 붙나, 조르기가 나오나", "seed": 8, "start": "2026-10-20T14:00",
  "steps": [
   {"event": "poke"}, {"wait": 5, "quiet": false},
   {"event": "poke"}, {"wait": 5, "quiet": false},

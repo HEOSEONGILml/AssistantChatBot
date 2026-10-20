@@ -74,19 +74,14 @@ def test_prompt_carries_the_conversation_log():
     assert json.loads(p.split("\n")[0])["대화 기록(오래된 것부터)"] == ["어제 19:02 · 사용자: 내일이 내 생일이야"]
 
 
-# ---- 성격별 말투 (검수 004: 네 성격이 같은 말투) ----
-
-from brain.persona import voice
-from brain.tuning import Tuning
-from sim.simulate import archetype_dog
+# ---- 단순화: 성격·친밀도 없이 기분으로 말한다 ----
 
 
-def test_each_archetype_gets_a_different_voice():
-    t = Tuning()
-    voices = {n: voice(archetype_dog(n), t) for n in ("평균", "과묵·차분", "예민·성마름", "활발·변덕쟁이")}
-    assert len(set(v["지시"] for v in voices.values())) == 4
-    assert voices["과묵·차분"]["문장 수"] == 1 and voices["활발·변덕쟁이"]["문장 수"] == 2
-    assert "짧" in voices["과묵·차분"]["지시"] and "투덜" in voices["예민·성마름"]["지시"] and "들떠" in voices["활발·변덕쟁이"]["지시"]
+def test_system_speaks_from_mood_not_personality_numbers():
+    s = system_instruction()
+    assert "기분" in s and "강아지:" in s
+    for gone in ("기준값", "민감도", "변덕", "친밀도"):
+        assert gone not in s
 
 
 def test_rules_ban_stock_phrases():
@@ -94,14 +89,12 @@ def test_rules_ban_stock_phrases():
     assert "상투" in s and "앗, 깜짝이야" in s
 
 
-def test_prompt_tells_when_the_owner_looks_down():
-    p = dialogue_prompt({}, "sad", "beg", ["message"], [], 0, [], "", owner_down=True)
-    assert json.loads(p.split("\n")[0])["사용자 기분"] == "속상해 보인다"
+def test_rules_say_how_to_comfort_an_upset_owner():
     assert "상담사" in system_instruction()
 
 
 def test_prompt_carries_facts_and_rule():
-    p = dialogue_prompt({}, "none", "none", ["quiet"], [], 0, [], "", False, ["주인은 곁에서 조용히 뭔가 하고 있다"])
+    p = dialogue_prompt({}, "none", "none", ["quiet"], [], 0, [], ["주인은 곁에서 조용히 뭔가 하고 있다"])
     assert json.loads(p.split("\n")[0])["지금 상황 사실"] == ["주인은 곁에서 조용히 뭔가 하고 있다"]
     assert "상황 사실" in system_instruction()
 
@@ -113,7 +106,7 @@ def test_rules_against_meta_words_human_body_and_repeating_an_answer():
 
 
 def test_prompt_states_the_current_mood_for_tone():
-    p = dialogue_prompt({}, "none", "none", ["dog_spoke"], [], 0, [], "", False, [], mood_now="무서움")
+    p = dialogue_prompt({}, "none", "none", ["dog_spoke"], [], 0, [], [], mood_now="무서움")
     assert "움츠" in json.loads(p.split("\n")[0])["지금 기분"]
     s = system_instruction()
     assert "깡총" in s and "하지 않은 행동" in s
@@ -138,14 +131,6 @@ def test_return_greeting_knows_how_long_and_avoids_stock_words():
 
 # ---- 검수 008 대사 ----
 
-from brain.persona import trim_line
-
-
-def test_trim_drops_stock_opening_finally():
-    assert trim_line("드디어 왔네! 밥은 먹었어?") == "왔네! 밥은 먹었어?"
-    assert trim_line("드디어, 나왔다!") == "나왔다!"
-    assert trim_line("우와, 드디어 왔네!") == "우와, 왔네!"
-
 
 def test_rules_against_invented_actions_and_self_commentary():
     s = system_instruction()
@@ -166,16 +151,10 @@ def test_frequent_phrases_finds_repeated_templates():
 
 
 def test_prompt_lists_overused_phrases_and_screen_rule():
-    p = dialogue_prompt({}, "sad", "none", ["message"], [], 0, [], "", False, [], "", ["옆에 있을게"])
+    p = dialogue_prompt({}, "sad", "none", ["message"], [], 0, [], [], "", ["옆에 있을게"])
     assert json.loads(p.split("\n")[0])["최근에 너무 자주 쓴 표현(쓰지 않는다)"] == ["옆에 있을게"]
     s = system_instruction()
     assert "바탕화면" in s and "현관" in s and "무릎" in s
-
-
-def test_trim_drops_sentences_with_offscreen_places_and_banned_words():
-    assert trim_line("언제 오려나... 창밖만 계속 보게 되네. 나랑 놀자!") == "언제 오려나... 나랑 놀자!"
-    assert trim_line("짖! 우울한 공기는 털어내자.") == "우울한 공기는 털어내자."
-    assert trim_line("목 빠지는 줄 알았어! 밥은 먹었어?") == "밥은 먹었어?"
 
 
 def test_rule_speak_only_feelings_that_happened():
@@ -184,10 +163,6 @@ def test_rule_speak_only_feelings_that_happened():
 
 def test_rule_spoken_action_matches_picked_action():
     assert "말로 하는 동작" in system_instruction()
-
-
-def test_trim_replaces_system_word_user():
-    assert trim_line("나는 사용자랑 노는 게 좋아.") == "나는 너랑 노는 게 좋아."
 
 
 def test_instructions_have_no_template_examples():
@@ -210,19 +185,6 @@ def test_frequent_phrases_includes_repeated_sentence_endings():
     assert "있을게" in frequent_phrases(lines)
 
 
-def test_trim_drops_repeated_body_narration():
-    # 꼬리·자세는 그림이 보여 준다. 최근에 이미 말했으면 그 문장을 뺀다 (검수 011: 306줄 중 26줄 "꼬리")
-    assert trim_line("심심해서 꼬리가 축 처져. 놀아 줘!", recent=["꼬리 살랑 흔들게"]) == "놀아 줘!"
-    assert trim_line("꼬리가 신나서 멈추질 않아!", recent=["안녕"]) == "꼬리가 신나서 멈추질 않아!"
-    assert trim_line("꼬리가 살랑거려. 공놀이 좋아!") == "공놀이 좋아!"  # 다른 말이 있으면 해설은 뺀다
-
-
-def test_trim_drops_invented_world():
-    # 바탕화면 강아지는 햇살·창문·냄새를 모른다 (검수 011)
-    assert trim_line("창문 틈 햇살이 따뜻해. 같이 놀자!") == "같이 놀자!"
-    assert trim_line("커피 냄새가 솔솔 나네. 맛있었어?") == "맛있었어?"
-
-
 def test_quiet_topics_offer_earlier_talk_mood_and_action():
     # 혼자 둘 때 할 말의 거리: 아까 주인이 한 말, 지금 기분, 지금 동작 (검수 011: "심심해·언제 와" 한 틀)
     topics = quiet_topics(["이따 같이 공놀이 하자"], "심심함", "엎드리기")
@@ -243,99 +205,9 @@ def test_rules_for_known_world_body_and_roles():
     assert "꼬리 살랑" not in s  # 지시에 쓴 몸짓 낱말이 틀이 된다
 
 
-def test_command_fact_says_whether_the_dog_obeyed():
-    # 검수 012: "엎드려"에 앉아 놓고 "납작하게 배 깔고 있을게"라고 말했다
-    from brain.persona import command_fact
-    assert "하지 않았다" in command_fact({"lie_down": 0.9, "none": 0.1}, "sit")
-    assert "엎드리기" in command_fact({"lie_down": 0.9, "none": 0.1}, "sit")
-    assert "했다" in command_fact({"lie_down": 0.9, "none": 0.1}, "lie_down")
-    assert command_fact({"none": 0.9, "sit": 0.1}, "sit") is None
-    assert command_fact({}, "sit") is None
-
-
-# ---- 검수 012 묶음 3: 주인 말의 뜻을 사실로 준다 ----
-
-
-def test_space_request_is_not_read_as_upset():
-    # "아 아니다 됐어 신경 쓰지 마": 속상함 0.48~0.53, 조용히 0.58~0.67 → "말하기 어려우면 곁에 있을게"(위로)였다
-    from brain.persona import owner_upset, space_fact
-    assert not owner_upset(0.53, 0.17, 0.67)
-    assert owner_upset(0.89, 0.06, 0.06)          # "오늘 회의 너무 힘들었어"
-    assert owner_upset(0.85, 0.05, 0.7)           # 힘들어서 혼자 있고 싶다: 속상한 것은 맞다
-    assert space_fact(0.61) and "자러" in space_fact(0.61)   # "일 좀 할게" → "벌써 자려는 거야?"였다
-    assert space_fact(0.2) is None
-
-
-def test_trim_drops_things_the_dog_never_did_or_has():
-    from brain.persona import trim_line
-    assert trim_line("나는 방금 먹고 왔어! 너는 뭐 먹었어?") == "너는 뭐 먹었어?"
-    assert trim_line("집 안에서 문밖만 보고 있었어. 나왔다, 멍!") == "나왔다, 멍!"
-    assert trim_line("내가 좋아하는 장난감으로 놀자. 심심해!") == "심심해!"
-    assert trim_line("얼른 문 열어 줘! 왈!") == "왈!"
-    assert trim_line("무슨 문제 있어? 질문해도 돼") == "무슨 문제 있어? 질문해도 돼"
-
-
-def test_harsh_words_are_not_the_owner_being_upset():
-    # 검수 013: "너 진짜 짜증나"(속상함 0.39~0.47, 모진 말 0.9)에 "무슨 일 있어? 곁에 있을게"
-    from brain.persona import harsh_fact, owner_upset, space_fact
-    assert not owner_upset(0.55, 0.03, 0.2, harsh=0.9)
-    assert owner_upset(0.89, 0.06, 0.06, harsh=0.05)
-    assert space_fact(0.83, harsh=0.83) is None          # "말 걸지 마 짜증나니까"는 담백한 부탁이 아니다
-    assert space_fact(0.61, harsh=0.08)                   # "일 좀 할게"
-    assert "위로하지" in harsh_fact(0.9) and harsh_fact(0.2) is None
+# ---- 검수 012 묶음 3 ----
 
 
 # ---- 검수 013 묶음 3: 의성어만 남는 대답, 몸 해설, 집 역할 ----
 
 
-def test_sound_only_sentence_does_not_use_up_the_sentence_limit():
-    # 과묵(한 문장)에서 "멍. 나는 간식이 좋아!"가 "멍."만 남았다 (검수 013: 질문에 "멍."·고백에 "헥헥.")
-    from brain.persona import trim_line
-    assert trim_line("멍. 나는 간식이 제일 좋아! 너는?", 1) == "멍. 나는 간식이 제일 좋아!"
-    assert trim_line("왈! 멍멍!", 1) == "왈! 멍멍!"
-
-
-def test_sound_only_detection():
-    from brain.persona import sound_only
-    assert sound_only("헥헥.") and sound_only("멍멍! 왈!") and sound_only("킁...")
-    assert not sound_only("멍, 좋아") and not sound_only("")
-
-
-def test_trim_drops_body_commentary_when_there_is_something_else_to_say():
-    from brain.persona import trim_line
-    assert trim_line("몸이 근질거려. 뭐 해?") == "뭐 해?"
-    assert trim_line("나랑 더 놀자! 조르기 시작!") == "나랑 더 놀자!"
-    assert trim_line("엎드려서 발끝만 꼼지락거리고 있잖아! 심심해") == "심심해"
-
-
-def test_trim_drops_owner_went_away_lines_after_the_dog_was_in_the_house():
-    from brain.persona import HOUSE_ROLE, trim_line
-    assert trim_line("그냥 멍하니 있었어. 너는 어디 다녀온 거야?", banned=HOUSE_ROLE) == "그냥 멍하니 있었어."
-    assert trim_line("네가 언제 나오나 기다리고 있었어. 조용했어", banned=HOUSE_ROLE) == "조용했어"
-    assert trim_line("네가 돌아오길 기다렸어! 멍", banned=HOUSE_ROLE) == "멍"
-
-
-def test_trim_leaves_no_stray_punctuation_after_stock_opening():
-    # 검수 014: "드디어! 신나게 달려볼까?" → "! 신나게 달려볼까? 멍!"
-    from brain.persona import trim_line
-    assert trim_line("드디어! 신나게 달려볼까? 멍!") == "신나게 달려볼까? 멍!"
-    assert trim_line("우와, 드디어! 왔네") == "우와, 왔네"
-    assert trim_line("!! 왈, 설레!") == "왈, 설레!"
-
-
-def test_departure_fact_remembers_where_the_owner_went():
-    # 검수 015: "편의점 다녀올게" 뒤 30분 비우고 돌아오니 "어디 갔다 이제야 온 거야?"(5번 중 3번)
-    from brain.persona import departure_fact
-    back = 10_000.0
-    msgs = [(back - 1800 - 3000, "오늘 바쁘다"), (back - 1800 - 5, "편의점 다녀올게")]
-    f = departure_fact(msgs, back, 1800)
-    assert "편의점 다녀올게" in f and "되묻지" in f and "오늘 바쁘다" not in f
-    assert departure_fact([(back - 1800 - 3000, "오늘 바쁘다")], back, 1800) is None   # 떠나기 10분 안에 한 말만
-    assert departure_fact(msgs, back, 0) is None
-
-
-def test_trim_drops_neck_and_eye_waiting_cliches():
-    # 검수 015: 금지어 "목 빠지"가 "목 빠질 뻔했어"·"눈 빠질 뻔했어"를 못 걸렀다
-    from brain.persona import trim_line
-    assert trim_line("기다리느라 목 빠질 뻔했어! 뭐 사 왔어?") == "뭐 사 왔어?"
-    assert trim_line("눈 빠지게 기다렸어. 왔구나!") == "왔구나!"

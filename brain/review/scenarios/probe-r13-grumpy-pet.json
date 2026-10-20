@@ -1,5 +1,4 @@
-{"name": "probe-r13-grumpy-pet", "description": "예민한 강아지를 두 번 찌른 직후(10초) 쓰다듬기: 화가 오른 성마른 강아지가 곧바로 행복 반응·조르기를 하나(성격과 반대), 과묵한 강아지와 차이",
- "personality": "all", "seed": 7, "start": "2026-10-20T10:00",
+{"name": "probe-r13-grumpy-pet", "description": "예민한 강아지를 두 번 찌른 직후(10초) 쓰다듬기: 화가 오른 성마른 강아지가 곧바로 행복 반응·조르기를 하나(성격과 반대), 과묵한 강아지와 차이", "seed": 7, "start": "2026-10-20T10:00",
  "steps": [
   {"event": "poke"},
   {"wait": 10, "quiet": false},

@@ -33,7 +33,7 @@ export type World = { width: number; height: number; dogWidth: number; dogHeight
 // 창: 위치·크기와 사용 중인지만 안다 (제목·내용은 모른다). 좌표는 다닐 수 있는 영역 기준
 // span: 윗변 중 다른 창에 가려지지 않고 보이는 가장 넓은 구간 (exposeTopEdges가 채운다. 없으면 윗변 전체)
 export type Win = { id: number; left: number; top: number; width: number; height: number; active: boolean; span?: { left: number; right: number } | null };
-// 평소 움직임 경향: 두뇌가 성격·기분으로 계산해 보낸다 (프로토콜 v2 movement). 두뇌가 없으면 기본 경향
+// 평소 움직임 경향: 두뇌가 기분으로 계산해 보낸다 (프로토콜 v2 movement). 두뇌가 없으면 기본 경향
 export const MOVES = ["rest", "sleep", "roam", "approach", "play", "explore"] as const;
 export type Move = (typeof MOVES)[number];
 export type Movement = { weights: Record<Move, number>; run: number; idleScale: number };

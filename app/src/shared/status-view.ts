@@ -5,7 +5,6 @@ export type Row = { label: string; value: number; note?: string }; // value: 막
 export type Section = { title: string; rows: Row[] };
 
 const MOODS = ["심심함", "졸림", "들뜸", "시무룩", "분노", "궁금함", "놀람", "무서움", "행복"];
-const HABITS: Record<string, string> = { poke: "찌르기", pet: "쓰다듬기", throw: "던지기", typing: "타이핑" };
 const MOVES: Record<string, string> = { rest: "쉬기", sleep: "잠", roam: "돌아다니기", approach: "사용자 곁으로", play: "놀기", explore: "구경하기" };
 export const REACTION_NAMES: Record<string, string> = { bored: "지루함", sleepy: "하품", excited: "신남", sad: "서운함", annoyed: "짜증", curious: "궁금함", surprised: "놀람", scared: "무서움", happy: "행복", none: "없음" };
 export const ACTION_NAMES: Record<string, string> = { stand: "서기", sit: "앉기", lie_down: "엎드리기", sleep: "잠", beg: "조르기", bark: "짖기", none: "없음" };
@@ -14,18 +13,9 @@ const f2 = (x: number) => x.toFixed(2);
 const signed = (x: number) => (x >= 0 ? "+" : "") + f2(x);
 
 export function stateSections(s: BrainState): Section[] {
-  const p = s.dog.personality;
   const total = Object.values(s.movement.weights).reduce((a, b) => a + b, 0) || 1;
   return [
     { title: "기분", rows: MOODS.map((d) => ({ label: d, value: s.dog.mood[d] })) },
-    { title: "관계·말수", rows: [
-      { label: "친밀도", value: s.dog.intimacy },
-      // 말수는 말할 확률에 더하는 로짓 보정값이라 막대는 0~1로 눌러 보여 준다
-      { label: "말수", value: 1 / (1 + Math.exp(-s.talkativeness)), note: `로짓 ${signed(s.talkativeness)}` },
-    ] },
-    { title: "성격 (기준값 / 기질)", rows: MOODS.map((d) => ({ label: d, value: p.baseline[d], note: `기질 ${f2(p.temperament[d])}` })) },
-    { title: "민감도·변덕", rows: [...MOODS.map((d) => ({ label: d, value: p.sensitivity[d] })), { label: "변덕", value: p.whim }] },
-    { title: "습관화", rows: Object.entries(HABITS).map(([k, name]) => ({ label: name, value: s.dog.habit[k] ?? 0 })) },
     { title: "평소 움직임 경향", rows: [
       ...Object.entries(MOVES).map(([k, name]) => ({ label: name, value: (s.movement.weights[k] ?? 0) / total })),
       { label: "달리기 비율", value: s.movement.run },

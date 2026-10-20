@@ -12,7 +12,6 @@ from brain.questions import jev_state
 
 PRESETS = {"기본": {}, "심심함": {"심심함": 0.9}, "졸림": {"졸림": 0.9}, "분노": {"분노": 0.9}, "들뜸": {"들뜸": 0.9}, "시무룩": {"시무룩": 0.9},
            "궁금함": {"궁금함": 0.9}, "놀람": {"놀람": 0.9}, "무서움": {"무서움": 0.9}, "행복": {"행복": 0.9}}
-INTIMACY = (0.2, 0.8)
 CONTEXTS = {"typing": {"text": "회의록 정리해야 하는데 자료가"}, "message": {"text": "오늘 점심 진짜 맛있었어"},
             "dog_spoke": {"text": "멍! 간식 먹을래?"}, "quiet": {"seconds": 600}, "returned": {"away_seconds": 3600},
             "house_in": {}, "house_out": {"away_seconds": 7200}, "poke": {}, "pet": {"seconds": 3},
@@ -22,26 +21,24 @@ OUT = Path(__file__).with_name("jev_recording.json")
 NOW = 1_760_000_000.0
 
 
-def key(kind: str, preset: str, intimacy: float, streak: int) -> str:
-    return f"{kind}|{preset}|{intimacy}|{streak}"
+def key(kind: str, preset: str, streak: int) -> str:
+    return f"{kind}|{preset}|{streak}"
 
 
 def cases():
     for kind in CONTEXTS:
         for preset in PRESETS:
-            for intimacy in INTIMACY:
-                for streak in ((0, 1, 2) if kind == "dog_spoke" else (0,)):
-                    yield kind, preset, intimacy, streak
+            for streak in ((0, 1, 2) if kind == "dog_spoke" else (0,)):
+                yield kind, preset, streak
 
 
 def _ev(kind, data, ago=0.0, source="user"):
     return SimpleNamespace(ts=NOW - ago, source=source, kind=kind, data=data)
 
 
-def state_for(kind: str, preset: str, intimacy: float, streak: int) -> dict:
-    dog = model.default_dog(NOW)
+def state_for(kind: str, preset: str, streak: int) -> dict:
+    dog = model.new_dog(NOW)
     dog.mood.update(PRESETS[preset])
-    dog.intimacy = intimacy
     recent = [_ev("message", {"text": "오늘 회의 너무 길었어"}, 300)]
     recent += [_ev("dog", {"utterance": UTTERANCES[i]}, 60 * (streak - i), "dog") for i in range(streak)]
     return jev_state(dog, [_ev(kind, CONTEXTS[kind])], recent, NOW)
@@ -62,7 +59,7 @@ async def main() -> None:
                 if attempt == 2:
                     raise
                 await asyncio.sleep(2)
-        data[key(*c)] = {"action": rd.action, "speak": rd.speak, "change": rd.change, "user_down": rd.user_down, "soothe": rd.soothe, "hush": rd.hush, "command": rd.command, "harsh": rd.harsh}
+        data[key(*c)] = {"action": rd.action, "speak": rd.speak, "change": rd.change}
     await jev.aclose()
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"{len(data)}개 녹화 → {OUT}")

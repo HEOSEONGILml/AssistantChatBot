@@ -1,5 +1,4 @@
-{"name": "probe-where-are-you", "description": "지금 뭐 하는지·어디 있는지 묻고 산책 얘기(네 성격): 화면 위 강아지가 현관문·창밖·무릎처럼 없는 장소·물건에 있다고 지어내나",
- "personality": "all", "seed": 95, "start": "2026-10-22T15:00",
+{"name": "probe-where-are-you", "description": "지금 뭐 하는지·어디 있는지 묻고 산책 얘기(네 성격): 화면 위 강아지가 현관문·창밖·무릎처럼 없는 장소·물건에 있다고 지어내나", "seed": 95, "start": "2026-10-22T15:00",
  "steps": [
   {"say": "지금 뭐 하고 있어?"},
   {"wait": 30, "quiet": false},

@@ -1,5 +1,4 @@
-{"name": "probe-throw-recover", "description": "낮에 세게 한 번 던지고 40분 곁에 둠, 그 뒤 '놀자': 무서움이 언제 풀리나, 들뜸·행복이 던진 뒤 점점 더 가라앉아 오래 처지나, 40분 뒤 놀자에 원래대로 반기나",
- "personality": "평균", "seed": 21, "start": "2026-10-21T11:00",
+{"name": "probe-throw-recover", "description": "낮에 세게 한 번 던지고 40분 곁에 둠, 그 뒤 '놀자': 무서움이 언제 풀리나, 들뜸·행복이 던진 뒤 점점 더 가라앉아 오래 처지나, 40분 뒤 놀자에 원래대로 반기나", "seed": 21, "start": "2026-10-21T11:00",
  "steps": [
   {"event": "throw", "context": {"impact": 0.9, "bounces": 2, "flight_seconds": 1.2}},
   {"wait": 300, "quiet": false},

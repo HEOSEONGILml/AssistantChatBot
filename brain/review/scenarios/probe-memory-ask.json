@@ -1,4 +1,4 @@
-{"name": "probe-memory-ask", "description": "사실 두 개를 알려 주고 다시 켠 뒤 다음 날 직접 물음: 기억을 분명히 말하나, 생일 당일 축하하나", "personality": "평균", "seed": 23, "start": "2026-10-21T20:00",
+{"name": "probe-memory-ask", "description": "사실 두 개를 알려 주고 다시 켠 뒤 다음 날 직접 물음: 기억을 분명히 말하나, 생일 당일 축하하나", "seed": 23, "start": "2026-10-21T20:00",
  "steps": [
   {"say": "내 이름은 민수야. 집에서 고양이 한 마리 키워"},
   {"wait": 30, "quiet": false},

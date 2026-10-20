@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import random
-import re
 import time
 from datetime import datetime
 from collections import deque
@@ -11,7 +10,7 @@ from typing import Awaitable, Callable
 
 from . import model
 from .clients import AuthError, CallError, Jev, Readout, Talker
-from .persona import HOUSE_ROLE, annotate_dates, sound_only, command_fact, date_facts, departure_fact, harsh_fact, owner_upset, space_fact, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line, voice
+from .persona import annotate_dates, dialogue_prompt, frequent_phrases, quiet_topics, system_instruction, trim_line
 from .questions import describe_event, format_log, jev_state
 from .store import Event, Store, StoreError
 from .tuning import EVENT_KINDS, Tuning
@@ -20,7 +19,6 @@ log = logging.getLogger(__name__)
 
 Emit = Callable[[dict], Awaitable[None]]
 MakeClients = Callable[[dict[str, str | None]], tuple[Jev, Talker]]
-_REQUEST = re.compile(r"(줘|줄래|주라|주세요|봐|하자|가자|놀자)\s*[.!~ㅎㅋ]*\s*$")  # 부탁과 함께 하자는 말 (검수 005·008)
 from .tuning import MOOD_REACTION_ID as _MRI
 _MOOD_KO = {v: k for k, v in _MRI.items()}  # 반응 id → 기분 이름
 USER_KINDS = {"typing", "message", "poke", "pet", "throw", "returned"}  # 사용자가 한 일. 나머지는 화면이 알린 상황
@@ -43,14 +41,7 @@ class Brain:
         self._task: asyncio.Task | None = None
         self._phase: str | None = None     # judging / speaking
         self._streak = 0                   # 사용자 입력 없이 강아지가 연달아 말한 횟수
-        self._waiting = False              # 강아지가 질문하고 답을 기다리는 중
-        self._flow = ""                  # 지금 흐름을 연 이벤트 종류 (dog_spoke 말고 마지막 이벤트)
-        self._hush_until = 0.0             # 이 시각까지 먼저 말 걸지 않는다("말 걸지 마", 검수 007)
-        self._bed_until = 0.0              # 이 시각까지 잠자리다("잘 자", 검수 014). 사용자가 다시 말하면 끝
-        self._unanswered = 0               # 먼저 말을 건 뒤 사용자 대꾸가 없었던 횟수 (검수 006)
         self._interjected = False          # 이번 메시지를 치는 동안 이미 끼어들었다 (검수 006: 한 문장에 세 번)
-        self._posed = ""                   # 이번 메시지를 치는 동안 자세를 잡았을 때의 반응 (검수 012: 듣는 동안 자세 유지)
-        self._hold = False                 # 이 흐름에서는 이어 말하지 않는다: 타이핑 중 끼어들었거나(검수 001) 핀잔을 들었다(검수 002)
         self._user_away = False            # 사용자가 자리를 비웠다(화면이 30분 조용함을 보냄). 대사에 사실로 준다 (검수 005)
         self._in_house = False             # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002)
         self._sent_movement: dict | None = None
@@ -67,11 +58,11 @@ class Brain:
         try:
             data = self._store.load_dog()
         except StoreError:
-            log.exception("강아지 상태를 읽지 못해 기본값으로 계속한다. 저장된 성격을 덮어쓰지 않도록 저장하지 않는다")
+            log.exception("강아지 상태를 읽지 못해 기본값으로 계속한다. 저장본을 덮어쓰지 않도록 저장하지 않는다")
             self._can_save = False
-            return model.default_dog(now)
+            return model.new_dog(now)
         if data is None:
-            dog = model.birth(self._rng, now)
+            dog = model.new_dog(now)
             self._store.save_dog(model.dog_to_dict(dog))
             log.info("강아지가 태어났다")
             return dog
@@ -80,7 +71,7 @@ class Brain:
         except (TypeError, KeyError, ValueError):
             log.exception("저장된 강아지 상태의 모양이 어긋나 기본값으로 계속한다. 저장본을 덮어쓰지 않는다")
             self._can_save = False
-            return model.default_dog(now)
+            return model.new_dog(now)
 
     def _save(self) -> None:
         if self._can_save:
@@ -110,14 +101,14 @@ class Brain:
         self._store.clear_events()
 
     async def reset(self) -> None:
-        """설정 창 초기화: 강아지가 새 성격으로 다시 태어나고 이벤트 기록·판단 로그를 지운다. 키와 연결은 그대로다.
+        """설정 창 초기화: 강아지 기분이 처음 자리로 돌아가고 이벤트 기록·판단 로그를 지운다. 키와 연결은 그대로다.
         사용자가 고른 일이므로 읽지 못한 저장본도 덮어쓴다."""
         self._cancel()
         self._pending.clear()
-        self._streak, self._waiting, self._hold, self._in_house, self._user_away = 0, False, False, False, False
+        self._streak, self._in_house, self._user_away = 0, False, False
         self._store.clear_events()
         self._judgements.clear()
-        self._dog = model.birth(self._rng, self._clock())
+        self._dog = model.new_dog(self._clock())
         self._can_save = True
         self._save()
         log.info("초기화: 강아지가 새로 태어났다")
@@ -132,10 +123,8 @@ class Brain:
     # ---- 조회 (설정 창 상태·로그 탭, 스펙 3.1) ----
 
     def state_snapshot(self) -> dict:
-        model.advance(self._dog, self._clock(), self._rng, self._t)  # 지금 시각의 기분을 보여 준다
-        return {"dog": model.dog_to_dict(self._dog),
-                "talkativeness": round(model.talkativeness(self._dog, self._t), 3),
-                "movement": model.movement(self._dog, self._t)}
+        model.advance(self._dog, self._clock(), self._t)  # 지금 시각의 기분을 보여 준다
+        return {"dog": model.dog_to_dict(self._dog), "movement": model.movement(self._dog, self._t)}
 
     def log_snapshot(self, n: int = 50) -> dict:
         return {"judgements": list(self._judgements)[-n:],
@@ -152,18 +141,10 @@ class Brain:
         # 연달아 말하기는 한 흐름(말풍선이 뜨고 이어 말하기) 안에서만 센다. 다른 일이 생기면 새 흐름이다
         if kind != "dog_spoke":
             self._streak = 0
-            self._flow = kind  # 이 흐름을 연 이벤트
-            self._hold = False
-        if kind in ("message", "typing"):
-            self._waiting = False
         if kind in USER_KINDS:
             self._user_away = False
-            self._unanswered = 0
         if kind == "message":
             self._interjected = False
-            self._posed = ""
-            self._hush_until = 0.0  # 사용자가 다시 말을 걸면 부탁은 끝난다(새 메시지가 다시 부탁이면 판단에서 다시 켠다)
-            self._bed_until = 0.0
         elif kind == "quiet" and float((context or {}).get("seconds") or 0) >= 1800:
             self._user_away = True
         if kind in ("house_in", "house_out"):
@@ -179,8 +160,7 @@ class Brain:
     # ---- 기분 시계 (스펙 6.5) ----
 
     async def clock_tick(self) -> None:
-        model.advance(self._dog, self._clock(), self._rng, self._t)
-        model.record_mood(self._dog)
+        model.advance(self._dog, self._clock(), self._t)
         self._save()
         await self._push_movement()
 
@@ -228,7 +208,7 @@ class Brain:
     async def _judge(self, batch: list[Event]) -> None:
         assert self._jev is not None and self._talker is not None
         dog, t, now = self._dog, self._t, self._clock()
-        model.advance(dog, now, self._rng, t)
+        model.advance(dog, now, t)
         recent = [e for e in self._store.recent(t.recent_events + len(batch)) if e not in batch][-t.recent_events:]
         state = jev_state(dog, batch, recent, now)
         entry: dict = {"ts": now, "events": [describe_event(e.kind, e.data) for e in batch]}
@@ -246,46 +226,22 @@ class Brain:
             log.warning("Jev 실패(%s). 우리 모형만으로 반응하고 말하지 않는다", e)
             rd = Readout({}, 0.0, {})
         kinds = [e.kind for e in batch]
-        if kinds[-1] == "message" and rd.hush >= 0.5:
-            self._hush_until = now + t.hush_s
-        if kinds[-1] == "message" and rd.command.get("sleep", 0.0) >= 0.5:
-            # "잘 자"·"이제 자자": 잠자리. 먼저 말 걸지 않고, 조용함은 무시가 아니라 잘 시간이다 (검수 014)
-            self._bed_until = now + t.bed_s
-            self._hush_until = max(self._hush_until, self._bed_until)
-        bed = now < self._bed_until
-        waiting = self._waiting and not bed
-        if kinds[-1] == "quiet":
-            self._waiting = False  # 무시당한 서운함은 한 번만. 조용함마다 쌓이지 않는다 (검수 003)
-        # 기분이 먼저 변하고(우리 평가 사전값 + Jev 조정, 0015), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
-        last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
-        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], self._rng, t, user_down=rd.user_down, soothe=rd.soothe, hush=rd.hush, harsh=rd.harsh,
-                                    waiting=waiting, alone_s=max(now - last_user, t.bed_alone_s) if bed else now - last_user)
+        # 기분이 먼저 변하고(글 없는 사건은 우리 평가값, 글은 Jev 기분 질문, 0019), 가장 크게 오른 기분이 곧 반응이다. 동작은 그 반응을 반영해 뽑는다
+        deltas = model.apply_change(dog, rd.change, [(e.kind, e.data) for e in batch], t)
         reaction = model.reaction_from(deltas, kinds, t)
-        # 듣는 동안은 한 번 잡은 자세를 지킨다. 글 내용으로 반응이 바뀌면(궁금함 → 서운함 등) 다시 고른다 (검수 012)
-        hold = kinds[-1] == "typing" and bool(self._posed) and reaction in ("curious", "none", self._posed)
-        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t, command=rd.command if kinds[-1] == "message" else None, hold=hold)
+        a_scores = model.action_scores(rd.action, dog, reaction, kinds, t)
         action = model.pick(a_scores, self._rng)
-        if kinds[-1] == "typing" and action != "none":
-            self._posed = reaction
         # 집에 들어가는 순간에는 말하지 않는다: 화면이 보여 주지 않으므로 대사가 기록·연속 횟수에만 남는다 (스펙 8절)
-        # 타이핑 중에 끼어든 뒤에는 이어 말하지 않는다: 사용자가 아직 치는 중이다 (검수 001)
-        # 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002). 조용함이 오면 다시 말을 걸 수 있다
-        if "error" in entry or kinds[-1] == "house_in" or (kinds[-1] == "dog_spoke" and (self._hold or self._waiting)) \
+        # 한 메시지를 치는 동안 끼어들기는 한 번, 뜻이 드러난 뒤에만 (검수 006·008)
+        if "error" in entry or kinds[-1] == "house_in" \
                 or (kinds[-1] == "typing" and (self._interjected or len(str(batch[-1].data.get("text", ""))) < t.interject_min_chars)):
             p_speak = 0.0
+        elif kinds[-1] == "dog_spoke":
+            p_speak = model.chain_probability(self._streak, t)
         else:
-            last = batch[-1]
-            text = str(last.data.get("text", ""))
-            # 물음표 없는 부탁("다시 말해 줘", "알려 줄래")도 묻는 말이다 (검수 005)
-            asked = last.kind == "message" and ("?" in text or _REQUEST.search(text) is not None)
-            hurting = last.kind == "message" and rd.soothe < 0.5 and (owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh) or deltas.signal.get("시무룩", 0.0) >= 0.05)
-            asked = asked or (last.kind == "message" and rd.soothe >= 0.5)  # 사과는 받아 준다 (검수 010)
-            ignored = self._unanswered if self._flow not in ("message", "typing") else 0
-            p_speak = model.chain_probability(dog, self._streak, t, ignored, now < self._hush_until) if kinds[-1] == "dog_spoke" else \
-                model.speak_probability(rd.speak, dog, kinds[-1], self._streak, self._waiting, t, asked, hurting, self._unanswered,
-                                        now < self._hush_until)
+            p_speak = model.speak_probability(rd.speak, kinds[-1], self._streak, t)
         speak = self._rng.random() < p_speak
-        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change), "user_down": round(rd.user_down, 3), "soothe": round(rd.soothe, 3), "hush": round(rd.hush, 3), "harsh": round(rd.harsh, 3), "command": _top(rd.command)},
+        entry.update({"jev": {"action": _top(rd.action), "speak": round(rd.speak, 3), "change": _top(rd.change)},
                       "model": {"action": _top(model.probabilities(a_scores)), "speak": round(p_speak, 3)},
                       "picked": {"reaction": reaction, "action": action, "speak": speak},
                       "mood_change": {k: round(v, 3) for k, v in deltas.items() if abs(v) >= 0.005}})
@@ -299,74 +255,30 @@ class Brain:
             return
         self._phase = "speaking"
         try:
+            last_user = max((e.ts for e in self._store.recent(500) if e.kind in USER_KINDS), default=now)  # 혼자 있은 시간
             own = [e.data["utterance"] for e in recent if e.kind == "dog" and "utterance" in e.data][-5:]
             # 대화 기록: 이벤트 창(30개)과 따로, 실제로 오간 말만 최근 20줄. 하룻밤이 지나도 들은 사실이 남는다 (검수 004)
             talk = [e for e in self._store.recent(500) if e.kind == "message" or (e.kind == "dog" and "utterance" in e.data)][-20:]
             conversation = [f"{datetime.fromtimestamp(e.ts):%m-%d(%a) %H:%M} · "
                             + (f"사용자: {annotate_dates(e.data.get('text', ''), e.ts)}" if e.kind == "message" else f"강아지(나): {e.data['utterance']}")
                             for e in talk]
-            v = voice(dog, t)  # 성격에서 나온 말투 (검수 004)
             lines40 = [e.data["utterance"] for e in self._store.recent(500) if e.kind == "dog" and "utterance" in e.data][-40:]
-            # 지금 상황 사실: 주인이 곁에 있는지, 집에서 나온 쪽이 누구인지 (검수 005: 지어냄)
-            facts = ["주인은 자리를 비웠다. 아직 돌아오지 않았다" if self._user_away else
-                     ("주인은 곁에서 조용히 뭔가 하고 있다(떠나지 않았다)" if kinds[-1] == "quiet" else "주인은 곁에 있다")]
-            if "returned" in kinds:  # 돌아온 순간에는 "곁에 있다" 대신 이 사실만 (검수 007: "옆에 있는 거 다 아는데")
-                facts = ["주인이 자리를 비웠다가 방금 돌아왔다"]
-            # 돌아온 뒤 10분 동안은 떠나기 전 주인 말(행선지)을 사실로 준다 (검수 015)
-            back = [e for e in [*recent, *batch] if e.kind == "returned" and now - e.ts < 600]
-            if back:
-                gone = departure_fact([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"],
-                                      back[-1].ts, float(back[-1].data.get("away_seconds") or 0))
-                if gone:
-                    facts.append(gone)
-            house_back = "house_out" in kinds or any(e.kind == "house_out" and now - e.ts < 600 for e in recent)
-            if "house_out" in kinds:
-                facts.append("방금 강아지(나)가 집에서 나왔다. 집에 들어가 있던 쪽은 나다. 주인이 꺼내 줬다")
-            elif any(e.kind == "house_out" and now - e.ts < 600 for e in recent):
-                facts.append("조금 전까지 집 안에 있던 쪽은 강아지(나)다. 주인은 어디에도 가지 않고 밖(곁)에 있었다")
-            # 집에 넣은 쪽은 주인이고, 넣기 직전 주인 말이 이유일 수 있다 (검수 011: "왜 집에 있었는지 알아?" → "밖이 조용해서")
-            put_in = [e for e in recent if e.kind == "house_in" and now - e.ts < 1800]
-            if put_in:
-                before = [e.data.get("text", "") for e in recent if e.kind == "message" and 0 <= put_in[-1].ts - e.ts < 120]
-                facts.append("주인이 나를 집에 넣었다(내가 들어간 게 아니다)" + (f". 넣기 직전 주인이 한 말: {before[-1]}" if before else ""))
-            if kinds[-1] == "message":
-                said_now = talk[-1].data.get("text", "") if talk and talk[-1].kind == "message" else ""
-                facts.append(f"주인이 방금 '{said_now}'라고 했다. 이것은 주인 자신의 일이다. 주인이 이미 했다고 한 일은 했느냐고 되묻지 않는다. "
-                             "나는 먹거나 마시거나 냄새 맡지 않았다")
-                for f in (command_fact(rd.command, action), space_fact(rd.hush, rd.harsh), harsh_fact(rd.harsh)):  # 주인 말의 뜻은 Jev가 읽은 것을 사실로 준다 (검수 012)
-                    if f:
-                        facts.append(f)
-            facts += date_facts([(e.ts, e.data.get("text", "")) for e in self._store.recent(500) if e.kind == "message"], now)
-            if kinds[-1] == "message":  # 끼어들며 한 말도 내 말이다: 메시지에 답할 때 뒤집지 않는다 (검수 006)
-                said = [e.data["utterance"] for e in talk[:-1] if e.kind == "dog"]
-                prev_msg = max((i for i, e in enumerate(talk[:-1]) if e.kind == "message"), default=-1)
-                just = [e.data["utterance"] for e in talk[prev_msg + 1:-1] if e.kind == "dog"]
-                if just and said:
-                    facts.append(f"방금 네가 한 말: {just[-1]} — 이 말과 어긋나지 않게 이어 간다")
+            # 지금 상황 사실은 주인이 곁에 있는지 하나 (검수 005: 지어냄, 0020)
+            facts = ["주인이 자리를 비웠다가 방금 돌아왔다" if "returned" in kinds else
+                     "주인은 자리를 비웠다. 아직 돌아오지 않았다" if self._user_away else "주인은 곁에 있다"]
             topic = ""
             if kinds[-1] == "quiet":  # 혼자 둘 때 말의 실마리를 우리 모형이 뽑는다 (검수 011)
                 heard = [e.data.get("text", "") for e in talk if e.kind == "message" and now - e.ts < 6 * 3600]
                 topic = self._rng.choice(quiet_topics(heard, _MOOD_KO.get(model.dominant_mood(dog, t), ""), model.ACTION_NAMES.get(action, "")))
-            prompt = dialogue_prompt(state, reaction, action, kinds, own, now - last_user, conversation, v["지시"],
-                                     owner_upset(rd.user_down, rd.soothe, rd.hush, rd.harsh), facts,
+            prompt = dialogue_prompt(state, reaction, action, kinds, own, now - last_user, conversation, facts,
                                      _MOOD_KO.get(model.dominant_mood(dog, t), ""), frequent_phrases(lines40), topic)
-            banned = HOUSE_ROLE if house_back else None
-            line = trim_line(await self._talker.say(system_instruction(), prompt), v["문장 수"], lines40[-10:], banned=banned)
-            # 메시지에 의성어로만 답하면 한 번 다시 묻는다(짖으라고 시킨 때는 빼고). 그래도 의성어뿐이면 아래에서 버린다 (검수 013·014)
-            if kinds[-1] == "message" and sound_only(line) and rd.command.get("bark", 0.0) < 0.5:
-                entry["utterance_retry"] = line
-                line = trim_line(await self._talker.say(system_instruction(), prompt + "\n의성어만 쓰지 말고, 주인 말에 내용이 있는 말로 답한다."),
-                                 v["문장 수"], lines40[-10:], banned=banned)
+            line = trim_line(await self._talker.say(system_instruction(), prompt))
         except AuthError:
             await self._set_ai("bad_key")
             return
         except CallError as e:
             log.warning("Gemini 실패(%s). 대사 없이 넘어간다", e)
             return
-        # 메시지에 의성어로만 답하면 말하지 않는다(반응·동작만 보인다). 짖으라고 시켰으면 의성어가 답이다 (검수 013)
-        if kinds[-1] == "message" and sound_only(line) and rd.command.get("bark", 0.0) < 0.5:
-            entry["utterance_dropped"] = line
-            line = ""
         if not line:
             return
         await self._emit({"type": "reaction", "utterance": line})
@@ -375,12 +287,6 @@ class Brain:
         self._streak += 1
         if kinds[-1] == "typing":
             self._interjected = True
-        if self._flow not in ("message", "typing") and self._streak == 1:
-            self._unanswered += 1  # 먼저 말을 건 흐름 하나
-        self._hold = kinds[-1] == "typing" or (kinds[-1] == "message" and rd.change.get("친밀도↓", 0.0) >= 0.4)
-        # "…? 멍!"도 질문이다 (검수 002). 다만 사용자와 말을 주고받는 흐름의 질문만 답을 기다린다.
-        # 조용함·몸 이벤트에서 나온 혼잣말 질문은 기다리지 않는다 (검수 004: 혼잣말 질문마다 서운함)
-        self._waiting = "?" in line and self._flow in ("message", "typing")
 
     async def _push_movement(self) -> None:
         if not self._connected or self._in_house:

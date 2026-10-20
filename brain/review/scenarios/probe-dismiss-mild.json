@@ -1,5 +1,4 @@
-{"name": "probe-dismiss-mild", "description": "가볍게 '아 됐어' 한 마디 뒤 30분 곁에 둠: 가벼운 말에 시무룩이 거친 말만큼 튀나, 얼마 만에 풀리나, 그 뒤 평범한 말에 다시 밝아지나",
- "personality": "평균", "seed": 91, "start": "2026-10-22T10:00",
+{"name": "probe-dismiss-mild", "description": "가볍게 '아 됐어' 한 마디 뒤 30분 곁에 둠: 가벼운 말에 시무룩이 거친 말만큼 튀나, 얼마 만에 풀리나, 그 뒤 평범한 말에 다시 밝아지나", "seed": 91, "start": "2026-10-22T10:00",
  "steps": [
   {"say": "뭐 하고 있었어?"},
   {"wait": 20, "quiet": false},

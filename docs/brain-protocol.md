@@ -1,4 +1,4 @@
-# 두뇌 프로토콜 (v3)
+# 두뇌 프로토콜 (v4)
 
 화면(프론트엔드)과 두뇌가 주고받는 규약이다. 화면은 이 문서만 보고 만들 수 있어야 한다. 두뇌는 고정이고 화면은 바뀔 수 있다 ([0012](decisions/0012-brain-as-frontend-independent-service.md)). 이벤트의 **의미**는 여기서 고정하고, **언제** 낼지는 화면이 정한다 ([0013](decisions/0013-event-driven-brain-with-event-log.md)).
 
@@ -37,7 +37,7 @@ sequenceDiagram
 
 ## 메시지
 
-모든 메시지는 JSON 객체 하나이고 `v: 3`과 `type`이 있다. (v3: 반응 어휘가 기분 8개의 표출로 바뀌고 `movement`에 `mood`가 생겼다, [기분 8개 스펙](superpowers/specs/2026-10-15-mood-reaction-design.md)) 해석할 수 없는 메시지는 버리고 연결은 유지한다.
+모든 메시지는 JSON 객체 하나이고 `v: 4`와 `type`이 있다. (v3: 반응 어휘가 기분 8개의 표출로 바뀌고 `movement`에 `mood`가 생겼다, [기분 8개 스펙](superpowers/specs/2026-10-15-mood-reaction-design.md). v4: `state`가 기분과 움직임 경향만 담는다, [단순화 스펙](superpowers/specs/2026-10-20-simplify-brain-design.md)) 해석할 수 없는 메시지는 버리고 연결은 유지한다.
 
 ### 화면 → 두뇌
 
@@ -46,8 +46,8 @@ sequenceDiagram
 | `hello` | `token` | 인증. 첫 메시지 |
 | `event` | `kind`, `context` | 일어난 일 (아래 표) |
 | `set_key` | `name`: `typesafe`·`gemini`, `value` | API 키 저장. 두뇌가 OS 자격 저장소에 보관한다 |
-| `clear_history` | | 이벤트 기록 전체 삭제 (강아지 성격·기분·친밀도는 남는다) |
-| `reset` | | 초기화: 강아지가 새 성격으로 다시 태어나고 이벤트 기록·판단 로그를 지운다. API 키는 남는다. 두뇌는 새 `movement`를 보낸다 |
+| `clear_history` | | 이벤트 기록 전체 삭제 (강아지 기분은 남는다) |
+| `reset` | | 초기화: 강아지 기분이 처음 자리로 돌아가고 이벤트 기록·판단 로그를 지운다. API 키는 남는다. 두뇌는 새 `movement`를 보낸다 |
 | `get_state` | | 강아지 상태 조회 → `state` |
 | `get_log` | | 판단 로그 조회 → `log` |
 
@@ -73,7 +73,7 @@ sequenceDiagram
 | `reaction` | `reaction?`, `action?`, `utterance?` | 강아지 반응. 반응은 이번에 가장 크게 오른 기분의 즉각 표출이다. 반응·동작과 대사는 따로 올 수 있다 |
 | `status` | `ai`: `ok`·`no_keys`·`bad_key` | AI 상태. `hello` 직후와 바뀔 때 |
 | `movement` | `weights`, `mood`, `run`, `idle_scale` | 평소 움직임 경향과 두드러진 기분(`mood`: 아래 반응 어휘 또는 `calm`). `hello` 직후와 바뀔 때(강아지가 집에 있는 동안은 보내지 않고 `house_out` 뒤 바로 보낸다). 화면은 최신 값으로 평소 움직임을 뽑고, `mood`로 평소 모습을 고른다 |
-| `state` | `dog`, `talkativeness`, `movement` | `get_state`에 대한 답: 성격·기분·친밀도·습관화, 말수 계산값, 지금 경향 (설정 창 상태 탭용) |
+| `state` | `dog`(`mood`, `updated_at`), `movement` | `get_state`에 대한 답: 기분, 지금 경향 (설정 창 상태 탭용) |
 | `log` | `judgements`, `events`, `brain_log` | `get_log`에 대한 답: 최근 판단 50개(Jev 분포·보정 뒤 확률·뽑힌 결과·기분 변화·대사), 이벤트 기록 문장, 두뇌 실행 로그 30줄 (설정 창 로그 탭용) |
 
 | 반응 `reaction` (= 기분) | 동작 `action` | 움직임 범주 `weights` 키 |

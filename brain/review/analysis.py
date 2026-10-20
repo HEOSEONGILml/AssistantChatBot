@@ -4,7 +4,7 @@ from datetime import datetime
 
 from brain.model import ACTION_NAMES, REACTION_NAMES, REACTIONS
 from brain.questions import EVENT_NAMES
-from brain.tuning import EVENT_KINDS, MOODS
+from brain.tuning import EVENT_KINDS, MOODS, REST
 
 # 함께 높으면 어색한 기분 쌍 (검수자 정의 A)
 OPPOSITES = [("무서움", "행복"), ("무서움", "들뜸"), ("분노", "행복"), ("시무룩", "들뜸"), ("시무룩", "행복"),
@@ -34,7 +34,7 @@ def _kinds(entry: dict) -> list[str]:
 
 
 def half_recoveries(recs: list[dict], min_rise: float = 0.05) -> list[dict]:
-    """판단으로 min_rise 이상 오른 기분이 기준값 초과분의 절반으로 돌아오기까지의 가상 시간."""
+    """판단으로 min_rise 이상 오른 기분이 돌아가는 자리 초과분의 절반으로 돌아오기까지의 가상 시간."""
     snaps = [r for r in recs if r["type"] == "snap"]
     out = []
     for j in (r for r in recs if r["type"] == "judgement"):
@@ -45,7 +45,7 @@ def half_recoveries(recs: list[dict], min_rise: float = 0.05) -> list[dict]:
             after = [s for s in snaps if s["t"] >= e["ts"]]
             if not after:
                 continue
-            base = after[0]["baseline"][mood]
+            base = REST[mood]
             excess0 = after[0]["mood"][mood] - base
             if excess0 <= 0.02:
                 continue
@@ -94,7 +94,7 @@ def _step_label(s: dict) -> str:
     return next(iter(s))
 
 
-def _one(name: str, recs: list[dict]) -> str:
+def _one(recs: list[dict]) -> str:
     parts = []
     t0 = recs[0]["t"]
     # 기분 흐름: 단계가 끝날 때마다
@@ -104,8 +104,8 @@ def _one(name: str, recs: list[dict]) -> str:
             label = _step_label(r["step"])
         if r["type"] == "snap" and not r["tick"]:
             m = r["mood"]
-            rows.append([f"+{human(r['t'] - t0)}", label, *[f"{m[d]:.2f}" for d in MOODS], f"{r['intimacy']:.2f}", r["talk"]])
-    parts.append("### 기분 흐름 (단계 끝마다)\n\n" + _table(["시각", "단계", *MOODS, "친밀도", "말수"], rows))
+            rows.append([f"+{human(r['t'] - t0)}", label, *[f"{m[d]:.2f}" for d in MOODS]])
+    parts.append("### 기분 흐름 (단계 끝마다)\n\n" + _table(["시각", "단계", *MOODS], rows))
     # 기분 시계 흐름: 기다리는 동안 10분 간격
     ticks, last = [], None
     for r in recs:
@@ -164,31 +164,14 @@ def _one(name: str, recs: list[dict]) -> str:
     parts.append("### 움직임 경향 (두드러진 기분별, 두뇌가 보낸 movement 평균. 비율은 움직임 범주 선택 확률)\n\n"
                  + (_table(["두드러진 기분", "보낸 수", *keys, "달리기 비율", "머무는 시간 배율"], mrows) if mrows else "없음"))
     snaps = [r for r in recs if r["type"] == "snap"]
-    s0, s1 = snaps[0], snaps[-1]
-    parts.append("### 성격·친밀도 (시작 → 끝)\n\n" + _table(
-        ["", *MOODS, "친밀도"],
-        [["기준값 시작", *[f"{s0['baseline'][d]:.3f}" for d in MOODS], f"{s0['intimacy']:.2f}"],
-         ["기준값 끝", *[f"{s1['baseline'][d]:.3f}" for d in MOODS], f"{s1['intimacy']:.2f}"]])
-        + f"\n\n습관화 끝: {s1['habit']}\n\n경과: {human(s1['t'] - s0['t'])}")
+    parts.append(f"경과: {human(snaps[-1]['t'] - snaps[0]['t'])}")
     end = next((r for r in recs if r["type"] == "end"), {})
     parts.append(f"호출: {end.get('calls')}, 실패: {end.get('failures')}")
-    return f"## 성격: {name}\n\n" + "\n\n".join(parts)
+    return "\n\n".join(parts)
 
 
 def analyze(scenario_name: str, runs: dict[str, list[dict]]) -> str:
-    text = f"# 상태 분석표: {scenario_name}\n\n" + "\n\n".join(_one(n, r) for n, r in runs.items())
-    if len(runs) > 1:
-        rows = []
-        for n, recs in runs.items():
-            picks = [r["entry"]["picked"] for r in recs if r["type"] == "judgement" and "picked" in r["entry"]]
-            snaps = [r for r in recs if r["type"] == "snap"]
-            mean = {d: sum(s["mood"][d] for s in snaps) / len(snaps) for d in MOODS}
-            rows.append([n, len(picks), sum(p["speak"] for p in picks),
-                         Counter(REACTION_NAMES.get(p["reaction"], "없음") for p in picks).most_common(2),
-                         Counter(ACTION_NAMES.get(p["action"], "없음") for p in picks).most_common(2),
-                         " ".join(f"{d}{mean[d]:.2f}" for d in MOODS), f"{snaps[-1]['intimacy']:.2f}"])
-        text += "\n\n## 성격 유형 비교\n\n" + _table(["성격", "판단", "말함", "반응 상위", "동작 상위", "기분 평균", "친밀도 끝"], rows)
-    return text
+    return f"# 상태 분석표: {scenario_name}\n\n" + "\n\n".join(_one(recs) for recs in runs.values())
 
 
 # 필수 칸: 시나리오로 반드시 일으킬 수 있는 칸. 나머지(반응·동작·대사 종류·두드러진 기분 등)는 확률 칸이다.
@@ -196,7 +179,7 @@ def analyze(scenario_name: str, runs: dict[str, list[dict]]) -> str:
 REQUIRED = {("이벤트", k) for k in EVENT_KINDS} | {
     ("두뇌 단계", "idle"), ("두뇌 단계", "judging"),
     ("AI 상태", "ok"), ("AI 상태", "no_keys"), ("AI 상태", "bad_key"), ("AI 상태", "호출 실패"),
-    ("장기", "습관화"), ("장기", "성격 변화"), ("장기", "다시 켬 기억"), ("장기", "초기화"),
+    ("장기", "다시 켬 기억"), ("장기", "초기화"),
     ("연결", "끊김"), ("연결", "다시 연결"), ("연결", "상태 조회"), ("연결", "로그 조회")}
 
 
@@ -211,16 +194,11 @@ def coverage(all_runs: dict[str, list[dict]]) -> tuple[str, list[str]]:
         "동작": list(ACTION_NAMES),
         "대사": ["끼어들기", "답하기", "먼저 말 걸기", "연달아 말하기", "연달아 상한(3번)", "무응답(메시지)"],
         "기분": ["calm", *[r for r in REACTIONS if r != "none"], "감쇠로 움직임 전송"],
-        "장기": ["친밀도↑", "친밀도↓", "습관화", "성격 변화", "다시 켬 기억", "초기화"],
+        "장기": ["다시 켬 기억", "초기화"],
         "연결": ["끊김", "다시 연결", "상태 조회", "로그 조회"],
     }
     for recs in all_runs.values():
         streak = 0
-        snaps = [r for r in recs if r["type"] == "snap"]
-        if snaps and any(abs(snaps[-1]["baseline"][d] - snaps[0]["baseline"][d]) > 0.005 for d in MOODS):
-            c["장기"]["성격 변화"] += 1
-        if any(max(s["habit"].values()) >= 0.3 for s in snaps):
-            c["장기"]["습관화"] += 1
         for r in recs:
             ty = r["type"]
             if ty == "sent":
@@ -257,11 +235,6 @@ def coverage(all_runs: dict[str, list[dict]]) -> tuple[str, list[str]]:
                         c["대사"]["연달아 상한(3번)"] += 1
                 elif kinds[-1] == "message":
                     c["대사"]["무응답(메시지)"] += 1
-                d = (e.get("mood_change") or {}).get("친밀도", 0)
-                if d > 0.001:
-                    c["장기"]["친밀도↑"] += 1
-                elif d < -0.001:
-                    c["장기"]["친밀도↓"] += 1
             elif ty == "restart" and r["remembered"] > 0:
                 c["장기"]["다시 켬 기억"] += 1
             elif ty == "reset":

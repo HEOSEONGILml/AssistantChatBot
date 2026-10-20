@@ -2,7 +2,7 @@
 
 화면 대신 이벤트를 보내고, 가상 시계로 시간을 넘긴다. 화면이 하는 일 두 가지를 흉내 낸다:
 대사가 나오면 `dog_spoke`를 보내고, 조용하면 `quiet`를 보낸다(`app/src/body/events.ts`와 같은 값).
-두뇌 코드는 바꾸지 않는다. 성격 지정과 단계 관찰만 두뇌 내부(`_dog`, `_phase`)를 쓴다(하네스 전용)."""
+두뇌 코드는 바꾸지 않는다. 단계 관찰만 두뇌 내부(`_phase`)를 쓴다(하네스 전용)."""
 import asyncio
 import json
 import random
@@ -14,8 +14,8 @@ from brain.clients import AuthError, CallError, Readout, make_clients
 from brain.core import Brain
 from brain.store import Store
 from brain.tuning import MOODS, Tuning
-from sim.simulate import ARCHETYPES, archetype_dog
 
+RUN = "기본"                               # 기록의 run 값. 성격 유형이 없어져 실행은 하나다 (단순화 스펙 11절)
 QUIET_PRESENT_S, QUIET_AWAY_S = 600, 1800  # events.ts QUIET_PRESENT_MS, QUIET_AWAY_MS
 TYPING_CHARS = 10                          # events.ts TYPING_CHARS: 이만큼 바뀌면 타이핑 이벤트
 LONG_WAIT_S, LONG_TICK_S = 7200, 300       # 조용함 없이 2시간 넘게 기다리면 5분 간격 틱 (회차를 짧게, 사용자 요청).
@@ -74,9 +74,8 @@ class FakeJev:
         return {k: x / s for k, x in zip(keys, w)}
 
     async def judge(self, state):
-        change_keys = [f"{d}{s}" for d in (*MOODS, "친밀도") for s in "↑↓"] + ["변화없음"]
         speak = self.speak if self.speak is not None else self.rng.random()
-        return Readout(self._dist(list(model.ACTION_NAMES)), min(speak, 0.999), self._dist(change_keys), command={"none": 1.0})
+        return Readout(self._dist(list(model.ACTION_NAMES)), min(speak, 0.999), self._dist([*MOODS, "없음"]))
 
     async def aclose(self):
         pass
@@ -96,14 +95,12 @@ class FakeTalker:
 
 
 def _snapshot(dog: model.Dog, t: Tuning) -> dict:
-    return {"mood": {d: round(v, 4) for d, v in dog.mood.items()}, "intimacy": round(dog.intimacy, 4),
-            "talk": round(model.talkativeness(dog, t), 3), "habit": {k: round(v, 3) for k, v in dog.habit.items()},
-            "baseline": {d: round(v, 4) for d, v in dog.personality.baseline.items()}}
+    return {"mood": {d: round(v, 4) for d, v in dog.mood.items()}}
 
 
 class Runner:
-    def __init__(self, scenario: dict, personality: str, *, fake: bool, db: Path):
-        self.sc, self.personality, self.fake, self.db = scenario, personality, fake, db
+    def __init__(self, scenario: dict, *, fake: bool, db: Path):
+        self.sc, self.fake, self.db = scenario, fake, db
         self.t = Tuning()
         self.clock = datetime.fromisoformat(scenario.get("start", "2026-10-19T09:00")).timestamp()
         self.rng = random.Random(scenario.get("seed", 1))
@@ -154,15 +151,6 @@ class Runner:
         await self.brain.set_keys(self._keys())
         if self.connected:
             await self.brain.connected(True)
-
-    def _set_personality(self) -> None:
-        if self.personality == "random":
-            return
-        dog = archetype_dog(self.personality)
-        dog.updated_at = self.clock
-        dog.day = datetime.fromtimestamp(self.clock).strftime("%Y-%m-%d")
-        self.brain._dog = dog
-        self.brain._save()
 
     async def settle(self) -> None:
         """판단과 이어지는 판단이 끝날 때까지 기다린다. 대사가 나왔으면 화면처럼 dog_spoke를 보낸다."""
@@ -255,8 +243,7 @@ class Runner:
 
     async def run(self) -> list[dict]:
         await self._boot()
-        self._set_personality()
-        self.rec("start", name=self.sc.get("name"), personality=self.personality, mode="fake" if self.fake else "real")
+        self.rec("start", name=self.sc.get("name"), mode="fake" if self.fake else "real")
         self.snap()
         try:
             for i, s in enumerate(self.sc["steps"]):
@@ -272,15 +259,11 @@ class Runner:
 
 
 async def run_scenario(sc: dict, *, fake: bool, out_dir: Path) -> dict[str, list[dict]]:
-    """시나리오를 성격마다 돌려 {성격: 기록}을 돌려주고 `out_dir/<이름>.jsonl`에 쓴다."""
+    """시나리오를 돌려 {실행 이름: 기록}을 돌려주고 `out_dir/<이름>.jsonl`에 쓴다."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    p = sc.get("personality", "평균")
-    names = list(ARCHETYPES) if p == "all" else [p]
-    runs = {}
-    for n in names:
-        db = out_dir / f"{sc['name']}.{n}.db"
-        db.unlink(missing_ok=True)
-        runs[n] = await Runner(sc, n, fake=fake, db=db).run()
+    db = out_dir / f"{sc['name']}.db"
+    db.unlink(missing_ok=True)
+    runs = {RUN: await Runner(sc, fake=fake, db=db).run()}
     with (out_dir / f"{sc['name']}.jsonl").open("w", encoding="utf-8") as f:
         for n, recs in runs.items():
             for r in recs:

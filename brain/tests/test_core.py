@@ -1,10 +1,11 @@
 import asyncio
+import json
 from dataclasses import replace
 
 from brain import model
 from brain.clients import AuthError, CallError, Readout
 from brain.store import Store, StoreError
-from brain.tuning import BIRTH_BASELINE
+from brain.tuning import REST
 
 from .conftest import BOTH_KEYS, SILENT, SPEAK, kinds_in, settle, utterances
 
@@ -31,7 +32,7 @@ async def test_speaks_and_logs_utterance(make):
 
 async def test_none_picks_are_not_sent(make):
     env = await make()
-    env.jev.readout = Readout({"none": 1.0}, 0.5, {"변화없음": 1.0})
+    env.jev.readout = Readout({"none": 1.0}, 0.5, {"없음": 1.0})
     await env.brain.handle_event("dog_spoke", {"text": "멍"})  # 자기 말은 기분을 바꾸지 않아 반응도 없다 (0015)
     await env.brain.drain()
     assert [m for m in env.out if m["type"] == "reaction"] == []
@@ -97,8 +98,8 @@ async def test_movement_on_connect_and_when_changed(make):
     env.out.clear()
     await env.brain.clock_tick()
     assert env.out == []  # 바뀐 게 없으면 보내지 않는다
-    env.jev.readout = Readout({"none": 1.0}, 0.5, {"졸림↑": 1.0})
-    await env.brain.handle_event("quiet", {"seconds": 600})
+    env.jev.readout = Readout({"none": 1.0}, 0.5, {"졸림": 1.0})
+    await env.brain.handle_event("message", {"text": "졸리다"})
     await env.brain.drain()
     assert "movement" in [m["type"] for m in env.out]  # 졸림이 올라 경향이 바뀌었다 (하품 반응도 함께 나간다)
     env.out.clear()
@@ -167,10 +168,10 @@ class BrokenStore(Store):
         self.saved += 1
 
 
-async def test_unreadable_state_keeps_stored_personality(make):
+async def test_unreadable_state_is_not_overwritten(make):
     store = BrokenStore()
     env = await make(store=store)
-    assert env.brain.dog.personality.baseline == BIRTH_BASELINE
+    assert env.brain.dog.mood == REST
     await env.brain.handle_event("message", {"text": "a"})
     await env.brain.drain()
     await env.brain.clock_tick()
@@ -187,10 +188,11 @@ async def test_new_dog_is_born_and_saved(make):
 async def test_stored_dog_is_restored(make):
     import random
     store = Store(None)
-    saved = model.birth(random.Random(9), 1_760_000_000.0)
+    saved = model.new_dog(1_760_000_000.0)
+    saved.mood["분노"] = 0.7
     store.save_dog(model.dog_to_dict(saved))
     env = await make(store=store)
-    assert env.brain.dog.personality == saved.personality
+    assert env.brain.dog.mood == saved.mood
 
 
 async def test_unknown_kind_is_ignored(make):
@@ -238,7 +240,7 @@ async def test_malformed_saved_dog_keeps_running_without_overwriting(make):
     # 리뷰 지적: JSON은 맞지만 모양이 어긋난 저장본이면 두뇌가 시작할 때마다 죽었다
     store = SpyStore({"intimacy": 0.4})
     env = await make(store=store)
-    assert env.brain.dog.personality.baseline == BIRTH_BASELINE
+    assert env.brain.dog.mood == REST
     await env.brain.clock_tick()
     assert store.saved == 0
 
@@ -254,9 +256,9 @@ async def test_house_in_never_speaks(make):
 async def test_state_snapshot_shows_numbers(make):
     env = await make()
     snap = env.brain.state_snapshot()
-    assert set(snap) == {"dog", "talkativeness", "movement"}
-    assert set(snap["dog"]["mood"]) == set(BIRTH_BASELINE)
-    assert "temperament" in snap["dog"]["personality"]
+    assert set(snap) == {"dog", "movement"}
+    assert set(snap["dog"]) == {"mood", "updated_at"}  # 기분만 남았다 (단순화 스펙 10절)
+    assert set(snap["dog"]["mood"]) == set(REST)
     assert set(snap["movement"]["weights"]) == {"rest", "sleep", "roam", "approach", "play", "explore"}
 
 
@@ -266,10 +268,10 @@ async def test_log_records_why_the_dog_acted(make):
     await env.brain.drain()
     j = env.brain.log_snapshot()["judgements"][-1]
     assert j["events"] == [{"종류": "찌르기"}]
-    assert j["jev"]["action"] == {"beg": 1.0} and j["jev"]["speak"] == 0.5 and j["jev"]["change"] == {"들뜸↑": 1.0}
+    assert j["jev"]["action"] == {"beg": 1.0} and j["jev"]["speak"] == 0.5 and j["jev"]["change"] == {"들뜸": 1.0}
     assert j["picked"] == {"reaction": "surprised", "action": "bark", "speak": True}  # 찌르기는 우리 평가로 놀람이 1위 (0015)
     assert 0 <= j["model"]["speak"] <= 1 and len(j["model"]["action"]) == 3  # 찔려 화가 오르면 조르기는 상위에서 빠진다 (검수 013)
-    assert j["mood_change"]["들뜸"] > 0
+    assert j["mood_change"]["놀람"] > 0 and "들뜸" not in j["mood_change"]  # 찌르기는 Jev 기분을 쓰지 않는다 (0019)
     assert j["utterance"] == "멍! 안녕"
     assert env.brain.log_snapshot()["events"][-1].endswith("강아지: 멍! 안녕")
 
@@ -284,14 +286,15 @@ async def test_log_records_jev_failure(make):
 
 async def test_typing_always_shows_a_reaction(make):
     env = await make()
-    env.jev.readout = Readout({"none": 1.0}, 0.5, {"변화없음": 1.0})
+    env.jev.readout = Readout({"none": 1.0}, 0.5, {"없음": 1.0})
     await env.brain.handle_event("typing", {"text": "오늘은"})
     await env.brain.drain()
-    assert [m for m in env.out if m["type"] == "reaction"] == [{"type": "reaction", "reaction": "curious"}]  # 오른 기분이 없어도 타이핑엔 궁금함
+    # 오른 기분이 없어도 타이핑엔 궁금함. 동작은 메시지가 아니라 우리 모형이 뽑는다 (0020)
+    assert [m.get("reaction") for m in env.out if m["type"] == "reaction"] == ["curious"]
 
 
-async def test_reset_gives_birth_to_a_new_dog(make):
-    # 설정 창 초기화: 새 성격으로 다시 태어나고 기록도 지운다. 키·연결은 그대로 (사용자 결정 2026-10-15)
+async def test_reset_returns_dog_to_rest(make):
+    # 설정 창 초기화: 기분이 처음 자리로 돌아가고 기록도 지운다. 키·연결은 그대로 (사용자 결정 2026-10-15, 단순화 스펙 3절)
     env = await make()
     await env.brain.handle_event("message", {"text": "안녕"})
     await env.brain.drain()
@@ -300,7 +303,7 @@ async def test_reset_gives_birth_to_a_new_dog(make):
     env.out.clear()
     await env.brain.reset()
     new = model.dog_to_dict(env.brain.dog)
-    assert new["personality"] != old["personality"]
+    assert old["mood"] != new["mood"] and new["mood"] == REST
     assert new["updated_at"] == env.clock.t
     assert env.store.recent(5) == []
     assert env.store.load_dog() == new
@@ -322,35 +325,6 @@ async def test_reset_overwrites_a_malformed_saved_dog():
     await env.brain.aclose()
 
 
-async def test_interjection_while_typing_is_one_line(make):
-    # 타이핑 중 끼어들기는 한마디로 끝낸다. 사용자가 아직 치는 중이라 이어 재촉하지 않는다 (검수 001 사소)
-    env = await make(tuning=SPEAK)
-    await env.brain.handle_event("typing", {"text": "오늘 회사에서 있잖아"})
-    await env.brain.drain()
-    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
-    await env.brain.drain()
-    assert utterances(env.out) == ["멍! 안녕"]
-    await env.brain.handle_event("message", {"text": "있잖아 그래서"})
-    await env.brain.drain()
-    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
-    await env.brain.drain()
-    assert len(utterances(env.out)) == 3  # 답한 뒤에는 이어 말할 수 있다
-
-
-async def test_question_waits_for_an_answer_even_with_a_trailing_bark(make):
-    # "…? 멍!"처럼 물음표 뒤에 의성어가 붙어도 질문이다. 질문했으면 이어 말하지 않고 답을 기다린다 (검수 002)
-    env = await make(tuning=SPEAK)
-    env.talker.line = "밖은 날씨가 어때? 멍멍!"
-    await env.brain.handle_event("message", {"text": "오늘 기분 좋다"})
-    await env.brain.drain()
-    await env.brain.handle_event("dog_spoke", {"text": "밖은 날씨가 어때? 멍멍!"})
-    await env.brain.drain()
-    assert utterances(env.out) == ["밖은 날씨가 어때? 멍멍!"]
-    await env.brain.handle_event("message", {"text": "맑아"})
-    await env.brain.drain()
-    assert len(utterances(env.out)) == 2  # 답이 오면 다시 말한다
-
-
 async def test_no_movement_while_in_house(make):
     # 집에 있는 동안은 움직임 경향도 보내지 않는다 (검수 002 사소). 나오면 다시 보낸다
     env = await make()
@@ -366,17 +340,6 @@ async def test_no_movement_while_in_house(make):
     assert [m for m in env.out if m["type"] == "movement"]
 
 
-async def test_after_a_rebuke_the_dog_does_not_keep_talking(make):
-    # 핀잔("시끄러워")을 들은 흐름에서는 이어 말하지 않는다 (검수 002 사소)
-    env = await make(tuning=SPEAK)
-    env.jev.readout = Readout({"none": 1.0}, 0.9, {"친밀도↓": 0.67, "분노↑": 0.16})
-    await env.brain.handle_event("message", {"text": "너 진짜 시끄러워"})
-    await env.brain.drain()
-    await env.brain.handle_event("dog_spoke", {"text": "멍! 안녕"})
-    await env.brain.drain()
-    assert len(utterances(env.out)) == 1
-
-
 async def test_dialogue_knows_how_long_the_user_has_been_away(make):
     env = await make(tuning=SPEAK)
     await env.brain.handle_event("message", {"text": "일 좀 할게"})
@@ -385,19 +348,6 @@ async def test_dialogue_knows_how_long_the_user_has_been_away(make):
     await env.brain.handle_event("quiet", {"seconds": 600})
     await env.brain.drain()
     assert "1시간" in env.talker.calls[-1][1]  # '십 분'이 아니라 실제로 혼자 있은 시간
-
-
-async def test_ignored_once_then_no_more_sadness_buildup(make):
-    # 질문하고 무시당하면 한 번 서운하다. 조용함이 이어질 때마다 쌓이지 않는다 (검수 003)
-    env = await make(tuning=SPEAK)
-    env.talker.line = "뭐 해?"
-    await env.brain.handle_event("message", {"text": "일 좀 할게"})
-    await env.brain.drain()
-    assert env.brain._waiting
-    env.talker.line = "심심해"
-    await env.brain.handle_event("quiet", {"seconds": 600})
-    await env.brain.drain()
-    assert not env.brain._waiting
 
 
 async def test_bad_key_still_reacts_by_our_appraisal(make):
@@ -424,84 +374,26 @@ async def test_dialogue_gets_the_conversation_even_after_many_events(make):
     assert "내일이 내 생일이야 기억해 줘" in prompt and "대화 기록" in prompt
 
 
-async def test_rhetorical_question_outside_a_conversation_does_not_wait(make):
-    # 조용함에서 나온 혼잣말 질문("놀아 줄 사람 없나?")은 답을 기다리지 않는다. 대화 중 질문만 기다린다 (검수 004)
+async def test_dialogue_gets_one_presence_fact(make):
+    # 지금 상황 사실은 주인이 곁에 있는지 하나뿐이다: 곁에 있다 / 자리를 비웠다 / 방금 돌아왔다 (검수 005, 0020)
     env = await make(tuning=SPEAK)
-    env.talker.line = "놀아 줄 사람 없나?"
+
+    def facts():
+        prompt = env.talker.calls[-1][1]
+        return json.loads(prompt[:prompt.rindex("}") + 1])["지금 상황 사실"]
+
     await env.brain.handle_event("quiet", {"seconds": 600})
     await env.brain.drain()
-    assert not env.brain._waiting
-    await env.brain.handle_event("message", {"text": "안녕"})
-    await env.brain.drain()
-    assert env.brain._waiting
-
-
-async def test_core_marks_question_and_sad_message(make):
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.3, {"시무룩↑": 0.6})
-    await env.brain.handle_event("message", {"text": "오늘 회사에서 크게 혼났어"})
-    await env.brain.drain()
-    sad = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    env.jev.readout = Readout({"none": 1.0}, 0.3, {"변화없음": 1.0})
-    await env.brain.handle_event("message", {"text": "그냥 그래"})
-    await env.brain.drain()
-    flat = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    await env.brain.handle_event("message", {"text": "너는 기분 어때?"})
-    await env.brain.drain()
-    asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    assert sad > flat + 0.2 and asked > flat + 0.2
-
-
-async def test_dialogue_gets_presence_and_house_facts(make):
-    # 주인이 곁에 있는지·자리를 비웠는지, 집에서 나온 쪽이 강아지인지를 사실로 준다 (검수 005: 지어냄)
-    env = await make(tuning=SPEAK)
-    await env.brain.handle_event("quiet", {"seconds": 600})
-    await env.brain.drain()
-    assert "곁에" in env.talker.calls[-1][1]
+    assert facts() == ["주인은 곁에 있다"]
     await env.brain.handle_event("quiet", {"seconds": 1800})
     await env.brain.drain()
-    assert "자리를 비웠" in env.talker.calls[-1][1]
-    await env.brain.handle_event("house_in", {})
+    assert facts() == ["주인은 자리를 비웠다. 아직 돌아오지 않았다"]
+    await env.brain.handle_event("returned", {"away_seconds": 1800})
     await env.brain.drain()
+    assert facts() == ["주인이 자리를 비웠다가 방금 돌아왔다"]
     await env.brain.handle_event("house_out", {"away_seconds": 600})
     await env.brain.drain()
-    assert "강아지(나)가 집에서 나왔" in env.talker.calls[-1][1]
-    await env.brain.handle_event("message", {"text": "집에서 뭐 하고 있었어?"})
-    await env.brain.drain()
-    assert "조금 전까지 집 안에 있던 쪽은 강아지(나)" in env.talker.calls[-1][1]
-
-
-async def test_requests_without_question_mark_count_as_asked(make):
-    # "다시 말해 줘"처럼 물음표 없는 부탁에도 거의 늘 대답한다 (검수 005 사소)
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.6, {"변화없음": 1.0})
-    await env.brain.handle_event("message", {"text": "그냥 그래"})
-    await env.brain.drain()
-    flat = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    await env.brain.handle_event("message", {"text": "아까 네가 뭐 골랐는지 다시 말해 줘"})
-    await env.brain.drain()
-    asked = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    assert asked > flat and asked > 0.95
-
-
-async def test_ignored_dog_speaks_up_less_and_less(make):
-    # 주인이 대꾸하지 않으면 먼저 말 걸기가 점점 준다 (검수 006: 활발한 강아지가 2시간 내내 조름)
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.7, {"심심함↑": 0.5})
-    ps = []
-    for _ in range(4):
-        env.brain._unanswered += 0  # 말했는지와 상관없이 판단 기록의 말할 확률을 본다
-        await env.brain.handle_event("quiet", {"seconds": 600})
-        await env.brain.drain()
-        ps.append(env.brain.log_snapshot()["judgements"][-1]["model"]["speak"])
-        env.brain._unanswered += 1
-    assert ps[3] < ps[0] * 0.5
-    await env.brain.handle_event("message", {"text": "왜"})
-    await env.brain.drain()
-    assert env.brain._unanswered == 0
+    assert facts() == ["주인은 곁에 있다"]
 
 
 async def test_one_interjection_per_message(make):
@@ -512,8 +404,8 @@ async def test_one_interjection_per_message(make):
     assert len(utterances(env.out)) == 1
 
 
-async def test_birthday_said_yesterday_is_today(make):
-    # 날짜 계산은 우리 모형이 한다: "내일이 내 생일"을 들은 다음 날이면 오늘이 생일이라는 사실을 준다 (검수 006)
+async def test_conversation_dates_are_annotated(make):
+    # 날짜 계산은 우리 모형이 한다: 대화 기록의 "내일"에 들은 날 기준 실제 날짜를 붙인다 (검수 006)
     from datetime import datetime
     env = await make(tuning=SPEAK)
     env.clock.t = datetime(2026, 10, 21, 20, 0).timestamp()
@@ -523,38 +415,7 @@ async def test_birthday_said_yesterday_is_today(make):
     env.clock.t = datetime(2026, 10, 22, 8, 0).timestamp()
     await env.brain.handle_event("message", {"text": "좋은 아침! 오늘 무슨 날이게?"})
     await env.brain.drain()
-    prompt = env.talker.calls[-1][1]
-    assert "내일 = 10-22" in prompt and "오늘은 사용자가 말한 생일" in prompt
-
-
-async def test_reply_keeps_what_the_dog_just_said_while_interjecting(make):
-    env = await make(tuning=SPEAK)
-    env.talker.line = "바나나! 달콤해서 좋아"
-    await env.brain.handle_event("typing", {"text": "사과랑 바나나 중에 뭐가 좋아"})
-    await env.brain.drain()
-    env.talker.line = "응"
-    await env.brain.handle_event("message", {"text": "사과랑 바나나 중에 뭐가 좋아?"})
-    await env.brain.drain()
-    assert "방금 네가 한 말: 바나나! 달콤해서 좋아" in env.talker.calls[-1][1]
-
-
-async def test_do_not_disturb_hushes_the_dog_for_an_hour(make):
-    # "말 걸지 마"를 Jev가 hush로 읽으면 한 시간 동안(또는 사용자가 다시 말할 때까지) 먼저 말 걸기가 거의 없다 (검수 007)
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.7, {"변화없음": 1.0}, 0.0, 0.0, 0.9)
-    await env.brain.handle_event("message", {"text": "한 시간 집중해야 해. 말 걸지 마"})
-    await env.brain.drain()
-    env.jev.readout = Readout({"none": 1.0}, 0.7, {"심심함↑": 0.5})
-    env.clock.t += 600
-    await env.brain.handle_event("quiet", {"seconds": 600})
-    await env.brain.drain()
-    hushed = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    env.clock.t += 3600
-    await env.brain.handle_event("quiet", {"seconds": 600})
-    await env.brain.drain()
-    later = env.brain.log_snapshot()["judgements"][-1]["model"]["speak"]
-    assert hushed < 0.05 and later > 3 * hushed
+    assert "내일 = 10-22" in env.talker.calls[-1][1]
 
 
 async def test_no_interjection_on_a_short_fragment(make):
@@ -568,42 +429,6 @@ async def test_no_interjection_on_a_short_fragment(make):
     assert len(utterances(env.out)) == 1
 
 
-async def test_lets_play_counts_as_asked(make):
-    # "놀자", "산책 가자"처럼 함께 하자는 말에도 대답한다 (검수 008 사소: "놀자"에 무응답 뒤 10분 뒤 "아무도 안 놀아주니까")
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.6, {"변화없음": 1.0})
-    await env.brain.handle_event("message", {"text": "우리 공놀이 하자"})
-    await env.brain.drain()
-    assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.95
-
-
-async def test_apology_gets_an_answer(make):
-    # 사과는 받아 준다: 달램이 높은 메시지에도 대답 보정 (검수 010: 사과 11번 중 5번만 대답, 평균 p 0.38)
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"none": 1.0}, 0.4, {"친밀도↑": 0.5}, 0.3, 0.9)
-    await env.brain.handle_event("message", {"text": "아까 짜증낸 거 미안해"})
-    await env.brain.drain()
-    assert env.brain.log_snapshot()["judgements"][-1]["model"]["speak"] > 0.9
-
-
-async def test_dialogue_facts_keep_roles_and_house_cause(make):
-    # 주인이 한 일은 주인 일이다, 집에 넣은 쪽은 주인이고 그 직전 말이 이유일 수 있다 (검수 011 역할 혼동)
-    env = await make(tuning=SPEAK)
-    await env.brain.handle_event("message", {"text": "점심 먹었어"})
-    await env.brain.drain()
-    assert "주인 자신의 일" in env.talker.calls[-1][1] and "점심 먹었어" in env.talker.calls[-1][1]
-    await env.brain.handle_event("message", {"text": "너 좀 시끄러워"})
-    await env.brain.drain()
-    await env.brain.handle_event("house_in", {})
-    await env.brain.drain()
-    await env.brain.handle_event("house_out", {"away_seconds": 900})
-    await env.brain.drain()
-    prompt = env.talker.calls[-1][1]
-    assert "주인이 나를 집에 넣었다" in prompt and "너 좀 시끄러워" in prompt
-
-
 async def test_quiet_line_gets_a_topic(make):
     env = await make(tuning=SPEAK)
     await env.brain.handle_event("message", {"text": "이따 같이 공놀이 하자"})
@@ -613,75 +438,3 @@ async def test_quiet_line_gets_a_topic(make):
     assert "꺼낼 이야기" in env.talker.calls[-1][1]
 
 
-async def test_listening_dog_keeps_its_posture_while_typing(make):
-    # 검수 012: 한 문장을 치는 동안 앉기 → 조르기 → 조르기 → 앉기처럼 1~2초마다 자세가 바뀌었다
-    env = await make()
-    env.jev.readout = Readout({"beg": 1.0}, 0.0, {"궁금함↑": 0.6})
-    for text in ("오늘은 회사에서", "오늘은 회사에서 회의가", "오늘은 회사에서 회의가 길었는데"):
-        await env.brain.handle_event("typing", {"text": text})
-        await env.brain.drain()
-    moved = [m["action"] for m in env.out if m["type"] == "reaction" and m.get("action", "none") != "none"]
-    assert len(moved) <= 1
-
-
-async def test_reply_that_is_only_a_sound_is_not_spoken(make):
-    # 검수 013: "그냥 다 내 잘못 같아서 마음이 무거워" → "헥헥." 의성어뿐이면 차라리 말하지 않는다
-    env = await make(tuning=SPEAK)
-    env.talker.line = "헥헥."
-    await env.brain.handle_event("message", {"text": "너는 뭐 좋아해?"})
-    await env.brain.drain()
-    assert utterances(env.out) == []
-
-
-async def test_sound_reply_to_a_bark_command_is_fine(make):
-    env = await make(tuning=SPEAK)
-    env.jev.readout = Readout({"bark": 1.0}, 0.9, {"변화없음": 1.0}, command={"bark": 0.95, "none": 0.05})
-    env.talker.line = "멍멍!"
-    await env.brain.handle_event("message", {"text": "짖어 봐"})
-    await env.brain.drain()
-    assert utterances(env.out) == ["멍멍!"]
-
-
-async def test_sound_only_reply_is_asked_again_once(make):
-    # 검수 014: 말하기 확률 0.99인데 Gemini가 "멍!"만 줘서 버리니 직접 물어도 침묵이었다. 한 번 다시 묻는다
-    env = await make(tuning=SPEAK)
-    lines = iter(["멍!", "응원해! 넌 잘할 거야, 멍."])
-    async def say(system, prompt):
-        env.talker.calls.append((system, prompt))
-        return next(lines)
-    env.talker.say = say
-    await env.brain.handle_event("message", {"text": "나 좀 응원해 줄래"})
-    await env.brain.drain()
-    assert utterances(env.out) == ["응원해! 넌 잘할 거야, 멍."]
-    assert "의성어만" in env.talker.calls[1][1]
-
-
-async def test_goodnight_puts_the_dog_to_bed(make):
-    # 검수 014: 새벽 "이제 자자 잘 자"(시킨 잠 0.92~0.96) 뒤 10분마다 지루함·서운함, 새벽 2시 반에 말을 걸었다
-    from brain.tuning import Tuning
-    env = await make(tuning=Tuning())
-    env.jev.readout = Readout({"lie_down": 1.0}, 0.9, {"졸림↑": 0.4}, command={"sleep": 0.94, "none": 0.06})
-    await env.brain.handle_event("message", {"text": "이제 자자 잘 자"})
-    await env.brain.drain()
-    env.brain._waiting = True  # 강아지가 "벌써 시간이 이렇게 됐어?"라고 물었어도
-    env.jev.readout = Readout({"none": 1.0}, 0.7, {"변화없음": 1.0})
-    sleepy = env.brain.dog.mood["졸림"]
-    picks = []
-    for _ in range(3):
-        env.clock.t += 600
-        await env.brain.handle_event("quiet", {"seconds": 600})
-        await env.brain.drain()
-        picks.append(env.brain.log_snapshot()["judgements"][-1])
-    assert all(j["picked"]["reaction"] not in ("bored", "sad") for j in picks)
-    assert all(j["model"]["speak"] < 0.05 for j in picks)
-    assert env.brain.dog.mood["졸림"] > sleepy + 0.1
-
-
-async def test_return_greeting_knows_where_the_owner_went(make):
-    env = await make(tuning=SPEAK)
-    await env.brain.handle_event("message", {"text": "편의점 다녀올게"})
-    await env.brain.drain()
-    env.clock.t += 1800
-    await env.brain.handle_event("returned", {"away_seconds": 1800})
-    await env.brain.drain()
-    assert "편의점 다녀올게" in env.talker.calls[-1][1] and "되묻지" in env.talker.calls[-1][1]

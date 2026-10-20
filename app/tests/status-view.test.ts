@@ -4,30 +4,23 @@ import type { BrainState, Judgement } from "../src/shared/brain-protocol";
 
 const MOODS = { 심심함: 0.6, 졸림: 0.3, 들뜸: 0.4, 시무룩: 0.2, 분노: 0.1, 궁금함: 0.5, 놀람: 0.1, 무서움: 0.1, 행복: 0.4 };
 const state: BrainState = {
-  dog: { personality: { baseline: MOODS, sensitivity: { ...MOODS, 분노: 0.8 }, whim: 0.55, temperament: { ...MOODS, 들뜸: 0.3 } },
-         mood: { ...MOODS, 분노: 0.75 }, intimacy: 0.42, habit: { poke: 0.5, pet: 0, throw: 0 } },
-  talkativeness: 0.37,
+  dog: { mood: { ...MOODS, 분노: 0.75 } },
   movement: { weights: { rest: 0.6, sleep: 0.02, roam: 0.4, approach: 0.18, play: 0.06, explore: 0.2 }, run: 0.2, idle_scale: 1.1 },
 };
 
 describe("stateSections", () => {
-  test("기분·관계·성격·습관화·움직임 순서로 보여 준다", () => {
-    expect(stateSections(state).map((s) => s.title)).toEqual(["기분", "관계·말수", "성격 (기준값 / 기질)", "민감도·변덕", "습관화", "평소 움직임 경향"]);
+  test("기분과 움직임 경향만 보여 준다", () => {
+    expect(stateSections(state).map((s) => s.title)).toEqual(["기분", "평소 움직임 경향"]);
   });
-  test("습관화는 타이핑까지 네 가지를 보여 준다", () => {
-    const habit = stateSections(state).find((s) => s.title === "습관화")!;
-    expect(habit.rows.map((r) => r.label)).toEqual(["찌르기", "쓰다듬기", "던지기", "타이핑"]);
-  });
-  test("기분 8개를 모두 보여 준다", () => {
+  test("기분 9개를 모두 보여 준다", () => {
     expect(stateSections(state)[0].rows.map((r) => r.label)).toEqual(Object.keys(MOODS));
   });
-  test("기분 값과 기준값·기질을 함께 보여 준다", () => {
-    const [mood, , personality] = stateSections(state);
+  test("기분 값을 보여 준다", () => {
+    const [mood] = stateSections(state);
     expect(mood.rows.find((r) => r.label === "분노")).toEqual({ label: "분노", value: 0.75 });
-    expect(personality.rows.find((r) => r.label === "들뜸")).toEqual({ label: "들뜸", value: 0.4, note: "기질 0.30" });
   });
   test("움직임 경향은 비율로 보여 준다", () => {
-    const move = stateSections(state)[5];
+    const move = stateSections(state)[1];
     const total = 0.6 + 0.02 + 0.4 + 0.18 + 0.06 + 0.2;
     expect(move.rows.find((r) => r.label === "쉬기")?.value).toBeCloseTo(0.6 / total);
     expect(move.rows.find((r) => r.label === "달리기 비율")?.value).toBe(0.2);

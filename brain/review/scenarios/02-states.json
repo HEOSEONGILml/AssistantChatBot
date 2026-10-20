@@ -1,7 +1,6 @@
 {
  "name": "02-states",
  "description": "상태·예외를 짧게 한 번씩: 몰아치기, 집, 키 실패, 연결, 다시 켬, 초기화",
- "personality": "평균",
  "seed": 1,
  "start": "2026-10-19T09:00",
  "steps": [

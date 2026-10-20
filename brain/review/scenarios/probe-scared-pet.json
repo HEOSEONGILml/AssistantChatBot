@@ -1,5 +1,4 @@
-{"name": "probe-scared-pet", "description": "세게 두 번 던져 무서움을 크게 올린 직후 쓰다듬기 두 번(네 성격): 무서움이 높은데 행복 반응·반가운 말이 나오나, 쓰다듬기 한 번에 무서움이 크게 꺼지나, 5분 뒤 상태",
- "personality": "all", "seed": 51, "start": "2026-10-24T10:00",
+{"name": "probe-scared-pet", "description": "세게 두 번 던져 무서움을 크게 올린 직후 쓰다듬기 두 번(네 성격): 무서움이 높은데 행복 반응·반가운 말이 나오나, 쓰다듬기 한 번에 무서움이 크게 꺼지나, 5분 뒤 상태", "seed": 51, "start": "2026-10-24T10:00",
  "steps": [
   {"event": "throw", "context": {"impact": 1.0, "bounces": 4, "flight_seconds": 2.0}},
   {"wait": 30, "quiet": false},
