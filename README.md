@@ -61,16 +61,16 @@ uv run python -m brain
 
 ### 웹 버전 (프로토타입)
 
-브라우저 페이지 안에서 강아지와 논다. 두뇌가 웹 페이지와 WebSocket을 함께 낸다([스펙](docs/superpowers/specs/2026-10-19-web-prototype-design.md), [0017](docs/decisions/0017-web-prototype-brain-serves-page.md)).
+브라우저 페이지 안에서 강아지와 논다. 두뇌가 웹 페이지와 WebSocket을 함께 낸다([스펙](docs/superpowers/specs/2026-10-19-web-prototype-design.md), [0017](docs/decisions/0017-web-prototype-brain-serves-page.md)). 탭(접속)마다 강아지가 새로 태어나고 저장하지 않는다. 새로고침하면 새 강아지다([0021](docs/decisions/0021-web-dog-per-connection.md)).
 
 ```bash
 cd app && npm run build:web                       # app/dist-web/ 만들기 (화면 코드를 바꿨을 때만)
 cd ../brain && uv run python -m brain.web         # http://127.0.0.1:8787/ 을 브라우저로 연다
 ```
 
-- 키는 PC 앱과 같은 Windows 자격 증명 관리자에서 읽는다. 없으면 페이지의 톱니바퀴 → 설정에서 넣거나, 서버라면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`로 준다.
-- 웹 강아지는 PC 강아지와 다른 강아지다(데이터 `%APPDATA%\TamagotchiChatBot\brain\web\`).
-- `--host 0.0.0.0 --port 8787`로 열면 다른 기기에서도 접속한다. **주의**: 키가 두뇌에 있으므로 주소를 아는 사람은 누구나 그 키로 강아지와 대화한다. 프로토타입이라 사용자 구분이 없다.
+- 키는 두뇌를 켤 때 PC 앱과 같은 Windows 자격 증명 관리자에서 읽고, 없으면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`에서 읽는다. 페이지에서는 키를 넣을 수 없다(모든 강아지가 같이 쓴다).
+- 웹 강아지는 PC 강아지와 다른 강아지다. 웹 데이터 폴더(`%APPDATA%\TamagotchiChatBot\brain\web\`)에는 로그만 남는다.
+- `--host 0.0.0.0 --port 8787`로 열면 다른 기기에서도 접속한다. **주의**: 키가 두뇌에 있으므로 주소를 아는 사람은 누구나 그 키로 강아지와 대화한다. 탭이 늘어나는 만큼 Jev·Gemini 호출도 는다.
 - 끝낼 때는 두뇌 창에서 Ctrl+C.
 
 **도커로 띄우기** (리눅스 서버 등). 저장소 최상위에서:
@@ -79,11 +79,11 @@ cd ../brain && uv run python -m brain.web         # http://127.0.0.1:8787/ 을 �
 # .env 에 TYPESAFE_API_KEY=..., GEMINI_API_KEY=... (git에 올라가지 않는다)
 docker compose up -d --build      # http://<서버 주소>:8787/
 docker compose logs -f            # 로그
-docker compose down               # 끄기 (대화 기록은 brain-data 볼륨에 남는다)
+docker compose down               # 끄기 (강아지는 저장하지 않는다. 로그만 brain-data 볼륨에 남는다)
 ```
 
 - 이미지가 웹 화면 빌드(`npm run build:web`)와 두뇌 실행을 함께 한다. 화면이나 두뇌 코드를 바꾸면 `--build`로 다시 만든다.
-- 컨테이너에는 OS 자격 저장소가 없어 설정 패널에서 넣은 키는 저장되지 않는다. 키는 `.env`로만 준다.
+- 컨테이너에는 OS 자격 저장소가 없다. 키는 `.env`로만 주고, 바꾸면 컨테이너를 다시 띄운다.
 - `compose.yaml`은 포트를 **전체 공개**(`8787:8787`)로 연다. 위의 주의(키 공유)가 그대로 적용된다. 이 서버 안에서만 쓰려면 `127.0.0.1:8787:8787`로 바꾼다.
 
 ### 사용법
@@ -132,7 +132,7 @@ npm run tauri build
 | 두뇌 접속 정보 | `%APPDATA%\TamagotchiChatBot\brain\brain.json` |
 | API 키 | Windows 자격 증명 관리자 (`TamagotchiChatBot.brain`) |
 | 화면 설정 | `%APPDATA%\com.tamagotchi.app\settings.json` |
-| 웹 버전 두뇌 데이터 | `%APPDATA%\TamagotchiChatBot\brain\web\` (웹 화면 설정은 브라우저 localStorage) |
+| 웹 버전 두뇌 로그 | `%APPDATA%\TamagotchiChatBot\brain\web\logs\` (강아지는 저장하지 않는다. 웹 화면 설정은 브라우저 localStorage) |
 
 대화(이벤트) 기록은 설정의 "대화 기록 전체 삭제"로 지운다. Jev·Gemini 호출 때 타이핑 중인 글과 최근 기록이 각 업체로 전송된다([0006](docs/decisions/0006-user-provided-api-keys.md)).
 

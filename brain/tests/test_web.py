@@ -7,7 +7,8 @@ from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 from websockets.exceptions import InvalidStatus
 
-from brain import web
+from brain import config, web
+from brain.tuning import Tuning
 from brain.server import Link
 
 
@@ -80,3 +81,50 @@ async def test_websocket_from_other_site_is_refused(site):
         async with connect(f"ws://127.0.0.1:{port}/ws", origin="https://evil.example"):
             pass
     assert e.value.response.status_code == 403
+
+
+@pytest.fixture
+async def dogs(monkeypatch):
+    """접속마다 강아지가 새로 태어나는 웹 두뇌 (0021). 키가 없어 Jev·Gemini는 부르지 않는다."""
+    written = []
+    monkeypatch.setattr(config, "write_key", lambda n, v: written.append(n))
+    handler = web.make_dog_handler("tok", {"typesafe": None, "gemini": None}, Tuning())
+    async with serve(handler, "127.0.0.1", 0) as server:
+        yield f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}/ws", written
+
+
+async def _open(url):
+    ws = await connect(url)
+    await ws.send(json.dumps({"v": 4, "type": "hello", "token": "tok"}))
+    return ws
+
+
+async def _events(ws):
+    await ws.send(json.dumps({"v": 4, "type": "get_log"}))
+    while True:
+        msg = json.loads(await ws.recv())
+        if msg["type"] == "log":
+            return msg["events"]
+
+
+async def test_each_connection_gets_its_own_dog(dogs):
+    url, _ = dogs
+    a, b = await _open(url), await _open(url)
+    try:
+        await a.send(json.dumps({"v": 4, "type": "event", "kind": "poke", "context": {}}))
+        assert len(await _events(a)) == 1
+        assert await _events(b) == []  # 다른 탭의 강아지는 찔리지 않았다. 연결도 빼앗기지 않았다
+    finally:
+        await a.close()
+        await b.close()
+
+
+async def test_web_does_not_take_keys(dogs):
+    url, written = dogs
+    ws = await _open(url)
+    try:
+        await ws.send(json.dumps({"v": 4, "type": "set_key", "name": "gemini", "value": "g"}))
+        await _events(ws)  # 앞 메시지가 처리된 뒤에 답한다
+    finally:
+        await ws.close()
+    assert written == []

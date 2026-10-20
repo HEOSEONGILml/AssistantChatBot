@@ -27,9 +27,9 @@ const TALK_W = 380, TALK_GAP = 8; // PC 입력창(tauri.conf.json input 380×56)
 const ACTION_MS = 2500, WALK_SPEED = 70, RUN_SPEED = 180, PET_MS = 2000; // character.ts와 같은 값
 const DRAG_START_PX = 6, THROW_SAMPLE_MS = 80;
 
-// 웹의 AI 상태 안내 (PC 문구는 트레이를 가리킨다)
+// 웹의 AI 상태 안내. 키는 서버가 정한다 (0021)
 const statusText = (ai: AiStatus | null) =>
-  ai === "no_keys" ? "톱니바퀴 → 설정에서 키를 넣어 주세요" : ai === "bad_key" ? "키를 확인해 주세요 (톱니바퀴 → 설정)" : null;
+  ai === "no_keys" ? "서버에 AI 키가 설정되지 않았어요" : ai === "bad_key" ? "서버의 AI 키를 확인해야 해요" : null;
 
 async function main() {
   const manifest: Manifest = await (await fetch("/sprites/dog/manifest.json")).json();
@@ -99,12 +99,11 @@ async function main() {
     houseVisible() && (boxContains(houseBox, p) || boxContains(chatBox, p) || boxContains(gearBox, p));
 
   // ---- 두뇌 ----
-  let aiStatus: AiStatus | null = null;
   let movement: Movement = DEFAULT_MOVEMENT;
   let mood: MoodId = "calm";
   let shownReaction: { id: ReactionId; at: number } | null = null;
   const say = (text: string) => { bubble = showBubble(text); bubbleEl.textContent = text; };
-  const setStatus = (s: AiStatus | null) => { aiStatus = s; $("ai-state").textContent = s === null ? "두뇌에 연결되지 않음" : s === "ok" ? "정상" : statusText(s)!; };
+  const setStatus = (s: AiStatus | null) => { $("ai-state").textContent = s === null ? "두뇌에 연결되지 않음" : s === "ok" ? "정상" : statusText(s)!; };
   const onBrain = (m: BrainMessage) => {
     if (m.type === "movement") { movement = m.movement; mood = m.mood; return; }
     if (m.type === "state") { renderState(m.state); return; }
@@ -115,13 +114,7 @@ async function main() {
     if (m.action) dog = playAction(dog, ACTION_TO_DOG[m.action], Date.now(), ACTION_MS);
     if (m.utterance) { say(m.utterance); sendEvent("dog_spoke", { text: m.utterance }); }
   };
-  const brain = connectWebBrain({
-    onMessage: onBrain, onOpen: () => {},
-    onClose: (replaced) => {
-      setStatus(null);
-      if (replaced) { $("ai-state").textContent = "다른 탭에서 열려 있음. 새로고침하면 이 탭으로 옮겨 온다"; say("다른 탭으로 갔어! 새로고침하면 돌아올게"); }
-    },
-  });
+  const brain = connectWebBrain({ onMessage: onBrain, onOpen: () => {}, onClose: () => setStatus(null) });
   setStatus(null);
 
   let lastEventAt = Date.now();
@@ -203,15 +196,6 @@ async function main() {
       savePrefs(localStorage, prefs);
     });
   }
-  $("save-keys").addEventListener("click", () => {
-    let sent = 0;
-    for (const name of ["typesafe", "gemini"] as const) {
-      const input = $<HTMLInputElement>(name);
-      if (input.value.trim() && brain.send({ type: "set_key", name, value: input.value.trim() })) sent++;
-      input.value = "";
-    }
-    msg.textContent = sent ? "키를 보냈습니다." : aiStatus === null ? "두뇌에 연결되지 않았어요" : "새 키를 입력해 주세요";
-  });
   $("clear-history").addEventListener("click", () => {
     if (!confirm("대화 기록을 모두 지울까요? 되돌릴 수 없어요.")) return;
     msg.textContent = brain.send({ type: "clear_history" }) ? "대화 기록을 지웠습니다." : "두뇌에 연결되지 않아 지우지 못했어요";

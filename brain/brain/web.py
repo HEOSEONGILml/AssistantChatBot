@@ -1,6 +1,7 @@
-"""웹 모드 두뇌 (웹 프로토타입 스펙, 0017): 한 포트에서 웹 화면(정적 파일), hello 토큰(/token), 프로토콜 v3 WebSocket(/ws)을 낸다.
+"""웹 모드 두뇌 (웹 프로토타입 스펙, 0017): 한 포트에서 웹 화면(정적 파일), hello 토큰(/token), WebSocket(/ws)을 낸다.
+접속 하나마다 강아지가 새로 태어나고 저장하지 않는다 (0021).
 실행: brain/에서 `uv run python -m brain.web [--host 127.0.0.1] [--port 8787] [--static ../app/dist-web]`.
-판단은 PC 모드와 같은 Brain·Link를 쓴다. 데이터는 PC 두뇌와 다른 폴더다."""
+판단은 PC 모드와 같은 Brain·Link를 쓴다. 웹 데이터 폴더에는 로그만 남는다."""
 import argparse
 import asyncio
 import json
@@ -71,23 +72,33 @@ def make_process_request(root: Path, token: str):
     return process_request
 
 
+def make_dog_handler(token: str, keys: dict[str, str | None], tuning: Tuning):
+    """접속 하나 = 강아지 하나 (0021). 기록은 메모리에만 두고, 끊기면 강아지와 기분 시계를 정리한다."""
+    async def handle(ws) -> None:
+        link = Link(token, keys_settable=False)
+        brain = Brain(emit=link.send, make_clients=lambda k: make_clients(k, tuning), store=Store(None), tuning=tuning)
+        link.brain = brain
+        await brain.set_keys(keys)
+        clock = asyncio.create_task(brain.run_clock())
+        try:
+            await link.handler(ws)
+        finally:
+            clock.cancel()
+            await brain.aclose()
+    return handle
+
+
 async def main(host: str, port: int, static: Path) -> None:
     data = config.web_data_dir()
     setup_logging(data / "logs")
     if not (static / INDEX).is_file():
         log.warning("웹 화면이 없다(%s). app/에서 npm run build:web을 먼저 한다", static)
-    tuning = Tuning()
-    link = Link(secrets.token_urlsafe(32))
-    brain = Brain(emit=link.send, make_clients=lambda keys: make_clients(keys, tuning), store=Store(data / "brain.db"), tuning=tuning)
-    link.brain = brain
-    await brain.set_keys(config.read_keys())
-    async with serve(link.handler, host, port, process_request=make_process_request(static, link.token), max_size=2**20):
+    token = secrets.token_urlsafe(32)
+    handler = make_dog_handler(token, config.read_keys(), Tuning())
+    async with serve(handler, host, port, process_request=make_process_request(static, token), max_size=2**20) as server:
         log.info("웹 모드 두뇌 시작: http://%s:%d", host, port)
         print(f"웹 강아지: http://{host}:{port}/", flush=True)
-        try:
-            await brain.run_clock()
-        finally:
-            await brain.aclose()
+        await server.serve_forever()
 
 
 if __name__ == "__main__":

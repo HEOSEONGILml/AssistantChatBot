@@ -25,7 +25,7 @@ flowchart LR
 3. **이벤트가 없으면** 기분은 고정된 자리로 천천히 돌아간다 (4.2).
 4. **평소 움직임**은 두뇌가 기분으로 경향만 정하고, 화면이 그 경향으로 초 단위 행동을 혼자 뽑는다 (7절).
 
-화면(Tauri 앱, `app/`)과 두뇌(파이썬 서비스, `brain/`)는 localhost WebSocket으로 통신한다. 두뇌는 화면을 모르므로 화면만 바꿔 다른 기기로 옮길 수 있다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)). 그 예로 **웹 프로토타입**이 있다: 두뇌의 웹 모드가 브라우저용 화면과 WebSocket을 한 포트에서 함께 낸다 ([0017](docs/decisions/0017-web-prototype-brain-serves-page.md)).
+화면(Tauri 앱, `app/`)과 두뇌(파이썬 서비스, `brain/`)는 localhost WebSocket으로 통신한다. 두뇌는 화면을 모르므로 화면만 바꿔 다른 기기로 옮길 수 있다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)). 그 예로 **웹 프로토타입**이 있다: 두뇌의 웹 모드가 브라우저용 화면과 WebSocket을 한 포트에서 함께 낸다 ([0017](docs/decisions/0017-web-prototype-brain-serves-page.md)). 웹은 접속마다 강아지가 새로 태어나고 저장하지 않는다 ([0021](docs/decisions/0021-web-dog-per-connection.md)).
 
 ## 2. 원칙
 
@@ -423,10 +423,10 @@ flowchart LR
   B <-->|"/ws: Origin = Host일 때만"| W
 ```
 
-- 판단은 PC 두뇌와 같은 `Brain`·`Link`다. 데이터는 `…\brain\web\`로 따로 둔다(웹 강아지 ≠ PC 강아지). `brain.json`은 쓰지 않는다.
+- 판단은 PC 두뇌와 같은 `Brain`·`Link`다. 다만 **접속 하나마다** `Link`·`Brain`(메모리 저장소 `Store(None)`)·기분 시계를 새로 만들고, 끊기면 정리한다 ([0021](docs/decisions/0021-web-dog-per-connection.md)). 키는 시작 때 한 번 읽어 모두 같이 쓰고, 화면의 `set_key`는 받지 않는다. `…\brain\web\`에는 로그만 남는다. `brain.json`은 쓰지 않는다.
 - 키는 자격 증명 관리자, 없으면 환경 변수 `TYPESAFE_API_KEY`·`GEMINI_API_KEY`(`config.py`).
-- 웹 화면은 두뇌를 띄우지 않고 같은 주소로 2초마다 다시 접속한다. 다른 탭에 연결을 빼앗기면(4002) 다시 접속하지 않는다. 자리 비움은 페이지 안 입력 1분 없음 또는 탭 숨김이다. 화면 설정은 `localStorage`.
-- 서버 배포는 도커(`Dockerfile`, `compose.yaml`)다. 이미지가 웹 화면을 빌드하고 웹 모드 두뇌를 `0.0.0.0:8787`로 띄운다. 키는 `.env` 환경 변수, 데이터는 `brain-data` 볼륨(`APPDATA=/data`).
+- 웹 화면은 두뇌를 띄우지 않고 같은 주소로 2초마다 다시 접속한다(다시 접속하면 새 강아지). 자리 비움은 페이지 안 입력 1분 없음 또는 탭 숨김이다. 화면 설정은 `localStorage`.
+- 서버 배포는 도커(`Dockerfile`, `compose.yaml`)다. 이미지가 웹 화면을 빌드하고 웹 모드 두뇌를 `0.0.0.0:8787`로 띄운다. 키는 `.env` 환경 변수, 로그는 `brain-data` 볼륨(`APPDATA=/data`).
 
 ## 11. 오류 처리
 
@@ -454,7 +454,7 @@ flowchart LR
 | `brain/brain/clients.py` | Jev·Gemini 클라이언트, 실패를 키 오류/일시 실패로 정리 |
 | `brain/brain/config.py` | 데이터 폴더, 키 읽기·쓰기 (환경 값을 읽는 유일한 곳) |
 | `brain/brain/server.py`, `__main__.py` | WebSocket 서버, 실행·중복 실행 막기 |
-| `brain/brain/web.py` | 웹 모드: 정적 파일·토큰·`/ws`를 한 포트에서, 출처 검사 |
+| `brain/brain/web.py` | 웹 모드: 정적 파일·토큰·`/ws`를 한 포트에서, 출처 검사, 접속마다 강아지 하나 |
 | `brain/sim/` | Jev 녹화, 시뮬레이터 |
 | `brain/review/` | 검수 하네스: 시나리오 실행기, 상태 분석표, 커버리지 |
 | `app/src/body/` | 강아지 상태 기계·행동 선택(`dog.ts`), 이벤트 판정(`events.ts`), 쓰다듬기·말풍선·집 등 순수 로직 |
@@ -506,3 +506,4 @@ flowchart LR
 | [0018](docs/decisions/0018-simplify-to-reaction-and-mood.md) | 두뇌 상태는 반응과 기분만. 성격·관계·습관화·말수 없앰 | 채택 |
 | [0019](docs/decisions/0019-message-mood-from-one-question.md) | 글 없는 사건은 우리 값, 글은 Jev 기분 질문 하나. 의도·시킨 동작 질문 없앰 | 채택 |
 | [0020](docs/decisions/0020-minimal-brain-rules.md) | 두뇌 규칙 최소화: 더하고 자르기, 고정 반감기, 말하기 세 항, 대사 사실 하나 | 채택 |
+| [0021](docs/decisions/0021-web-dog-per-connection.md) | 웹은 접속마다 강아지가 새로 태어나고 저장하지 않는다 | 채택 (프로토타입) |

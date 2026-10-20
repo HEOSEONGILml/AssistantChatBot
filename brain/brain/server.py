@@ -35,8 +35,9 @@ def tail_log(n: int) -> list[str]:
 class Link:
     """지금 붙어 있는 화면 하나. 새 화면이 hello에 성공하면 이전 화면을 닫는다 (첫 버전은 화면이 하나)."""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, keys_settable: bool = True):
         self.token = token
+        self.keys_settable = keys_settable  # 웹은 서버 키 하나를 모두가 같이 써서 받지 않는다 (0021)
         self.brain = None  # 실행할 때 붙인다. Brain이 Link.send를 쓰므로 서로를 참조한다
         self._ws = None
 
@@ -84,6 +85,9 @@ class Link:
         if kind == "event" and isinstance(msg.get("kind"), str) and isinstance(msg.get("context", {}), dict):
             await self.brain.handle_event(msg["kind"], msg.get("context", {}))
         elif kind == "set_key":
+            if not self.keys_settable:
+                log.warning("이 두뇌는 화면에서 키를 받지 않는다")
+                return
             try:
                 config.write_key(str(msg.get("name")), str(msg.get("value", "")))
             except Exception:

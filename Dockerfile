@@ -13,7 +13,7 @@ COPY brain/pyproject.toml brain/uv.lock ./
 RUN uv sync --frozen --no-dev
 COPY brain/ ./
 COPY --from=web /src/app/dist-web /src/app/dist-web
-# 데이터 폴더는 $APPDATA/TamagotchiChatBot/brain/web (config.web_data_dir). 볼륨으로 보존한다
+# 데이터 폴더는 $APPDATA/TamagotchiChatBot/brain/web (config.web_data_dir). 강아지는 저장하지 않고 로그만 볼륨에 남는다 (0021)
 ENV APPDATA=/data PYTHONUNBUFFERED=1
 VOLUME /data
 EXPOSE 8787
