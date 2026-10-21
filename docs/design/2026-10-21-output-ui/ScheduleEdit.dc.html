@@ -14,6 +14,7 @@ body{margin:0}
 a{color:#1D4ED8}a:hover{color:#1E3A8A}
 .dog{width:128px;height:96px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:1024px 864px;background-repeat:no-repeat;image-rendering:pixelated}
 .p-sit{background-position:0 -96px}
+input::placeholder,textarea::placeholder{color:#6B7280}
 </style>
 </helmet>
 <div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
@@ -27,15 +28,24 @@ a{color:#1D4ED8}a:hover{color:#1E3A8A}
 <form style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 12px">
 <div style="display: flex; flex-direction: column; gap: 4px">
 <label for="sname" style="font-size: 12px; font-weight: 700; color: #5B6472">이름</label>
-<input id="sname" type="text" value="메일 요약" style="height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; color: #1B1F27">
+<input id="sname" type="text" value="메일 요약" placeholder="예: 메일 요약" style="height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1F27">
 </div>
-<div style="display: flex; flex-direction: column; gap: 4px">
-<label for="swhen" style="font-size: 12px; font-weight: 700; color: #5B6472">언제</label>
-<input id="swhen" type="text" value="매일 09:00" style="height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; color: #1B1F27">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; gap: 8px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<label for="srepeat" style="font-size: 12px; font-weight: 700; color: #5B6472">반복</label>
+<select id="srepeat" style="height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1F27"><option selected>매일</option><option>평일</option><option>매주</option><option>매월</option><option>한 번</option></select>
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+<label for="stime" style="font-size: 12px; font-weight: 700; color: #5B6472">시각</label>
+<input id="stime" type="time" value="09:00" style="height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1F27">
+</div>
+</div>
+
 </div>
 <div style="display: flex; flex-direction: column; gap: 4px">
 <label for="sbody" style="font-size: 12px; font-weight: 700; color: #5B6472">할 일</label>
-<textarea id="sbody" style="height: 120px; box-sizing: border-box; padding: 9px 12px; border: 2px solid #1D4ED8; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; resize: none; overflow-y: auto; outline: none">아침마다 받은 메일을 읽고, 답장이 필요한 것과 참고만 할 것으로 나눠서 요약해 줘.
+<textarea id="sbody" placeholder="무엇을 할지 적어 주세요" style="height: 96px; box-sizing: border-box; padding: 9px 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; resize: none; overflow-y: auto">아침마다 받은 메일을 읽고, 답장이 필요한 것과 참고만 할 것으로 나눠서 요약해 줘.
 뉴스레터는 뺀다.</textarea>
 </div>
 <span style="font-size: 12px; color: #5B6472">저장하면 다음 실행부터 적용돼요</span>
