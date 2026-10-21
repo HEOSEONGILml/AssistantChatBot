@@ -31,5 +31,5 @@ def claude_env() -> dict[str, str]:
 
 
 def screenpipe_cmd() -> list[str]:
-    """screenpipe 녹화 명령. 소리 설정은 정하지 않아 기본값 그대로."""
-    return ["npx", "-y", "screenpipe", "record"]
+    """screenpipe 녹화 명령. 기록은 이틀만 두고 모두 지운다(사용자 결정). 소리 설정은 기본값 그대로."""
+    return ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all"]

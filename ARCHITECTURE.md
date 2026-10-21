@@ -22,7 +22,7 @@ flowchart LR
   AG <-->|"Agent SDK"| CC["Claude Code<br>+ 크롬 확장"]
   CC -->|"MCP (cmd /c npx)"| SPM["screenpipe MCP"]
   CL -->|"claude auth"| CC
-  CL -->|"npx screenpipe record"| SP["screenpipe<br>화면 기록"]
+  CL -->|"npx screenpipe record (이틀 보관)"| SP["screenpipe<br>화면 기록"]
   SPM --> SP
 ```
 

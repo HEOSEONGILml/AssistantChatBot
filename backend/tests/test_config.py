@@ -16,4 +16,4 @@ def test_db_path_and_work_dir(tmp_path, monkeypatch):
 
 
 def test_screenpipe_cmd():
-    assert config.screenpipe_cmd() == ["npx", "-y", "screenpipe", "record"]
+    assert config.screenpipe_cmd() == ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all"]

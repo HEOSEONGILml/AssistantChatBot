@@ -66,6 +66,7 @@
 - 1단계는 **기술 프로토타입**이라 빠르게 만든다 (사용자).
 - 화면 히스토리 기록은 1단계에서 **screenpipe 소스 빌드(CLI)**를 쓴다. 완성품 앱의 유료 플랜은 검토하지 않는다. 사용자는 라이선스를 무시하라고 했다. 참고로 소스 빌드의 회사 업무 사용은 평가 목적 7일까지만 무료다.
 - 공개 코드에서 확인한 것 (2026-10-21): `npx screenpipe record`로 기록, `localhost:3030`의 REST 검색 API, MCP 서버(`screenpipe-mcp`). 기록 방식은 바뀔 때만 찍기 + 접근성 트리 우선·OCR 보조로, [0024](decisions/0024-observation-common-plus-enrichment.md)와 같은 모양이다.
+- **screenpipe 기록은 이틀만 둔다** (사용자, 2026-10-21). 이틀 지난 기록은 글자·이미지·소리 모두 지운다(`--retention-days 2 --retention-mode all`). 우리 작업 기록(백엔드 SQLite)은 따로라 지워지지 않는다.
 - 1단계 조합: screenpipe(기억) + Claude Code(에이전트, MCP로 히스토리 검색, `--chrome`으로 브라우저 조작).
 
 ### 데이터 계층 (Claude 제안, 사용자 수용, 2026-10-21)
