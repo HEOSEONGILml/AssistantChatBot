@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>요청 입력</title>
+<title>새 작업</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -14,51 +14,25 @@ body{margin:0}
 a{color:#1D4ED8}a:hover{color:#1E3A8A}
 .dog{width:128px;height:96px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:1024px 864px;background-repeat:no-repeat;image-rendering:pixelated}
 .p-stand{background-position:0 0}
-input::placeholder{color:#6B7280}
+textarea::placeholder{color:#6B7280}
 </style>
 </helmet>
 <div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
 <div aria-hidden="true" style="position: absolute; left: 24px; top: 24px; right: -40px; bottom: 80px; background: #F7F8FA; border: 1px solid #D5DAE1; border-radius: 10px"></div>
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
-<section aria-label="작업 패널" style="position: absolute; right: 20px; bottom: 156px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
-<div style="display: flex; align-items: center; padding: 0 4px 0 8px; border-bottom: 1px solid #E6E9EE">
-<div role="tablist" aria-label="보기" style="flex: 1; display: flex">
-<a href="Alerts.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">알림</a>
-<button type="button" role="tab" aria-selected="true" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; border: 0; border-bottom: 2px solid #1B1F27; background: transparent; color: #1B1F27; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">작업 3</button>
-<button type="button" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #5B6472; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">스케줄 4</button>
-<a href="Usage.dc.html" role="tab" aria-selected="false" aria-label="사용량" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M8 16v-3"></path><path d="M13 16V9"></path><path d="M18 16V6"></path></svg></a>
-<a href="Settings.dc.html" role="tab" aria-selected="false" aria-label="설정" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></a>
+<section aria-label="새 작업" style="position: absolute; right: 20px; bottom: 156px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 4px; padding: 0 4px; border-bottom: 1px solid #E6E9EE">
+<a href="TaskPanel.dc.html" aria-label="작업 목록으로" style="flex: none; width: 44px; height: 44px; color: #1B1F27; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<span style="flex: 1; font-size: 14px; font-weight: 700">새 작업</span>
 </div>
+<form style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px">
+<label for="newreq" style="font-size: 12px; font-weight: 700; color: #5B6472">무엇을 할까요?</label>
+<textarea id="newreq" placeholder="예: 아까 슬랙에서 본 링크, 카톡으로 민지한테 보내 줘" style="height: 160px; box-sizing: border-box; padding: 9px 12px; border: 2px solid #1D4ED8; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; outline: none; resize: none; overflow-y: auto">아까 슬랙 #마케팅 채널에서 본 랜딩 페이지 시안 링크 있잖아. 그거 카톡으로 민지한테 보내 주고, 보낼 때 "금요일 회의 전에 한번 봐 줘, 특히 첫 화면 문구랑 가격표 부분 의견 부탁해"라고 같이 적어 줘. 민지가 단톡방에만 있으면 개인 대화로 보내 줘.</textarea>
+<div style="display: flex; align-items: center; gap: 6px">
+<span style="flex: 1; font-size: 11px; color: #5B6472">Enter 보내기 · Shift+Enter 줄바꿈</span>
+<a href="TaskPanel.dc.html" style="min-height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid #C4CAD3; border-radius: 10px; color: #1B1F27; font-size: 13px; font-weight: 500; text-decoration: none">취소</a>
+<button type="submit" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">맡기기</button>
 </div>
-<ul style="margin: 0; padding: 0 4px 0 12px; list-style: none; display: flex; flex-direction: column; font-size: 13px">
-<li style="min-height: 44px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #E6E9EE">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" role="img" aria-label="다 함" style="flex: none"><circle cx="12" cy="12" r="10" fill="#E3F4EA"></circle><path d="M7.5 12.5l3 3 6-6.5" stroke="#15803D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">메일 요약</b> <span style="color: #0F5F52">스케줄</span> <span style="color: #5B6472">· 다 했어요</span></span>
-<span style="flex: none; width: 44px; text-align: center; font-size: 12px; color: #5B6472">09:04</span>
-</li>
-<li style="min-height: 44px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #E6E9EE">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" role="img" aria-label="다 함" style="flex: none"><circle cx="12" cy="12" r="10" fill="#E3F4EA"></circle><path d="M7.5 12.5l3 3 6-6.5" stroke="#15803D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">어제 회의록 정리</b> <span style="color: #5B6472">· 다 했어요</span></span>
-<span style="flex: none; width: 44px; text-align: center; font-size: 12px; color: #5B6472">08:40</span>
-</li>
-<li style="min-height: 44px; display: flex; align-items: center; gap: 8px">
-<svg width="16" height="16" viewBox="0 0 24 24" role="img" aria-label="멈춤" style="flex: none"><rect x="5" y="5" width="14" height="14" rx="2" fill="#5B6472"></rect></svg>
-<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">항공권 가격 비교</b> <span style="color: #5B6472">· 멈춤</span></span>
-<span style="flex: none; width: 44px; text-align: center; font-size: 12px; color: #5B6472">08:12</span>
-</li>
-</ul>
-<nav aria-label="작업 목록 페이지" style="display: flex; align-items: center; justify-content: center; border-top: 1px solid #E6E9EE; font-size: 12px; color: #5B6472">
-<button type="button" aria-label="이전 페이지" disabled style="width: 44px; height: 36px; border: 0; background: transparent; color: #C4CAD3; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
-<span>1 / 1</span>
-<button type="button" aria-label="다음 페이지" disabled style="width: 44px; height: 36px; border: 0; background: transparent; color: #C4CAD3; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
-</nav>
-<form style="display: flex; flex-direction: column; gap: 4px; padding: 8px; border-top: 1px solid #E6E9EE">
-<div style="display: flex; align-items: flex-end; gap: 6px">
-<label for="newreq" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">새 요청</label>
-<textarea id="newreq" style="flex: 1; min-width: 0; height: 120px; box-sizing: border-box; padding: 9px 12px; border: 2px solid #1D4ED8; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; outline: none; resize: none; overflow-y: auto">아까 슬랙 #마케팅 채널에서 본 랜딩 페이지 시안 링크 있잖아. 그거 카톡으로 민지한테 보내 주고, 보낼 때 "금요일 회의 전에 한번 봐 줘, 특히 첫 화면 문구랑 가격표 부분 의견 부탁해"라고 같이 적어 줘. 민지가 단톡방에만 있으면 개인 대화로 보내 줘.</textarea>
-<button type="submit" aria-label="요청 보내기" style="flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
-</div>
-<span style="padding-left: 4px; font-size: 11px; color: #5B6472">Enter 보내기 · Shift+Enter 줄바꿈</span>
 </form>
 <div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
 </section>

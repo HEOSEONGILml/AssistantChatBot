@@ -23,28 +23,56 @@ textarea::placeholder{color:#6B7280}
 <section aria-label="작업 패널" style="position: absolute; right: 20px; bottom: 156px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
 <div style="display: flex; align-items: center; padding: 0 4px 0 8px; border-bottom: 1px solid #E6E9EE">
 <div role="tablist" aria-label="보기" style="flex: 1; display: flex">
-<button type="button" role="tab" aria-selected="true" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; border: 0; border-bottom: 2px solid #1B1F27; background: transparent; color: #1B1F27; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">알림&nbsp;<span style="display: inline-block; min-width: 13px; padding: 0 3px; border-radius: 999px; box-sizing: border-box; background: #C81E1E; color: #FFFFFF; font-size: 10px; font-weight: 700; line-height: 14px; text-align: center">1</span></button>
-<a href="TaskPanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">작업 0</a>
-<a href="SchedulePanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">스케줄 0</a>
+<a href="Alerts.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">알림</a>
+<a href="Chat.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">대화</a>
+<a href="TaskPanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">작업</a>
+<a href="SchedulePanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">스케줄</a>
 <a href="Usage.dc.html" role="tab" aria-selected="false" aria-label="사용량" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M8 16v-3"></path><path d="M13 16V9"></path><path d="M18 16V6"></path></svg></a>
-<a href="Settings.dc.html" role="tab" aria-selected="false" aria-label="설정" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></a>
+<button type="button" role="tab" aria-selected="true" aria-label="설정" style="min-height: 44px; width: 36px; flex: none; padding: 0; border: 0; border-bottom: 2px solid #1B1F27; background: transparent; color: #1B1F27; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
 </div>
 </div>
-<div style="padding: 12px">
-<div style="padding: 12px; border: 2px solid #C81E1E; border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
-<div style="display: flex; align-items: flex-start; gap: 10px">
-<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"></path><path d="M10 16l4-4-4-4"></path><path d="M14 12H4"></path></svg>
-<div style="display: flex; flex-direction: column; gap: 2px">
-<span style="font-size: 14px; font-weight: 700">Claude에 로그인해 주세요</span>
-<span style="font-size: 13px; line-height: 1.6; color: #3D4552">Claude Code 구독 계정으로 로그인해야 일을 할 수 있어요.</span>
+<div style="padding: 12px 12px 12px 16px; border-bottom: 1px solid #E6E9EE; display: flex; align-items: center; gap: 10px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; font-weight: 700; color: #5B6472">계정</span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #9AA3AF"></span>로그인 안 됨</span>
+<span style="font-size: 12px; line-height: 1.5; color: #5B6472">Claude Code 구독 계정으로 로그인해야 일을 할 수 있어요</span>
 </div>
+<button type="button" style="flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">로그인</button>
 </div>
-<button type="button" style="align-self: flex-end; min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">로그인</button>
+<div style="padding: 8px 8px 8px 16px; border-bottom: 1px solid #E6E9EE; display: flex; align-items: center; gap: 10px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; font-weight: 500">화면 기록 <span style="font-weight: 400; color: #5B6472">screenpipe</span></span>
+<span style="font-size: 12px; color: #5B6472">끄면 “아까 본 그거”를 찾지 못해요</span>
 </div>
+<button type="button" role="switch" aria-checked="true" aria-label="화면 기록 켜짐" style="flex: none; min-height: 44px; padding: 0 6px; border: 0; background: transparent; display: flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; color: #0F5F52; cursor: pointer"><span>켜짐</span><span aria-hidden="true" style="width: 34px; height: 20px; box-sizing: border-box; padding: 2px; border-radius: 999px; background: #0F766E; display: flex; justify-content: flex-end"><span style="width: 16px; height: 16px; border-radius: 999px; background: #FFFFFF"></span></span></button>
 </div>
+<fieldset style="margin: 0; padding: 10px 12px 12px; border: 0; display: flex; flex-direction: column; gap: 2px">
+<legend style="padding: 0 0 6px; font-size: 12px; font-weight: 700; color: #5B6472">권한 모드</legend>
+<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; background: #E3ECFF; cursor: pointer">
+<input type="radio" name="mode" value="default" checked style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">매번 묻기 <span style="font-weight: 400; color: #5B6472">Manual</span></span><span style="font-size: 12px; color: #3D4552">파일 수정·명령 실행 전에 매번 물어요</span></span>
+</label>
+<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<input type="radio" name="mode" value="acceptEdits" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">수정은 바로 <span style="font-weight: 400; color: #5B6472">Accept edits</span></span><span style="font-size: 12px; color: #3D4552">파일 수정은 바로, 그 밖의 명령은 물어요</span></span>
+</label>
+<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<input type="radio" name="mode" value="plan" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">계획만 <span style="font-weight: 400; color: #5B6472">Plan</span></span><span style="font-size: 12px; color: #3D4552">살펴보고 계획만 세워요. 바꾸지 않아요</span></span>
+</label>
+<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<input type="radio" name="mode" value="auto" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">자동 <span style="font-weight: 400; color: #5B6472">Auto</span></span><span style="font-size: 12px; color: #3D4552">묻지 않고 진행해요. 실행 전에 안전 검사를 해요</span></span>
+</label>
+<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<input type="radio" name="mode" value="bypassPermissions" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">묻지 않음 <span style="font-weight: 400; color: #5B6472">Bypass permissions</span></span><span style="font-size: 12px; color: #B45309">아무것도 묻지 않아요. 격리된 환경에서만 쓰세요</span></span>
+</label>
+<span style="padding: 6px 8px 0; font-size: 12px; color: #5B6472">새로 맡기는 작업부터 적용돼요</span>
+</fieldset>
 <div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
 </section>
-<a href="Main.dc.html" aria-label="작업 패널 닫기, 로그인 필요" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 128px; height: 96px"><span class="dog p-sleep" style="display: block"></span><span aria-hidden="true" style="position: absolute; left: 6px; top: 4px; min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 6px; border-radius: 999px; background: #C81E1E; border: 2px solid #FFFFFF; color: #FFFFFF; font-size: 12px; font-weight: 700; line-height: 18px; text-align: center">1</span></a>
+<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 128px; height: 96px"><span class="dog p-sleep" style="display: block"></span></a>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":640}}'>
