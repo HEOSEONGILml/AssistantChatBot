@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>상세 창</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+input::placeholder{color:#6B7280}
+</style>
+</helmet>
+<div style="width: 960px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
+<div style="position: absolute; left: 40px; top: 24px; width: 880px; height: 544px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #C4CAD3; border-radius: 8px; box-shadow: 0 16px 40px rgba(20, 24, 32, 0.22); display: flex; flex-direction: column; overflow: hidden">
+<div style="flex: none; height: 36px; display: flex; align-items: center; padding-left: 14px; background: #F3F4F6; border-bottom: 1px solid #E6E9EE">
+<span style="flex: 1; font-size: 12px; color: #3D4552">작업 — 휴지 주문</span>
+<button type="button" aria-label="최소화" style="width: 44px; height: 36px; border: 0; background: transparent; color: #3D4552; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor"></path></svg></button>
+<button type="button" aria-label="최대화" style="width: 44px; height: 36px; border: 0; background: transparent; color: #3D4552; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor"></rect></svg></button>
+<button type="button" aria-label="닫기" style="width: 44px; height: 36px; border: 0; background: transparent; color: #3D4552; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor"></path></svg></button>
+</div>
+<div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #E6E9EE">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 700">휴지 주문</h1>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6472">
+<span style="padding: 1px 8px; border-radius: 999px; background: #E3ECFF; color: #1D4ED8; font-size: 12px; font-weight: 700">내 요청</span>
+<span>09:10 시작 · <span style="color: #B42318; font-weight: 500">답을 기다려요</span></span>
+</div>
+</div>
+<button type="button" style="flex: none; min-height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; color: #1B1F27; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="#B42318"></rect></svg>멈추기</button>
+</div>
+<div tabindex="0" aria-label="대화 기록" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse">
+<ol style="margin: 0 auto; width: 100%; max-width: 680px; box-sizing: border-box; padding: 20px 24px; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.6">
+<li style="align-self: center; font-size: 12px; color: #5B6472">10월 21일 09:10</li>
+<li style="align-self: flex-end; max-width: 75%; padding: 10px 14px; border-radius: 14px 14px 4px 14px; background: #E3ECFF">쿠팡에서 휴지 30롤 제일 싼 걸로 주문해 줘</li>
+<li style="padding: 10px 14px; border-radius: 10px; background: #F7F8FA; border: 1px solid #E6E9EE; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #3D4552">
+<span style="font-size: 12px; font-weight: 700; color: #5B6472">진행 4단계</span>
+<span><span style="color: #5B6472">09:10</span> 크롬 열기</span>
+<span><span style="color: #5B6472">09:10</span> 쿠팡 접속</span>
+<span><span style="color: #5B6472">09:11</span> '휴지 30롤' 검색 중</span>
+<span><span style="color: #5B6472">09:11</span> 1롤당 가격으로 비교 중</span>
+</li>
+<li style="align-self: flex-start; max-width: 75%; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #F3F4F6">깨끗한나라 30롤이 18,900원으로 제일 싸요. 결제할까요?</li>
+<li style="align-self: flex-end; max-width: 75%; padding: 10px 14px; border-radius: 14px 14px 4px 14px; background: #E3ECFF">리뷰 평점은 어때?</li>
+<li style="align-self: flex-start; max-width: 75%; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #FFFFFF; border: 2px solid #C81E1E; display: flex; flex-direction: column; gap: 10px">
+<span>평점 4.6점, 리뷰 1만 2천 개예요. 결제할까요?</span>
+<div style="display: flex; gap: 8px">
+<button type="button" style="min-height: 40px; padding: 0 20px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">결제</button>
+<button type="button" style="min-height: 40px; padding: 0 20px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; color: #1B1F27; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">취소</button>
+</div>
+</li>
+</ol>
+</div>
+<form style="flex: none; border-top: 1px solid #E6E9EE; padding: 12px 24px">
+<div style="margin: 0 auto; max-width: 632px; display: flex; gap: 8px">
+<label for="msgw" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">답 입력</label>
+<input id="msgw" type="text" placeholder="답하거나 되묻기" style="flex: 1; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 14px; color: #1B1F27">
+<button type="submit" aria-label="보내기" style="flex: none; width: 44px; height: 44px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+</form>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":640}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
