@@ -32,6 +32,15 @@ def _text(text: str, is_error: bool = False) -> dict:
     return result
 
 
+def _invalid(rule) -> str | None:
+    """규칙이 틀리면 이유를, 맞으면 None을. dict가 아닌 값도 같은 오류로 다룬다."""
+    try:
+        validate(rule)
+    except (ValueError, TypeError, AttributeError) as e:
+        return str(e) or "규칙 모양이 틀렸다"
+    return None
+
+
 def _proposal(name: str, rule: dict, instruction: str) -> dict:
     first_run = next_run(rule, datetime.now().astimezone()).isoformat(timespec="seconds")
     return {"name": name, "rule": rule, "label": label(rule), "instruction": instruction, "first_run": first_run}
@@ -82,10 +91,10 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
            "properties": {"name": {"type": "string"}, "rule": {"type": "object"}, "instruction": {"type": "string"}},
            "required": ["name", "rule", "instruction"]})
     async def create_schedule(args):
-        try:
-            validate(args["rule"])
-        except ValueError as e:
-            return _text(str(e), True)
+        if store.get_schedule(ctx.task_id) is not None:
+            return _text("이 작업은 이미 스케줄이다. update_schedule로 고쳐라", True)
+        if (err := _invalid(args["rule"])):
+            return _text(err, True)
         proposal = _proposal(args["name"], args["rule"], args["instruction"])
         answer = await ctx.confirm("proposal", "이렇게 등록할까요?", proposal)
         if isinstance(answer, dict):
@@ -94,10 +103,8 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
             values = _confirmed({}, proposal)
         else:
             return _text(f"등록하지 않았다. 사용자 답: {answer}")
-        try:
-            validate(values["rule"])
-        except ValueError as e:
-            return _text(str(e), True)
+        if (err := _invalid(values["rule"])):
+            return _text(err, True)
         store.create_schedule(ctx.task_id, values["name"], values["rule"], values["instruction"])
         ctx.notify(store.update_task(ctx.task_id, source="schedule"))
         return _ok({"ok": True, "saved": values})
@@ -113,10 +120,8 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
         if not changes:
             return _text("바꿀 내용이 없다", True)
         if "rule" in changes:
-            try:
-                validate(changes["rule"])
-            except ValueError as e:
-                return _text(str(e), True)
+            if (err := _invalid(changes["rule"])):
+                return _text(err, True)
         merged = {**{k: current[k] for k in ("name", "rule", "instruction")}, **changes}
         proposal = _proposal(**merged) | {"changed": sorted(changes)}
         answer = await ctx.confirm("proposal", "이렇게 고칠까요?", proposal)
@@ -126,10 +131,10 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
             values = merged
         else:
             return _text(f"고치지 않았다. 사용자 답: {answer}")
-        try:
-            validate(values["rule"])
-        except ValueError as e:
-            return _text(str(e), True)
+        if (err := _invalid(values["rule"])):
+            return _text(err, True)
+        if all(values[k] == current[k] for k in values):
+            return _text("바뀐 내용이 없어 저장하지 않았다")
         store.update_schedule(ctx.task_id, **values)
         fields = [k for k in ("name", "rule", "instruction") if values[k] != current[k]]
         names = {"name": "이름", "rule": "반복", "instruction": "지시"}

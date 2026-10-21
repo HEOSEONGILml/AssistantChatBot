@@ -136,3 +136,29 @@ async def test_update_schedule_declined_or_missing(setup):
     store.create_schedule(tid, "아침", RULE, "i")
     await tools["update_schedule"].handler({"name": "x"})
     assert store.get_schedule(tid)["name"] == "아침"
+    assert [e for e in store.entries(tid) if e["kind"] == "edit"] == []
+
+
+async def test_create_schedule_when_already_schedule(setup):
+    store, ctx, tools, tid = setup()
+    store.create_schedule(tid, "아침", RULE, "i")
+    res = await tools["create_schedule"].handler({"name": "b", "rule": RULE, "instruction": "x"})
+    assert res["is_error"] and "update_schedule" in res["content"][0]["text"]
+    assert ctx.confirms == []
+
+
+async def test_non_dict_rule_is_error(setup):
+    store, ctx, tools, tid = setup()
+    res = await tools["create_schedule"].handler({"name": "b", "rule": "매일", "instruction": "x"})
+    assert res["is_error"] and ctx.confirms == []
+    store.create_schedule(tid, "아침", RULE, "i")
+    res = await tools["update_schedule"].handler({"rule": "매일"})
+    assert res["is_error"] and ctx.confirms == []
+
+
+async def test_update_schedule_no_change_writes_nothing(setup):
+    store, ctx, tools, tid = setup("등록")
+    store.create_schedule(tid, "아침", RULE, "i")
+    res = await tools["update_schedule"].handler({"name": "아침"})
+    assert not res.get("is_error") and "바뀐 내용이 없" in res["content"][0]["text"]
+    assert [e for e in store.entries(tid) if e["kind"] == "edit"] == []
