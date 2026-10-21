@@ -28,7 +28,8 @@
 | `list_tasks` | 쪽 번호 | 작업 탭·알림 탭을 열 때, 앱을 다시 켰을 때 |
 | `get_task` | 작업 ID | 작업 대화를 열 때 |
 | `list_schedules` | 쪽 번호 | 스케줄 탭을 열 때 |
-| `hello`, `set_key` | v5 그대로 | 접속 인증, 키 저장 |
+| `hello` | v5 그대로 | 접속 인증 |
+| `login` | 없음 | 사용자가 로그인 버튼을 눌렀을 때. 백엔드가 `claude auth login`(구독 로그인)을 띄운다 |
 
 ### 백엔드 → 프론트
 
@@ -39,7 +40,7 @@
 | `tasks` | 작업 목록 한 쪽 | `list_tasks`의 답 |
 | `task_detail` | 작업 하나와 대화 전체 | `get_task`의 답 |
 | `schedules` | 스케줄 목록 한 쪽 | `list_schedules`의 답 |
-| `status` | 키 상태 | v5 그대로 |
+| `status` | 로그인됨 / 안 됨 | 접속할 때와 로그인 상태가 바뀔 때. 백엔드가 `claude auth status`로 확인한다 |
 
 - **작업 상태**: 일하는 중, 답 기다림, 다 함, 못 함, 멈춤.
 - **대화 한 줄의 종류**: 사용자 말, 진행, 질문(고를 답이 있으면 함께), 결과, 실패.
@@ -77,3 +78,9 @@ sequenceDiagram
 
 - 작업 기록([0027](0027-data-layer-ownership.md))에 작업 상태, 봤는지, 대화 한 줄들이 저장되어야 한다.
 - 작업 대화가 오래 남으므로 앱을 다시 켜도 `list_tasks`·`get_task`로 되살린다.
+
+## 수정 (2026-10-21)
+
+- 디자인 변경: 키 입력 요청 대신 **Claude 로그인 요청**을 보인다 (사용자).
+- 그래서 `set_key`를 빼고 `login`을 더했다. `status`는 키 상태 대신 로그인 상태를 알린다. 설정 창의 TypeSafe·Gemini 키 입력칸은 쓸 곳이 없어 뺀다 (Claude 제안, 사용자 수용).
+- 확인한 것: `claude auth status`는 `loggedIn`, `authMethod`(`claude.ai`), `subscriptionType`을 JSON으로 준다. `claude auth login`에는 `--claudeai`(기본), `--email`, `--sso` 옵션이 있다 (Claude Code 2.1.305). 로그아웃 상태에서 `claude auth login`을 띄워 브라우저가 열리고 끝남을 알아차리는지는 아직 시험하지 않았다.

@@ -35,6 +35,7 @@
 - → [0023](decisions/0023-claude-code-first-then-own-agent.md)
 - **Claude Code의 동작 원칙은 하네스 문서(.md)가 정하고, 데이터는 데이터 계층과 주고받는다** (사용자). → [0029](decisions/0029-claude-code-harness-and-session-per-task.md)
 - **작업 하나 = 세션 하나** (Claude 제안, 사용자 수용). 지난 맥락은 Claude Code 세션이 아니라 데이터 계층에서 찾는다.
+- **Claude Code는 파이썬 Agent SDK로 띄운다** (Claude 제안, 사용자 수용). → [0029](decisions/0029-claude-code-harness-and-session-per-task.md), [스파이크](spikes/2026-10-21-agent-sdk-claude-code.md)
 
 ## 구조: 입력 → 에이전트 → 출력 (확정, 2026-10-21)
 
@@ -75,6 +76,12 @@
   - 설정·키: 단축키는 화면, 키는 백엔드.
 - 데이터마다 쓰는 주체는 하나이고, 에이전트는 읽기만 한다.
 
+### 인증 (사용자, 2026-10-21)
+
+- Claude API 키는 고려하지 않는다. **Claude Code 구독 로그인**만 고려해 설계한다 (사용자).
+- 화면은 API 키 입력 대신 **로그인**을 요청한다 (사용자).
+- 지금 코드와 [프로토콜](brain-protocol.md)은 아직 API 키(`set_key`, `no_keys`)를 쓴다. 바꾸는 일은 따로 한다.
+
 ## 스케줄 작업 (확정, 2026-10-21)
 
 - 자동화 스케줄을 염두에 둔다. **스케줄링은 직접 구현한다** (사용자). screenpipe의 pipes를 빌려 쓰지 않는다. → [0025](decisions/0025-own-scheduler.md)
@@ -96,6 +103,7 @@
 - 핵심은 **화면 공간을 많이 차지하지 않는 것**이다 (사용자). 목록이 길어지면 페이지로 나눈다 (사용자).
 - 작업마다 **사용자와 주고받은 대화 기록**이 보여야 한다 (사용자). 예: "결제할까요?"에 바로 답하지 않고 되물으면, 그 물음과 답이 작업 안에 쌓인다.
 - 화면 디자인 결과: [design/2026-10-21-output-ui](design/2026-10-21-output-ui/README.md)
+- 키 입력 요청 대신 **Claude 로그인 요청**을 보인다 (사용자). 설정 창의 키 입력칸은 뺀다 (Claude 제안, 사용자 수용).
 - 입출력 인터페이스는 작업 하나를 대화 하나로 본다 (Claude 제안, 사용자 수용). → [0030](decisions/0030-io-interface-task-as-conversation.md)
 
 ## 기억 (확정, 2026-10-21)

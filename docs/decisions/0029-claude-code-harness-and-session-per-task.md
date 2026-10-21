@@ -10,6 +10,7 @@
 ## 결정
 
 - **동작 원칙은 Claude Code의 하네스 문서(.md)가 정한다. 데이터는 데이터 계층([0027](0027-data-layer-ownership.md))과 주고받는다.** 사용자가 정했다.
+- **Claude Code는 파이썬 Agent SDK로 띄운다** (`ClaudeSDKClient`). 질문·권한 요청을 콜백(`can_use_tool`)으로 받고 크롬 조작이 켜지는 것을 [스파이크](../spikes/2026-10-21-agent-sdk-claude-code.md)로 확인했다. Claude가 제안하고 사용자가 수용했다 (2026-10-21).
 - **작업 하나 = 세션 하나.** Claude가 제안하고 사용자가 수용했다.
   - 새 요청은 새 Claude Code 세션으로 시작한다.
   - 지난 맥락("아까 그거")은 Claude Code 세션이 아니라 데이터 계층(작업 기록, 화면 기록)에서 MCP로 찾는다.
