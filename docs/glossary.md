@@ -10,4 +10,5 @@
 | **두뇌 핵심** | 화면이 보낸 메시지를 처리하는 두뇌 코드(`core.py`). 전송 방식을 모른다 |
 | **전송 계층** | 화면과 두뇌 핵심을 잇는 부분(`server.py`). 지금은 localhost WebSocket |
 | **프로토콜** | 화면과 두뇌가 주고받는 메시지 규약. [`brain-protocol.md`](brain-protocol.md)가 기준이다 |
+| **1단계·2단계** | 에이전트를 만드는 순서. 1단계는 Claude Code로 구현하고, 2단계는 그 부분을 직접 설계한 에이전트로 바꾼다 ([0023](decisions/0023-claude-code-first-then-own-agent.md)) |
 | **Jev** | TypeSafe AI의 System One 모델. 텍스트를 생성하지 않고 구조화된 결정(선택·점수·예/아니오)의 분포만 준다. 지금은 쓰지 않는다. [상세](references/typesafe-jev.md) |
