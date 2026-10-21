@@ -51,6 +51,13 @@ def _confirmed(answer: dict, fallback: dict) -> dict:
     return {k: answer.get(k, fallback[k]) for k in ("name", "rule", "instruction")}
 
 
+def edit_text(current: dict, values: dict) -> str | None:
+    """지시서 수정 줄의 글. 바뀐 칸이 없으면 None. 대화 도구와 수정 양식이 함께 쓴다."""
+    names = {"name": "이름", "rule": "반복", "instruction": "지시"}
+    fields = [names[k] for k in names if values[k] != current[k]]
+    return "작업 지시서를 고쳤어요: " + ", ".join(fields) if fields else None
+
+
 def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
     @tool("recent_tasks", "최근 작업 목록 (최신순).", {"type": "object", "properties": {
         "limit": {"type": "integer", "description": "개수 (기본 10)"}}})
@@ -136,9 +143,7 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
         if all(values[k] == current[k] for k in values):
             return _text("바뀐 내용이 없어 저장하지 않았다")
         store.update_schedule(ctx.task_id, **values)
-        fields = [k for k in ("name", "rule", "instruction") if values[k] != current[k]]
-        names = {"name": "이름", "rule": "반복", "instruction": "지시"}
-        store.add_entry(ctx.task_id, "edit", "작업 지시서를 고쳤어요: " + ", ".join(names[k] for k in fields))
+        store.add_entry(ctx.task_id, "edit", edit_text(current, values))
         return _ok({"ok": True, "saved": values})
 
     return [recent_tasks, search_tasks, get_task, get_schedule, set_task_title, create_schedule, update_schedule]

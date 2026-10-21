@@ -67,3 +67,11 @@ def test_persists_to_file(tmp_path):
     p = tmp_path / "a.db"
     Store(p).create_task("user", "x")
     assert Store(p).get_task(1)["title"] == "x"
+
+
+def test_tasks_in_states():
+    s = Store(None)
+    for title, state in [("w", "working"), ("d", "done"), ("q", "waiting")]:
+        t = s.create_task("user", title)
+        s.update_task(t["id"], state=state)
+    assert [t["title"] for t in s.tasks_in_states("working", "waiting")] == ["w", "q"]

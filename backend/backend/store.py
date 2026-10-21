@@ -122,6 +122,11 @@ class Store:
         ).fetchall()
         return [_task(r) for r in rows], _pages(total)
 
+    def tasks_in_states(self, *states: str) -> list[dict]:
+        marks = ", ".join("?" for _ in states)
+        rows = self._db.execute(f"SELECT * FROM tasks WHERE state IN ({marks}) ORDER BY id", states).fetchall()
+        return [_task(r) for r in rows]
+
     def recent_tasks(self, limit: int) -> list[dict]:
         rows = self._db.execute("SELECT * FROM tasks ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [_task(r) for r in rows]
