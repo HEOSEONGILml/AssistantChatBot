@@ -1,6 +1,7 @@
 """Claude Code 세션 하나를 돌린다 (작업 하나 = 세션 하나, 0029). 질문·권한 요청은 Future 하나로 사용자 답을 기다린다."""
 import asyncio
 import logging
+import sys
 from pathlib import Path
 from typing import Protocol
 
@@ -15,7 +16,10 @@ log = logging.getLogger(__name__)
 
 HARNESS = (Path(__file__).with_name("harness.md")).read_text(encoding="utf-8")
 
-SCREENPIPE = {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]}
+# 윈도 네이티브의 Claude Code는 npx(.cmd)를 직접 못 띄워 cmd /c로 감싼다.
+SCREENPIPE = ({"command": "cmd", "args": ["/c", "npx", "-y", "screenpipe-mcp@latest"]}
+              if sys.platform == "win32"
+              else {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]})
 STOP_ANSWER = "거부"
 
 

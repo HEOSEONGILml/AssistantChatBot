@@ -4,24 +4,37 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 import urllib.request
 
 from backend import config
 
 log = logging.getLogger(__name__)
 
+STATUS_TIMEOUT = 20  # 초. 상태 확인이 멈추면 로그인 안 된 것으로 본다
 HEALTH_URL = "http://localhost:3030/health"
 # 콘솔 창이 번쩍이지 않게 한다. 윈도 밖에서는 없는 값이라 0.
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
-async def _run(argv: list[str], env: dict) -> tuple[int, str]:
+async def _run(argv: list[str], env: dict, timeout: float | None = None) -> tuple[int, str]:
+    """끝나면 (종료 코드, 출력). timeout을 넘기면 프로세스를 죽이고 TimeoutError."""
     proc = await asyncio.create_subprocess_exec(
         *argv, env=env, creationflags=_FLAGS,
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-    out, _ = await proc.communicate()
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise
     return proc.returncode, out.decode("utf-8", "replace")
+
+
+def _resolve(argv: list[str]) -> list[str]:
+    """윈도의 npx는 npx.CMD라 이름만으로는 Popen이 못 찾는다. 전체 경로로 바꾼다."""
+    return [shutil.which(argv[0]) or argv[0], *argv[1:]]
 
 
 def _spawn(argv: list[str], env: dict):
@@ -30,9 +43,19 @@ def _spawn(argv: list[str], env: dict):
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def _kill(proc) -> None:
+    """윈도에서는 npx.cmd 밑의 node까지 트리째 끈다. terminate()만 하면 자식이 남는다."""
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], creationflags=_FLAGS,
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        proc.terminate()
+
+
 def _health_ok() -> bool:
     try:
-        with urllib.request.urlopen(HEALTH_URL, timeout=2) as r:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # 프록시를 타면 localhost도 막힐 수 있다
+        with opener.open(HEALTH_URL, timeout=2) as r:
             return r.status == 200
     except Exception:
         return False
@@ -45,16 +68,16 @@ async def _health() -> bool:
 class Auth:
     """구독 로그인 상태. API 키로 로그인된 경우는 로그인 안 된 것으로 본다(과금·크롬 조작 때문)."""
 
-    def __init__(self, run=_run, exe: str | None = shutil.which("claude")):
+    def __init__(self, run=_run, exe: str | None = None):
         self._run = run
-        self._exe = exe
+        self._exe = exe or shutil.which("claude")
 
     async def logged_in(self) -> bool:
         if not self._exe:
             log.warning("claude 실행 파일을 찾지 못함")
             return False
         try:
-            code, out = await self._run([self._exe, "auth", "status"], config.claude_env())
+            code, out = await self._run([self._exe, "auth", "status"], config.claude_env(), timeout=STATUS_TIMEOUT)
             if code != 0:
                 return False
             info = json.loads(out)
@@ -77,20 +100,23 @@ class Auth:
 class Recorder:
     """screenpipe를 띄운다. 이미 떠 있으면(사용자가 따로 켠 경우) 건드리지 않는다."""
 
-    def __init__(self, spawn=_spawn, health=_health):
+    def __init__(self, spawn=_spawn, health=_health, kill=_kill):
         self._spawn = spawn
         self._health = health
+        self._kill = kill
         self._proc = None
 
     async def start(self) -> None:
+        if self._proc is not None and self._proc.poll() is None:
+            return  # 내가 띄운 게 아직 살아 있다
         if await self._health():
             return
         try:
-            self._proc = self._spawn(config.screenpipe_cmd(), config.claude_env())
+            self._proc = self._spawn(_resolve(config.screenpipe_cmd()), config.claude_env())
         except Exception as e:
             log.warning("screenpipe 실행 실패: %s", type(e).__name__)
 
     def stop(self) -> None:
         proc, self._proc = self._proc, None
         if proc is not None:
-            proc.terminate()
+            self._kill(proc)

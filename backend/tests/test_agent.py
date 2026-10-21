@@ -1,4 +1,5 @@
 import asyncio
+import sys
 
 from claude_agent_sdk import (AssistantMessage, PermissionResultAllow, PermissionResultDeny, RateLimitEvent,
                               RateLimitInfo, ResultMessage, SystemMessage, TextBlock, ToolPermissionContext)
@@ -193,6 +194,12 @@ async def test_confirm_uses_same_wait_and_accepts_dict():
     assert events.of("task_changed") == [()]
 
 
+def _expected_screenpipe():
+    if sys.platform == "win32":
+        return {"command": "cmd", "args": ["/c", "npx", "-y", "screenpipe-mcp@latest"]}
+    return {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]}
+
+
 def test_build_options_values(tmp_path, monkeypatch):
     monkeypatch.setenv("APPDATA", str(tmp_path))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
@@ -211,7 +218,7 @@ def test_build_options_values(tmp_path, monkeypatch):
     assert o.can_use_tool is cb
     assert o.resume == "r1"
     assert o.mcp_servers == {"assistant": "S",
-                             "screenpipe": {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]}}
+                             "screenpipe": _expected_screenpipe()}
     # SDK는 options.env를 os.environ 위에 덮으므로 빈 값으로 덮어야 키가 빠진다
     assert not o.env.get("ANTHROPIC_API_KEY")
     assert o.max_turns is None and o.model is None
