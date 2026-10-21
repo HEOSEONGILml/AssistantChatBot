@@ -192,6 +192,10 @@ async def test_confirm_uses_same_wait_and_accepts_dict():
 
     run.notify({"id": 3})
     assert events.of("task_changed") == [()]
+    run.entry_added({"id": 9, "kind": "edit"})
+    run.schedule_changed()
+    assert events.of("entry_added") == [({"id": 9, "kind": "edit"},)]
+    assert events.of("schedule_changed") == [()]
 
 
 def _expected_screenpipe():

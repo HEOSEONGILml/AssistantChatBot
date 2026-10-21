@@ -27,6 +27,12 @@ flowchart LR
 | 5 | 스케줄 세션을 며칠에 걸쳐 `resume` | `add_schedule`(매일)로 만들고 며칠 둔다 | 날마다 같은 `session_id`로 이어지고, `run` 구분선 뒤에 결과가 쌓인다. 앞날의 대화를 기억한다 | [ ] |
 | 6 | screenpipe 켜고 끄기 | 백엔드를 띄웠다가 Ctrl+C로 끈다 | 로그에 `screenpipe 시작`, 끝날 때 `taskkill /T`로 `npx` 밑의 `node`·`screenpipe.exe`까지 모두 꺼진다(작업 관리자에서 확인). 이미 떠 있으면 `screenpipe가 이미 떠 있어 그대로 둔다`가 찍히고 끌 때 건드리지 않는다 | [ ] |
 | 7 | 윈도에서 screenpipe MCP (`cmd /c npx`) | screenpipe 기록을 찾아야 하는 `request`를 보낸다 (예: "아까 보던 문서 이름 알려줘") | Claude Code가 screenpipe MCP를 띄워 도구를 쓴다. 실패하면 Claude Code의 MCP 오류를 확인한다 ([agent.py](../../backend/backend/agent.py)의 `SCREENPIPE`) | [ ] |
+| 8 | 세션 도중 끄기 | 크롬을 쓰는 `request`를 보내 일하는 동안 백엔드를 Ctrl+C로 끈다 | `claude` 프로세스와 그 밑의 MCP 서버(`screenpipe-mcp`의 `node`)·크롬 연결 프로세스가 모두 꺼진다(작업 관리자에서 확인). 남으면 끌 때 세션을 끊는 길을 만든다 | [ ] |
+| 9 | 로그인 중 끄기 | `login`을 보내 브라우저가 열린 채로 백엔드를 Ctrl+C로 끈다 | `claude auth login` 프로세스가 트리째 꺼진다 | [ ] |
+
+## 화면 계획에 넘기는 주의
+
+- Tauri가 백엔드를 강제로 끄면(`backend.rs`의 `child.kill`) 파이썬의 정리 코드가 돌지 않는다. 그러면 백엔드가 띄운 screenpipe와 `claude` 세션 프로세스(그 밑의 MCP·크롬 연결까지)가 고아로 남는다. 화면 계획에서는 백엔드를 정상 종료시키거나(종료 신호 → 정리 대기), 그게 안 되면 프로세스 트리째(`taskkill /T`) 끈다.
 
 ## 지금까지 본 것
 

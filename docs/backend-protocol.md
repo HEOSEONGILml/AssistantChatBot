@@ -21,7 +21,7 @@
 | type | 필드 | 뜻 |
 |---|---|---|
 | `hello` | `token`: 문자열 | 접속 인증 |
-| `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다 |
+| `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다. 로그인이 이미 진행 중이면 무시한다 |
 | `request` | `text`: 문자열 | 작업 탭 입력칸. 새 작업을 만든다 |
 | `add_schedule` | `name`: 문자열, `rule`: 규칙, `instruction`: 문자열 | 새 스케줄 양식의 [등록]. 확인 없이 바로 저장한다 |
 | `say` | `task_id`: 정수, `text`: 문자열 | 대화 안에서 말하기. 질문의 답, 덧붙이기, 되물음, 등록 확인의 [등록] 모두 |
@@ -50,7 +50,7 @@
 | `tasks` | `view`, `page`, `pages`: 전체 쪽 수, `items`: 작업 목록 | `list_tasks`의 답 |
 | `task_detail` | `task`: 작업, `entries`: 대화 줄 전체, `schedule`: 스케줄 또는 `null` | `get_task`의 답 |
 | `schedules` | `page`, `pages`, `items`: `{task_id, name, label, next_run, state}` 목록 | `list_schedules`의 답 |
-| `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 |
+| `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
 | `settings` | `permission_mode` | `get_settings`의 답, 바뀌었을 때 |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
 
@@ -100,7 +100,7 @@
 | `run` | 스케줄 실행 구분선 (예: `10/21 (수) 09:00 실행`) |
 | `edit` | 지시서 수정 |
 
-등록 확인에 답하는 법: [등록]은 `say`로 `"등록"`을 보낸다. [고치기]는 양식을 열고, 고친 값을 `set_schedule`로 보낸다.
+등록 확인에 답하는 법: [등록]은 `say`로 `"등록"`을 보낸다. [고치기]는 양식을 열고, 고친 값을 `set_schedule`로 보낸다. 이때 백엔드는 `user` 줄 `고쳐서 등록: <이름> (<반복>)`을 남긴다.
 
 ### 스케줄 `schedule`
 

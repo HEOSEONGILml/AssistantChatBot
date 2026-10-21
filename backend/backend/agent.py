@@ -49,6 +49,8 @@ class RunEvents(Protocol):
     def confirm_request(self, kind: str, text: str, data: dict) -> None: ...
     def answered(self) -> None: ...
     def task_changed(self) -> None: ...
+    def entry_added(self, entry: dict) -> None: ...
+    def schedule_changed(self) -> None: ...
     def finished(self, result_text: str, is_error: bool) -> None: ...
     def session(self, session_id: str) -> None: ...
     def rate_limit(self, info: dict) -> None: ...
@@ -90,7 +92,8 @@ class AgentRun:
         except Exception as e:
             if self._stopped:
                 return
-            log.exception("작업 %d: Claude Code 실행 실패 (%s)", self.task_id, type(e).__name__)
+            # SDK 오류 글·트레이스백에는 CLI 출력(사용자 내용)이 섞일 수 있어 종류만 남긴다
+            log.error("작업 %d: Claude Code 실행 실패 (%s)", self.task_id, type(e).__name__)
             self._events.finished("Claude Code를 실행하지 못했어요", True)
         finally:
             self._client = None
@@ -138,6 +141,12 @@ class AgentRun:
 
     def notify(self, task: dict) -> None:
         self._events.task_changed()
+
+    def entry_added(self, entry: dict) -> None:
+        self._events.entry_added(entry)
+
+    def schedule_changed(self) -> None:
+        self._events.schedule_changed()
 
     def answer(self, value: str | dict) -> None:
         """기다리는 답을 푼다. 앱이 [고치기] 폼의 dict를 넘길 때도 쓴다."""

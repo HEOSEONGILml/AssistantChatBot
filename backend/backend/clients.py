@@ -18,15 +18,15 @@ _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 async def _run(argv: list[str], env: dict, timeout: float | None = None) -> tuple[int, str]:
-    """끝나면 (종료 코드, 출력). timeout을 넘기면 프로세스를 죽이고 TimeoutError."""
+    """끝나면 (종료 코드, 출력). timeout을 넘기거나 취소되면(앱 종료) 프로세스를 트리째 죽이고 다시 던진다."""
     proc = await asyncio.create_subprocess_exec(
         *argv, env=env, creationflags=_FLAGS,
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
     try:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout)
-    except asyncio.TimeoutError:
-        proc.kill()
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        _kill(proc)
         await proc.wait()
         raise
     return proc.returncode, out.decode("utf-8", "replace")

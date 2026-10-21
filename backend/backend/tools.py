@@ -12,13 +12,18 @@ MCP_PREFIX = "mcp__assistant__"
 
 
 class TaskContext(Protocol):
-    """도구가 지금 작업과 이야기하는 통로. 제안 줄과 상태는 confirm이 남긴다."""
+    """도구가 지금 작업과 이야기하는 통로. 제안 줄과 상태는 confirm이 남긴다.
+    도구가 저장한 줄·스케줄은 entry_added·schedule_changed로 화면에 알린다."""
 
     task_id: int
 
     async def confirm(self, kind: str, text: str, data: dict) -> str | dict: ...
 
     def notify(self, task: dict) -> None: ...
+
+    def entry_added(self, entry: dict) -> None: ...
+
+    def schedule_changed(self) -> None: ...
 
 
 def _ok(value) -> dict:
@@ -114,6 +119,7 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
             return _text(err, True)
         store.create_schedule(ctx.task_id, values["name"], values["rule"], values["instruction"])
         ctx.notify(store.update_task(ctx.task_id, source="schedule"))
+        ctx.schedule_changed()
         return _ok({"ok": True, "saved": values})
 
     @tool("update_schedule", "이 작업의 스케줄을 고친다 (바뀐 칸만). 사용자 확인을 거친다.",
@@ -143,7 +149,8 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
         if all(values[k] == current[k] for k in values):
             return _text("바뀐 내용이 없어 저장하지 않았다")
         store.update_schedule(ctx.task_id, **values)
-        store.add_entry(ctx.task_id, "edit", edit_text(current, values))
+        ctx.entry_added(store.add_entry(ctx.task_id, "edit", edit_text(current, values)))
+        ctx.schedule_changed()
         return _ok({"ok": True, "saved": values})
 
     return [recent_tasks, search_tasks, get_task, get_schedule, set_task_title, create_schedule, update_schedule]

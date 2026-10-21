@@ -61,6 +61,14 @@ class _Events:
     def task_changed(self) -> None:
         self._app._set(self._id)
 
+    def entry_added(self, entry: dict) -> None:
+        self._app._post({"type": "entry", "task_id": self._id, "entry": entry})
+
+    def schedule_changed(self) -> None:
+        schedule = self._app._store.get_schedule(self._id)
+        if schedule is not None:
+            self._app._post({"type": "schedule", "schedule": self._app._schedule_view(schedule)})
+
     def finished(self, result_text: str, is_error: bool) -> None:
         self._app._finish(self._id, result_text, is_error)
 
@@ -87,6 +95,7 @@ class App:
         # 세션 이벤트는 동기 콜백이라 보낼 메시지를 줄 세워 순서대로 보낸다
         self._outbox: deque[dict] = deque()
         self._sender: asyncio.Task | None = None
+        self._logging_in = False  # 로그인 창이 떠 있는 동안 또 띄우지 않는다
 
     # --- 화면 메시지 ---
     async def connected(self, on: bool) -> None:
@@ -94,7 +103,15 @@ class App:
             await self._send({"type": "status", "logged_in": await self._auth.logged_in()})
 
     async def login(self) -> None:
-        await self._send({"type": "status", "logged_in": await self._auth.login()})
+        if self._logging_in:
+            log.info("로그인이 이미 진행 중이라 무시함")
+            return
+        self._logging_in = True
+        try:
+            ok = await self._auth.login()
+        finally:
+            self._logging_in = False
+        await self._send({"type": "status", "logged_in": ok})
 
     async def request(self, text: str) -> None:
         if not await self._logged_in():
@@ -180,8 +197,10 @@ class App:
         values = {"name": name, "rule": rule, "instruction": instruction}
         held = self._runs.get(task_id)
         if held and held[1].confirming:
-            # 등록 확인의 [고치기]: 저장은 기다리던 도구가 한다
+            # 등록 확인의 [고치기]: 저장은 기다리던 도구가 한다. 사용자 답이라 user 줄을 남긴다 (지시는 길어 뺀다)
+            self._entry(task_id, "user", f"고쳐서 등록: {name} ({label(rule)})")
             held[0].answer(values)
+            await self._flush()
             return
         current = self._store.get_schedule(task_id)
         if current is None:
@@ -218,12 +237,16 @@ class App:
         when = f"{now:%m/%d} ({'월화수목금토일'[now.weekday()]}) {now:%H:%M}"
         self._entry(task_id, "run", f"{when} 실행")
         self._set(task_id, state="working")
-        self._start(task_id, f"[스케줄 실행 · {when}] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해.",
-                    resume=task["session_id"])
-        self._runs[task_id][2].add_done_callback(lambda _: self._schedule_ran(task_id, now))
+        if self._start(task_id, f"[스케줄 실행 · {when}] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해.",
+                       resume=task["session_id"]):
+            self._runs[task_id][2].add_done_callback(lambda _: self._schedule_ran(task_id, now))
         await self._flush()
 
     def _schedule_ran(self, task_id: int, now: datetime) -> None:
+        if task_id in self._runs:
+            # 끝난 실행은 _drive가 이미 뺐다. 남아 있으면 멈춘 뒤 새로 시작한 실행이 도는 중이다
+            log.info("스케줄 %d: 새 실행이 도는 중이라 지난 실행 결과를 기록하지 않음", task_id)
+            return
         task = self._store.get_task(task_id)
         if task is None or self._store.get_schedule(task_id) is None:
             log.warning("스케줄 %d: 끝났지만 작업이나 스케줄이 없어 결과를 기록하지 않음", task_id)
@@ -258,20 +281,27 @@ class App:
         await self._send({"type": "status", "logged_in": False})
         return False
 
-    def _start(self, task_id: int, prompt: str, resume: str | None) -> None:
+    def _start(self, task_id: int, prompt: str, resume: str | None) -> bool:
+        """세션을 띄운다. 준비하다 실패하면 작업을 실패로 끝내고 False."""
         events = _Events(self, task_id)
-        run = self._new_run(task_id, events)
-        options = build_options(permission_mode=self._permission_mode(), can_use_tool=run.can_use_tool,
-                                mcp_servers={"assistant": backend_server(self._store, run)}, resume=resume)
+        try:
+            run = self._new_run(task_id, events)
+            options = build_options(permission_mode=self._permission_mode(), can_use_tool=run.can_use_tool,
+                                    mcp_servers={"assistant": backend_server(self._store, run)}, resume=resume)
+        except Exception as e:
+            log.error("작업 %d: 세션을 준비하지 못했다 (%s)", task_id, type(e).__name__)
+            self._finish(task_id, "작업을 실행하지 못했어요", True)
+            return False
         job = asyncio.create_task(self._drive(task_id, run, prompt, options))
         self._runs[task_id] = (run, events, job)
         log.info("작업 %d: 세션 시작 (이어가기 %s)", task_id, resume is not None)
+        return True
 
     async def _drive(self, task_id: int, run, prompt: str, options) -> None:
         try:
             await run.run(prompt, options)
         except Exception as e:
-            log.exception("작업 %d: 세션이 예외로 끝났다 (%s)", task_id, type(e).__name__)
+            log.error("작업 %d: 세션이 예외로 끝났다 (%s)", task_id, type(e).__name__)  # 트레이스백엔 사용자 내용이 섞일 수 있다
             if self._store.get_task(task_id)["state"] in ("working", "waiting"):  # 이미 끝났으면 실패 줄을 또 쓰지 않는다
                 self._finish(task_id, "작업을 실행하지 못했어요", True)
         finally:

@@ -2,8 +2,11 @@ import asyncio
 
 import pytest
 
+from backend import core
+from backend.agent import AgentRun
 from backend.core import App
 from backend.store import Store
+from backend.tools import build_tools
 
 RULE = {"repeat": "daily", "time": "09:00"}
 
@@ -77,7 +80,23 @@ async def settle():
         await asyncio.sleep(0)
 
 
-def make(auth=None):
+class IdleClient:
+    """진짜 AgentRun용 가짜 Claude Code. 끊을 때까지 연결 중에 머문다."""
+
+    def __init__(self, options):
+        self._closed = asyncio.Event()
+
+    async def connect(self):
+        await self._closed.wait()
+
+    async def interrupt(self):
+        pass
+
+    async def disconnect(self):
+        self._closed.set()
+
+
+def make(auth=None, real=False):
     store = Store(None)
     out, runs = [], []
 
@@ -85,7 +104,7 @@ def make(auth=None):
         out.append(msg)
 
     def new_run(task_id, events):
-        r = FakeRun(task_id, events)
+        r = AgentRun(task_id, events, make_client=IdleClient) if real else FakeRun(task_id, events)
         runs.append(r)
         return r
 
@@ -292,6 +311,10 @@ async def test_set_schedule_answers_pending_proposal():
     await app.set_schedule(1, "아침 메일", rule, "중요한 것만")
     assert run.answers == [{"name": "아침 메일", "rule": rule, "instruction": "중요한 것만"}]
     assert store.get_schedule(1) is None  # 저장은 도구가 한다
+    # [고치기]도 사용자 답이라 user 줄을 남긴다 (이름·반복만)
+    e = store.entries(1)[-1]
+    assert (e["kind"], e["text"]) == ("user", "고쳐서 등록: 아침 메일 (평일 08:30)")
+    assert of(out, "entry")[-1]["entry"] == e
 
     # 답을 받은 뒤의 수정은 바로 저장하고 수정 줄을 남긴다
     run.events.answered()
@@ -409,3 +432,90 @@ async def test_run_schedule_skips_busy_and_logged_out():
     store.update_task(1, state="waiting")
     await app.run_schedule(1, now)
     assert runs == [] and store.entries(1) == []
+
+
+async def test_agent_schedule_tools_send_schedule_and_entry():
+    app, store, out, runs = make(real=True)
+    await app.request("매일 아침 메일 요약해 줘")
+    tools = {t.name: t for t in build_tools(store, runs[0])}
+    job = asyncio.create_task(tools["create_schedule"].handler(
+        {"name": "메일 요약", "rule": RULE, "instruction": "요약"}))
+    await settle()
+    await app.say(1, "등록")
+    await asyncio.wait_for(job, 1)
+    await settle()
+    s = of(out, "schedule")[-1]["schedule"]
+    assert (s["task_id"], s["name"], s["label"]) == (1, "메일 요약", "매일 09:00")
+
+    out.clear()
+    job = asyncio.create_task(tools["update_schedule"].handler({"instruction": "중요한 것만"}))
+    await settle()
+    await app.say(1, "예")
+    await asyncio.wait_for(job, 1)
+    await settle()
+    assert [m["entry"]["kind"] for m in of(out, "entry")] == ["proposal", "user", "edit"]
+    assert of(out, "schedule")[-1]["schedule"]["instruction"] == "중요한 것만"
+    await app.stop(1)
+    await settle()
+
+
+async def test_start_failure_marks_task_failed(monkeypatch):
+    def boom(**kw):
+        raise RuntimeError("x")
+    monkeypatch.setattr(core, "build_options", boom)
+    app, store, out, runs = make()
+    await app.request("일")
+    await settle()
+    assert store.get_task(1)["state"] == "failed" and store.entries(1)[-1]["kind"] == "failure"
+    assert of(out, "task")[-1]["task"]["state"] == "failed"
+    assert app._runs == {}
+
+    from datetime import datetime
+    t = store.create_task("schedule", "메일")
+    store.update_task(t["id"], state="done")
+    store.create_schedule(t["id"], "메일", RULE, "요약")
+    await app.run_schedule(t["id"], datetime(2026, 10, 22, 18, 0).astimezone())  # 예외 없이 실패로 끝난다
+    await settle()
+    assert store.get_task(t["id"])["state"] == "failed"
+
+
+async def test_stopped_schedule_run_does_not_record_over_new_run():
+    from datetime import datetime
+    app, store, out, runs = make()
+    t = store.create_task("schedule", "메일")
+    store.update_task(t["id"], state="done", seen=True)
+    store.create_schedule(t["id"], "메일", RULE, "요약")
+    await app.run_schedule(1, datetime(2026, 10, 22, 18, 0).astimezone())
+
+    async def slow_stop():  # 진짜 세션처럼 끊기는 데 시간이 걸린다
+        runs[0].stopped = True
+    runs[0].stop = slow_stop
+    await app.stop(1)
+    await app.say(1, "다시 해 줘")  # 멈춘 실행이 정리되기 전에 새 실행
+    runs[0].end()
+    await settle()
+    assert app._runs[1][0] is runs[1]
+    assert store.get_schedule(1)["last_result"] is None  # 새 실행이 도는 중에 "working"을 적지 않는다
+
+
+async def test_second_login_while_pending_is_ignored():
+    gate = asyncio.Event()
+
+    class SlowAuth(FakeAuth):
+        async def login(self):
+            self.login_calls += 1
+            await gate.wait()
+            self.ok = True
+            return True
+
+    auth = SlowAuth(ok=False)
+    app, store, out, runs = make(auth)
+    first = asyncio.create_task(app.login())
+    await settle()
+    await asyncio.wait_for(app.login(), 1)  # 로그인 창이 이미 떠 있다
+    assert auth.login_calls == 1 and out == []
+    gate.set()
+    await first
+    assert out == [{"type": "status", "logged_in": True}]
+    await app.login()  # 끝난 뒤에는 다시 할 수 있다
+    assert auth.login_calls == 2

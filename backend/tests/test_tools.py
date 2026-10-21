@@ -15,6 +15,8 @@ class FakeCtx:
         self.store = store
         self.confirms = []
         self.notified = []
+        self.added = []
+        self.schedule_changes = 0
         self.saved_before_confirm = None
 
     async def confirm(self, kind, text, data):
@@ -24,6 +26,12 @@ class FakeCtx:
 
     def notify(self, task):
         self.notified.append(task)
+
+    def entry_added(self, entry):
+        self.added.append(entry)
+
+    def schedule_changed(self):
+        self.schedule_changes += 1
 
 
 @pytest.fixture
@@ -93,6 +101,7 @@ async def test_create_schedule_waits_for_confirmation(setup):
     assert sch["name"] == "아침" and sch["instruction"] == "메일 요약"
     assert store.get_task(tid)["source"] == "schedule"
     assert ctx.notified
+    assert ctx.schedule_changes == 1  # 화면이 새 스케줄을 받게 한다
 
 
 async def test_create_schedule_with_edited_values(setup):
@@ -128,6 +137,7 @@ async def test_update_schedule_leaves_edit_entry(setup):
     assert store.get_schedule(tid)["name"] == "아침"
     edits = [e for e in store.entries(tid) if e["kind"] == "edit"]
     assert edits and edits[0]["text"].startswith("작업 지시서를 고쳤어요:")
+    assert ctx.added == edits and ctx.schedule_changes == 1  # 수정 줄과 스케줄을 화면에 보낸다
 
 
 async def test_update_schedule_declined_or_missing(setup):
@@ -137,6 +147,7 @@ async def test_update_schedule_declined_or_missing(setup):
     await tools["update_schedule"].handler({"name": "x"})
     assert store.get_schedule(tid)["name"] == "아침"
     assert [e for e in store.entries(tid) if e["kind"] == "edit"] == []
+    assert ctx.added == [] and ctx.schedule_changes == 0
 
 
 async def test_create_schedule_when_already_schedule(setup):

@@ -118,3 +118,27 @@ async def test_run_kills_and_raises_on_timeout():
     except asyncio.TimeoutError:
         return
     raise AssertionError("timeout expected")
+
+
+async def test_run_kills_process_when_cancelled(monkeypatch):
+    """앱이 꺼지며 로그인 작업이 취소되면 claude auth login 프로세스도 끈다."""
+    import asyncio
+    import sys
+    killed = []
+    real_kill = clients._kill
+
+    def kill(proc):
+        killed.append(proc)
+        real_kill(proc)
+    monkeypatch.setattr(clients, "_kill", kill)
+    job = asyncio.create_task(clients._run([sys.executable, "-c", "import time; time.sleep(30)"], {}))
+    await asyncio.sleep(0.5)
+    job.cancel()
+    try:
+        await job
+    except asyncio.CancelledError:
+        pass
+    else:
+        raise AssertionError("cancel expected")
+    [proc] = killed
+    assert proc.returncode is not None

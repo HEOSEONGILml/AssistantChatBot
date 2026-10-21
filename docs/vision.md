@@ -80,7 +80,7 @@
 
 - Claude API 키는 고려하지 않는다. **Claude Code 구독 로그인**만 고려해 설계한다 (사용자).
 - 화면은 API 키 입력 대신 **로그인**을 요청한다 (사용자).
-- 백엔드는 키 저장(keyring)과 `set_key` 처리를 걷어냈다. 프로토콜 문서와 현재 앱(`app/src`)에는 `set_key`·`no_keys`가 아직 남아 있고, 프로토콜 v6(Task 8)과 화면 계획에서 바꾼다.
+- 백엔드는 키 저장(keyring)과 `set_key` 처리를 걷어냈다. 백엔드와 [프로토콜 문서](backend-protocol.md)는 v6로 바뀌어 `set_key`·`no_keys`가 없다. 현재 앱(`app/src`)은 아직 v5라 `set_key`·`no_keys`가 남아 있고, 화면 계획에서 v6로 바꾼다.
 
 ## 스케줄 작업 (확정, 2026-10-21)
 

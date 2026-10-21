@@ -37,7 +37,7 @@ class Scheduler:
             try:
                 await self._app.run_schedule(s["task_id"], now)
             except Exception as e:
-                log.exception("스케줄 %d: 실행 시작 실패 (%s)", s["task_id"], type(e).__name__)
+                log.error("스케줄 %d: 실행 시작 실패 (%s)", s["task_id"], type(e).__name__)  # 내용은 쓰지 않는다
 
     async def run_forever(self, interval_s: float = 60) -> None:
         self._interval = interval_s
