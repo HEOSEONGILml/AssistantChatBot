@@ -1,9 +1,0 @@
-{"name": "probe-consistency", "description": "고르라고 한 뒤 이유를 묻고 다시 확인: 자기 선택을 뒤집거나 잊나, 역할 혼동", "seed": 12, "start": "2026-10-20T15:00",
- "steps": [
-  {"say": "사과랑 바나나 중에 뭐가 더 좋아? 딱 하나만 골라"},
-  {"wait": 30, "quiet": false},
-  {"say": "왜 그걸 골랐어?"},
-  {"wait": 30, "quiet": false},
-  {"say": "아까 네가 뭐 골랐는지 다시 말해 줘"},
-  {"wait": 30, "quiet": false}
- ]}

@@ -21,23 +21,12 @@ class FakeBrain:
     async def connected(self, on):
         self.events.append(("connected", on))
 
-    async def handle_event(self, kind, context):
-        self.events.append(("event", kind, context))
+    async def handle_message(self, text):
+        self.events.append(("message", text))
 
     async def set_keys(self, keys):
         self.events.append(("keys", keys))
 
-    async def clear_history(self):
-        self.events.append(("clear",))
-
-    async def reset(self):
-        self.events.append(("reset",))
-
-    def state_snapshot(self):
-        return {"dog": {"mood": {}}, "movement": {}}
-
-    def log_snapshot(self):
-        return {"judgements": [], "events": ["방금 · 찌르기"]}
 
 
 @pytest.fixture
@@ -50,7 +39,7 @@ async def server():
         yield link, f"ws://127.0.0.1:{sock.getsockname()[1]}"
 
 
-def hello(token=TOKEN, v=4):
+def hello(token=TOKEN, v=5):
     return json.dumps({"v": v, "type": "hello", "token": token})
 
 
@@ -85,10 +74,10 @@ async def test_signal_reaches_brain_and_send_reaches_screen(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "message", "context": {"text": "안녕"}}))
-        await wait_for(lambda: ("event", "message", {"text": "안녕"}) in link.brain.events)
-        await link.send({"type": "reaction", "utterance": "멍!"})
-        assert json.loads(await ws.recv()) == {"v": 4, "type": "reaction", "utterance": "멍!"}
+        await ws.send(json.dumps({"v": 5, "type": "message", "text": "안녕"}))
+        await wait_for(lambda: ("message", "안녕") in link.brain.events)
+        await link.send({"type": "status", "ai": "ok"})
+        assert json.loads(await ws.recv()) == {"v": 5, "type": "status", "ai": "ok"}
     await wait_for(lambda: link.brain.events[-1] == ("connected", False))
     assert link.brain.events[0] == ("connected", True)
 
@@ -115,25 +104,22 @@ async def test_garbage_is_ignored(server):
     async with connect(url) as ws:
         await ws.send(hello())
         await ws.send("{not json")
-        await ws.send(json.dumps({"v": 4, "type": "dance"}))
-        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "poke", "context": "not-a-dict"}))
-        await ws.send(json.dumps({"v": 4, "type": "event", "kind": 3}))
-        await ws.send(json.dumps({"v": 4, "type": "event", "kind": "poke"}))
-        await wait_for(lambda: ("event", "poke", {}) in link.brain.events)
+        await ws.send(json.dumps({"v": 5, "type": "dance"}))
+        await ws.send(json.dumps({"v": 5, "type": "message", "text": 3}))
+        await ws.send(json.dumps({"v": 5, "type": "message", "text": "됨"}))
+        await wait_for(lambda: ("message", "됨") in link.brain.events)
+    assert ("message", 3) not in link.brain.events
 
 
-async def test_set_key_and_clear_history(server, monkeypatch):
+async def test_set_key(server, monkeypatch):
     link, url = server
     written = {}
     monkeypatch.setattr(config, "write_key", lambda n, v: written.__setitem__(n, v))
     monkeypatch.setattr(config, "read_keys", lambda: {"typesafe": None, "gemini": "g"})
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 4, "type": "set_key", "name": "gemini", "value": "g"}))
-        await ws.send(json.dumps({"v": 4, "type": "clear_history"}))
-        await wait_for(lambda: ("clear",) in link.brain.events)
-        await ws.send(json.dumps({"v": 4, "type": "reset"}))
-        await wait_for(lambda: ("reset",) in link.brain.events)
+        await ws.send(json.dumps({"v": 5, "type": "set_key", "name": "gemini", "value": "g"}))
+        await wait_for(lambda: any(e[0] == "keys" for e in link.brain.events))
     assert written == {"gemini": "g"}
     assert ("keys", {"typesafe": None, "gemini": "g"}) in link.brain.events
 
@@ -146,19 +132,3 @@ async def test_already_running(tmp_path, server):
     assert await already_running(info) is True
     info.write_text(json.dumps({"port": 1, "token": "x"}), encoding="utf-8")
     assert await already_running(info) is False
-
-
-async def test_get_state_and_get_log(server, monkeypatch, tmp_path):
-    link, url = server
-    (tmp_path / "logs").mkdir()
-    (tmp_path / "logs" / "brain.log").write_text("\n".join(f"줄 {i}" for i in range(40)), encoding="utf-8")
-    monkeypatch.setattr(config, "data_dir", lambda: tmp_path)
-    async with connect(url) as ws:
-        await ws.send(hello())
-        await ws.send(json.dumps({"v": 4, "type": "get_state"}))
-        state = json.loads(await asyncio.wait_for(ws.recv(), 2))
-        await ws.send(json.dumps({"v": 4, "type": "get_log"}))
-        got = json.loads(await asyncio.wait_for(ws.recv(), 2))
-    assert state == {"v": 4, "type": "state", "dog": {"mood": {}}, "movement": {}}
-    assert got["type"] == "log" and got["judgements"] == [] and got["events"] == ["방금 · 찌르기"]
-    assert got["brain_log"][0] == "줄 10" and len(got["brain_log"]) == 30

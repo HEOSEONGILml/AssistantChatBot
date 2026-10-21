@@ -1,5 +1,0 @@
-{"name": "probe-quiet-plain", "description": "말을 한마디도 걸지 않고 낮에 1시간 조용히 곁에 둠(질문을 남긴 적 없음): 서운함이 생기나, 심심함 반응이 나오나, 먼저 말 걸 때 없는 복귀를 지어내나, 성격별 평소 움직임 차이", "seed": 11, "start": "2026-10-20T10:00",
- "steps": [
-  {"wait": 3600, "quiet": true},
-  {"get_state": true}
- ]}

@@ -37,22 +37,17 @@
 | Rust 테스트 | `cd src-tauri && cargo test` |
 | 두뇌 준비 (처음 한 번, 의존성 바뀔 때) | `cd ../brain && uv sync` |
 | 두뇌 테스트 | `cd ../brain && uv run pytest` |
-| Jev 녹화 (질문 문구·Jev 버전을 바꿨을 때) | `cd ../brain && uv run python -m sim.record` |
-| 시뮬레이션·보정값 맞추기 | `cd ../brain && uv run python -m sim.simulate --fit` |
-| 검수 하네스 (시나리오 실행·분석표·커버리지) | `cd ../brain && uv run python -m review run --all` ([사용법](brain/review/README.md)) |
-| 기분별 임시 시트 다시 만들기 | `uv run --with pillow python tools/draw_moods.py` |
 | 설치 파일 빌드 | `npm run tauri build` → `src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi` |
 
-**개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 강아지 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).
+**개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 앱 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).
 
-화면과 분리된 순수 로직(`src/body/*.ts`, `src/shared/*.ts`)과 두뇌(`brain/brain/*.py`)는 단위 테스트한다. 창·Win32에 의존하는 동작은 `docs/manual-checks/`의 체크리스트로 확인한다.
+화면과 분리된 순수 로직(`src/shared/*.ts`)과 두뇌(`brain/brain/*.py`)는 단위 테스트한다. 창·Win32·실제 브라우저에 의존하는 동작은 `docs/manual-checks/`에 체크리스트를 만들어 확인한다.
 
 ## 4. Jev 사용 규칙
 
-- Jev는 판단의 분포만 준다(선택·점수·예/아니오의 확률). 결정은 그 분포에서 뽑는 확률 모델이 한다([0014](docs/decisions/0014-probabilistic-model-with-jev-distributions.md)). 캐릭터의 대사 생성은 Jev의 역할이 아니다.
-- 질문 정의(`instructions`, `criteria`)와 선택지에 담는 정책 설명은 코드에 흩뿌리지 않고 한곳에서 관리한다.
-- 임계값(예: 끼어들기 noul 기준)은 **근거와 함께** 문서에 기록한다. 잠정값이면 잠정값이라고 적는다.
-- 질문 정의나 Jev 모델 버전을 바꾸면 분포가 달라진다. Jev 응답을 다시 녹화하고 시뮬레이션으로 보정값을 다시 맞춘다.
+- 지금은 Jev를 쓰지 않는다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 필요하다고 판단되면 결정 기록을 남기고 쓴다.
+- 쓰게 되면: Jev는 판단의 분포만 준다(선택·점수·예/아니오의 확률). 텍스트 생성은 Jev의 역할이 아니다.
+- 질문 정의(`instructions`, `criteria`)는 코드에 흩뿌리지 않고 한곳에서 관리한다. 임계값은 **근거와 함께** 문서에 기록하고, 잠정값이면 잠정값이라고 적는다.
 - API 상세와 사내 사용 사례는 `docs/references/typesafe-jev.md`를 본다.
 
 ## 5. 도구 사용

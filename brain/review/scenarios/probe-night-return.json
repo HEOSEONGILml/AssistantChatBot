@@ -1,9 +1,0 @@
-{"name": "probe-night-return", "description": "밤 9시에 나가 새벽 2시에 돌아옴(5시간 비움): 졸림과 들뜸이 함께 높나, 한밤중에 지나치게 들떠 뛰나, 얼마 만에 다시 졸리나", "seed": 22, "start": "2026-10-20T21:00",
- "steps": [
-  {"say": "나 잠깐 나갔다 올게"},
-  {"wait": 18000, "away": true},
-  {"event": "returned", "context": {"away_seconds": 18000}},
-  {"wait": 600, "quiet": false},
-  {"say": "늦었다 자자"},
-  {"wait": 1800, "quiet": true}
- ]}

@@ -58,7 +58,6 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
  "tauri-plugin-store",
- "windows",
 ]
 
 [[package]]

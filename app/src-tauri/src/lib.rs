@@ -1,17 +1,6 @@
-use tauri::{Emitter, Manager, RunEvent, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
+use tauri::{Manager, RunEvent, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 mod brain;
-mod signals;
-
-/// 커서 위치와 왼쪽 버튼 눌림 (강아지 근처 클릭 감지용)
-#[tauri::command]
-fn mouse_state() -> (i32, i32, bool) { let (x, y) = signals::cursor(); (x, y, signals::left_down()) }
-
-#[tauri::command]
-fn idle_ms() -> u32 { signals::idle_ms() }
-
-#[tauri::command]
-fn windows_snapshot() -> Vec<signals::WinInfo> { signals::windows() }
 
 #[tauri::command] fn brain_endpoint() -> Result<brain::Endpoint, String> { brain::endpoint() }
 #[tauri::command] fn brain_start(state: tauri::State<brain::BrainProcess>) -> Result<(), String> { brain::ensure_running(&state) }
@@ -24,25 +13,15 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            let win = app.get_webview_window("character").expect("character window");
-            // 작업 영역(작업 표시줄 제외)만 덮는다. 창에 문제가 생겨도 작업 표시줄과 트레이(종료)는 쓸 수 있게
-            if let Some(mon) = win.primary_monitor()? {
-                let wa = mon.work_area();
-                win.set_position(wa.position)?;
-                win.set_size(wa.size)?;
-            }
-
-            let house_i = MenuItem::with_id(app, "house", "강아지 집에 넣기/꺼내기", true, None::<&str>)?;
             let settings_i = MenuItem::with_id(app, "settings", "설정", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&house_i, &settings_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&settings_i, &quit_i])?;
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("TamagotchiChatBot")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "house" => { let _ = app.emit_to("character", "toggle-house", ()); }
                     "settings" => {
                         if let Some(w) = app.get_webview_window("settings") { let _ = w.show(); let _ = w.set_focus(); }
                     }
@@ -58,7 +37,7 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![mouse_state, idle_ms, windows_snapshot, brain_endpoint, brain_start])
+        .invoke_handler(tauri::generate_handler![brain_endpoint, brain_start])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

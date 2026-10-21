@@ -1,5 +1,0 @@
-{"name": "probe-ignored-active", "description": "활발한 강아지를 낮에 곁에 두고 1시간 대꾸하지 않음(다른 시드): 먼저 말 걸기·덧말이 점점 줄어드나, 세 마디 연달아가 반복되나, 같은 틀 반복", "seed": 93, "start": "2026-10-22T14:00",
- "steps": [
-  {"wait": 3600, "quiet": true},
-  {"get_state": true}
- ]}

@@ -3,9 +3,7 @@ name = "brain"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "google-genai>=2.31.0",
     "keyring>=25.7.0",
-    "typesafe-sdk>=0.7.5",
     "websockets>=16.1.1",
 ]
 

@@ -1,9 +1,0 @@
-{"name": "probe-pet-touchy", "description": "예민한 강아지를 찌르지 않고 2분 간격으로 쓰다듬기 세 번: 반응(행복)·동작과 대사가 맞나('갑자기 놀랐잖아'처럼 일어나지 않은 놀람을 말하나), 짖기가 섞이나", "seed": 94, "start": "2026-10-22T11:00",
- "steps": [
-  {"event": "pet", "context": {"seconds": 4.0}},
-  {"wait": 120, "quiet": false},
-  {"event": "pet", "context": {"seconds": 4.0}},
-  {"wait": 120, "quiet": false},
-  {"event": "pet", "context": {"seconds": 4.0}},
-  {"wait": 60, "quiet": false}
- ]}

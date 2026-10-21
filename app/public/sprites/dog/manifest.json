@@ -5,24 +5,54 @@
   "scale": 1.5,
   "facing": "left",
   "animations": {
-    "idle_stand": { "row": 0, "frames": 6, "fps": 6, "loop": true },
-    "bark":       { "row": 0, "col": 6, "frames": 2, "fps": 6, "loop": true },
-    "idle_sit":   { "row": 1, "frames": 6, "fps": 6, "loop": true },
-    "idle_lay":   { "row": 2, "frames": 6, "fps": 5, "loop": true },
-    "run":        { "row": 3, "frames": 8, "fps": 12, "loop": true },
-    "walk":       { "row": 4, "frames": 8, "fps": 8, "loop": true },
-    "beg":        { "row": 7, "frames": 6, "fps": 6, "loop": true },
-    "sleep":      { "row": 8, "frames": 4, "fps": 3, "loop": true }
-  },
-  "moods": {
-    "happy": "/sprites/dog/dog-02-happy.png",
-    "excited": "/sprites/dog/dog-02-excited.png",
-    "sad": "/sprites/dog/dog-02-sad.png",
-    "annoyed": "/sprites/dog/dog-02-annoyed.png",
-    "sleepy": "/sprites/dog/dog-02-sleepy.png",
-    "bored": "/sprites/dog/dog-02-bored.png",
-    "curious": "/sprites/dog/dog-02-curious.png",
-    "surprised": "/sprites/dog/dog-02-surprised.png",
-    "scared": "/sprites/dog/dog-02-scared.png"
+    "idle_stand": {
+      "row": 0,
+      "frames": 6,
+      "fps": 6,
+      "loop": true
+    },
+    "bark": {
+      "row": 0,
+      "col": 6,
+      "frames": 2,
+      "fps": 6,
+      "loop": true
+    },
+    "idle_sit": {
+      "row": 1,
+      "frames": 6,
+      "fps": 6,
+      "loop": true
+    },
+    "idle_lay": {
+      "row": 2,
+      "frames": 6,
+      "fps": 5,
+      "loop": true
+    },
+    "run": {
+      "row": 3,
+      "frames": 8,
+      "fps": 12,
+      "loop": true
+    },
+    "walk": {
+      "row": 4,
+      "frames": 8,
+      "fps": 8,
+      "loop": true
+    },
+    "beg": {
+      "row": 7,
+      "frames": 6,
+      "fps": 6,
+      "loop": true
+    },
+    "sleep": {
+      "row": 8,
+      "frames": 4,
+      "fps": 3,
+      "loop": true
+    }
   }
 }

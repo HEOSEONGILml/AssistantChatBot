@@ -10,7 +10,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 HELLO_TIMEOUT_S = 5
 CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION = 4001, 4002, 4003
 
@@ -23,21 +23,11 @@ def parse(raw) -> dict | None:
     return msg if isinstance(msg, dict) and isinstance(msg.get("type"), str) else None
 
 
-def tail_log(n: int) -> list[str]:
-    """두뇌 실행 로그의 마지막 n줄. 키와 대화 내용은 원래 로그에 쓰지 않는다."""
-    try:
-        lines = (config.data_dir() / "logs" / "brain.log").read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    return lines[-n:]
-
-
 class Link:
     """지금 붙어 있는 화면 하나. 새 화면이 hello에 성공하면 이전 화면을 닫는다 (첫 버전은 화면이 하나)."""
 
-    def __init__(self, token: str, keys_settable: bool = True):
+    def __init__(self, token: str):
         self.token = token
-        self.keys_settable = keys_settable  # 웹은 서버 키 하나를 모두가 같이 써서 받지 않는다 (0021)
         self.brain = None  # 실행할 때 붙인다. Brain이 Link.send를 쓰므로 서로를 참조한다
         self._ws = None
 
@@ -82,25 +72,14 @@ class Link:
 
     async def _dispatch(self, msg: dict) -> None:
         kind = msg["type"]
-        if kind == "event" and isinstance(msg.get("kind"), str) and isinstance(msg.get("context", {}), dict):
-            await self.brain.handle_event(msg["kind"], msg.get("context", {}))
+        if kind == "message" and isinstance(msg.get("text"), str):
+            await self.brain.handle_message(msg["text"])
         elif kind == "set_key":
-            if not self.keys_settable:
-                log.warning("이 두뇌는 화면에서 키를 받지 않는다")
-                return
             try:
                 config.write_key(str(msg.get("name")), str(msg.get("value", "")))
             except Exception:
                 log.exception("키 저장 실패")  # 키 값은 로그에 쓰지 않는다
                 return
             await self.brain.set_keys(config.read_keys())
-        elif kind == "clear_history":
-            await self.brain.clear_history()
-        elif kind == "reset":      # 설정 창 초기화: 강아지 새로 태어남
-            await self.brain.reset()
-        elif kind == "get_state":  # 설정 창 상태 탭 (스펙 3.1)
-            await self.send({"type": "state", **self.brain.state_snapshot()})
-        elif kind == "get_log":    # 설정 창 로그 탭
-            await self.send({"type": "log", **self.brain.log_snapshot(), "brain_log": tail_log(30)})
         else:
             log.warning("모르는 메시지를 버림: %s", kind)

@@ -13,19 +13,11 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "label": "character",
+        "label": "main",
         "url": "index.html",
-        "title": "dog",
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": false,
-        "shadow": false,
-        "focus": false,
-        "width": 800,
-        "height": 600,
-        "focusable": false
+        "title": "main",
+        "visible": false,
+        "skipTaskbar": true
       },
       {
         "label": "input",
@@ -38,13 +30,14 @@
         "resizable": false,
         "shadow": false,
         "visible": false,
+        "center": true,
         "width": 380,
         "height": 56
       },
       {
         "label": "settings",
         "url": "settings.html",
-        "title": "강아지 설정",
+        "title": "설정",
         "visible": false,
         "width": 560,
         "height": 720

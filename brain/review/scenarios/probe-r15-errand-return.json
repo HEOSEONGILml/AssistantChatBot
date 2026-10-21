@@ -1,9 +1,0 @@
-{"name": "probe-r15-errand-return", "description": "'편의점 다녀올게' 뒤 30분 비움, 돌아옴, '나 왔어': 돌아온 인사가 들은 행선지를 기억하나('어디 갔다 왔어?' 같은 망각)", "seed": 15, "start": "2026-10-21T15:00",
- "steps": [
-  {"say": "편의점 다녀올게"},
-  {"wait": 1800, "away": true},
-  {"event": "returned", "context": {"away_seconds": 1800}},
-  {"wait": 20, "quiet": false},
-  {"say": "나 왔어"},
-  {"wait": 60, "quiet": false}
- ]}
