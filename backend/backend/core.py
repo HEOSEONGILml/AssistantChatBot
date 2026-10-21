@@ -68,7 +68,11 @@ class _Events:
         self._app._store.update_task(self._id, session_id=session_id)
 
     def rate_limit(self, info: dict) -> None:
-        self._app._limits[info["type"]] = {**info, "received_at": _iso(_now())}
+        kind = info.get("type")
+        if kind is None:
+            log.warning("작업 %d: 종류 없는 사용량 이벤트를 버림", self._id)
+            return
+        self._app._limits[kind] = {**info, "received_at": _iso(_now())}
         self._app._post(self._app._usage())
 
 
@@ -93,15 +97,30 @@ class App:
         await self._send({"type": "status", "logged_in": await self._auth.login()})
 
     async def request(self, text: str) -> None:
-        await self._open("user", text, text)
+        if not await self._logged_in():
+            return
+        task = self._store.create_task("user", text[:TITLE_LEN])
+        self._post({"type": "task", "task": task})
+        self._entry(task["id"], "user", text)
+        self._start(task["id"], text, resume=None)
+        await self._flush()
 
-    async def schedule_request(self, text: str) -> None:
-        await self._open("schedule", text, f"새 스케줄을 만들어 줘: {text}")
+    async def add_schedule(self, name: str, rule: dict, instruction: str) -> None:
+        """양식으로 바로 저장한다 (확인 없음). 세션은 첫 실행 때 연다."""
+        if not self._valid_rule(rule):
+            return
+        task = self._store.create_task("schedule", name)
+        task = self._store.update_task(task["id"], state="done", seen=True)
+        schedule = self._store.create_schedule(task["id"], name, rule, instruction)
+        self._post({"type": "task", "task": task})
+        await self._send({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
     async def say(self, task_id: int, text: str) -> None:
         task = self._store.get_task(task_id)
         if task is None:
             log.warning("없는 작업에 말함: %d", task_id)
+            return
+        if not await self._logged_in():
             return
         self._entry(task_id, "user", text)
         if task_id in self._runs and task["state"] in ("working", "waiting"):
@@ -156,10 +175,7 @@ class App:
         await self._send({"type": "schedules", "page": page, "pages": pages, "items": items})
 
     async def set_schedule(self, task_id: int, name: str, rule: dict, instruction: str) -> None:
-        try:
-            validate(rule)
-        except (ValueError, TypeError, AttributeError) as e:
-            log.warning("작업 %d: 잘못된 스케줄 규칙 (%s)", task_id, type(e).__name__)
+        if not self._valid_rule(rule):
             return
         values = {"name": name, "rule": rule, "instruction": instruction}
         held = self._runs.get(task_id)
@@ -206,15 +222,12 @@ class App:
             self._store.update_task(task["id"], state="failed", seen=False)
 
     # --- 세션 ---
-    async def _open(self, source: str, text: str, prompt: str) -> None:
-        if not await self._auth.logged_in():
-            await self._send({"type": "status", "logged_in": False})
-            return
-        task = self._store.create_task(source, text[:TITLE_LEN])
-        self._post({"type": "task", "task": task})
-        self._entry(task["id"], "user", text)
-        self._start(task["id"], prompt, resume=None)
-        await self._flush()
+    async def _logged_in(self) -> bool:
+        """로그아웃이면 status를 다시 보내 화면이 로그인 요청을 띄우게 한다."""
+        if await self._auth.logged_in():
+            return True
+        await self._send({"type": "status", "logged_in": False})
+        return False
 
     def _start(self, task_id: int, prompt: str, resume: str | None) -> None:
         events = _Events(self, task_id)
@@ -230,7 +243,8 @@ class App:
             await run.run(prompt, options)
         except Exception as e:
             log.exception("작업 %d: 세션이 예외로 끝났다 (%s)", task_id, type(e).__name__)
-            self._finish(task_id, "작업을 실행하지 못했어요", True)
+            if self._store.get_task(task_id)["state"] in ("working", "waiting"):  # 이미 끝났으면 실패 줄을 또 쓰지 않는다
+                self._finish(task_id, "작업을 실행하지 못했어요", True)
         finally:
             if self._runs.get(task_id, (None,))[0] is run:
                 del self._runs[task_id]
@@ -248,6 +262,15 @@ class App:
 
     def _set(self, task_id: int, **fields) -> None:
         self._post({"type": "task", "task": self._store.update_task(task_id, **fields)})
+
+    @staticmethod
+    def _valid_rule(rule) -> bool:
+        try:
+            validate(rule)
+        except (ValueError, TypeError, AttributeError) as e:
+            log.warning("잘못된 스케줄 규칙 (%s)", type(e).__name__)
+            return False
+        return True
 
     def _permission_mode(self) -> str:
         return self._store.get_setting("permission_mode", "default")

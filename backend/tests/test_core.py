@@ -139,6 +139,17 @@ async def test_failed_finish_and_raising_run_mark_failed():
     assert app._runs == {}
 
 
+async def test_run_raising_after_finish_writes_no_second_failure():
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].events.finished("했어요", False)
+    runs[0].fail = True
+    runs[0].end()
+    await settle()
+    assert store.get_task(1)["state"] == "done"
+    assert [e["kind"] for e in store.entries(1)] == ["user", "result"]
+
+
 async def test_question_sets_waiting_and_say_resumes():
     app, store, out, runs = make()
     await app.request("휴지 주문해 줘")
@@ -225,6 +236,17 @@ async def test_request_when_logged_out_resends_status():
     assert out[-1] == {"type": "status", "logged_in": True}
 
 
+async def test_say_when_logged_out_resends_status():
+    auth = FakeAuth()
+    app, store, out, runs = make(auth)
+    await app.request("일")
+    auth.ok = False
+    out.clear()
+    await app.say(1, "더 해 줘")
+    assert out == [{"type": "status", "logged_in": False}]
+    assert runs[0].said == [] and len(store.entries(1)) == 1
+
+
 async def test_startup_fails_orphaned_tasks():
     app, store, out, runs = make()
     for title, state in [("w", "working"), ("q", "waiting"), ("d", "done")]:
@@ -237,18 +259,26 @@ async def test_startup_fails_orphaned_tasks():
     assert store.entries(3) == []
 
 
-async def test_schedule_request_uses_schedule_source_and_prompt():
+async def test_add_schedule_saves_without_confirmation():
     app, store, out, runs = make()
-    await app.schedule_request("매일 아침 9시에 메일 요약")
+    await app.add_schedule("메일 요약", RULE, "받은 메일을 요약해")
+    await app.add_schedule("잘못", {"repeat": "hourly", "time": "09:00"}, "x")  # 저장하지 않는다
+    await app.add_schedule("잘못", "매일", "x")
+    assert runs == []
     task = store.get_task(1)
-    assert task["source"] == "schedule"
-    assert runs[0].prompt == "새 스케줄을 만들어 줘: 매일 아침 9시에 메일 요약"
-    assert store.entries(1)[0]["text"] == "매일 아침 9시에 메일 요약"
+    assert task["source"] == "schedule" and task["title"] == "메일 요약"
+    assert task["state"] not in ("working", "waiting")  # 아직 돈 적 없다
+    assert store.get_task(2) is None and len(store.all_schedules()) == 1
+    assert store.get_schedule(1)["instruction"] == "받은 메일을 요약해"
+    assert of(out, "task")[-1]["task"]["id"] == 1
+    [msg] = of(out, "schedule")
+    assert msg["schedule"]["name"] == "메일 요약" and msg["schedule"]["enabled"] is True
+    assert store.entries(1) == []
 
 
 async def test_set_schedule_answers_pending_proposal():
     app, store, out, runs = make()
-    await app.schedule_request("매일 아침 메일 요약")
+    await app.request("매일 아침 메일 요약해 줘")
     run = runs[0]
     proposal = {"name": "메일 요약", "rule": RULE, "label": "매일 09:00", "instruction": "요약",
                 "first_run": "2026-10-22T09:00:00+09:00"}
@@ -317,6 +347,9 @@ async def test_usage_keeps_latest_per_type():
     limits = of(out, "usage")[-1]["limits"]
     assert [(l["type"], l["utilization"]) for l in limits] == [("five_hour", 0.2), ("seven_day", 0.3)]
     assert all(l["received_at"] for l in limits)
+    ev.rate_limit({"utilization": 0.5})  # 종류가 없으면 버린다
+    await app.get_usage()
+    assert len(of(out, "usage")[-1]["limits"]) == 2
 
 
 async def test_permission_mode_saved_and_used_for_new_runs():
