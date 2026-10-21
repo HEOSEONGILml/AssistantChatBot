@@ -174,6 +174,48 @@ async def test_wrong_field_types_are_dropped(server):
     assert calls(link.app) == [("get_usage",)]
 
 
+class SlowLoginApp(FakeApp):
+    """로그인이 끝나지 않는다 (브라우저 로그인을 기다리는 중)."""
+
+    def __init__(self):
+        super().__init__()
+        self.release = asyncio.Event()
+
+    async def login(self):
+        self.events.append(("login",))
+        await self.release.wait()
+
+
+async def test_pending_login_does_not_block_other_messages(server):
+    link, url = server
+    link.app = SlowLoginApp()
+    async with connect(url) as ws:
+        await ws.send(hello())
+        await ws.send(json.dumps({"v": 6, "type": "login"}))
+        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        try:
+            await wait_for(lambda: ("get_usage",) in link.app.events)
+        finally:
+            link.app.release.set()
+
+
+class BrokenApp(FakeApp):
+    async def get_settings(self):
+        raise RuntimeError("고장")
+
+
+async def test_app_error_keeps_connection(server):
+    link, url = server
+    link.app = BrokenApp()
+    async with connect(url) as ws:
+        await ws.send(hello())
+        await ws.send(json.dumps({"v": 6, "type": "get_settings"}))
+        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        await wait_for(lambda: ("get_usage",) in link.app.events)
+        await link.send({"type": "status", "logged_in": True})
+        assert json.loads(await ws.recv())["type"] == "status"  # 예외 뒤에도 같은 연결이 살아 있다
+
+
 async def test_already_running(tmp_path, server):
     _, url = server
     info = tmp_path / "backend.json"

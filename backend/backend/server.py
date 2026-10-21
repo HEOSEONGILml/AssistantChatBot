@@ -30,6 +30,8 @@ ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
     "set_permission_mode": (("mode", str),),
     "get_usage": (),
 }
+# 기다리지 않고 따로 돌리는 메시지. 로그인은 사용자가 브라우저에서 끝낼 때까지 걸려 다른 메시지를 막으면 안 된다.
+BACKGROUND = {"login"}
 
 
 def parse(raw) -> dict | None:
@@ -47,6 +49,7 @@ class Link:
         self.token = token
         self.app = None  # 실행할 때 붙인다. App이 Link.send를 쓰므로 서로를 참조한다
         self._ws = None
+        self._background: set[asyncio.Task] = set()  # 도는 중인 로그인. 참조를 쥐어야 GC되지 않는다
 
     async def send(self, msg: dict) -> None:
         ws = self._ws
@@ -98,4 +101,18 @@ class Link:
         if bad:
             log.warning("필드가 빠지거나 타입이 틀린 메시지를 버림: %s %s", kind, bad)
             return
-        await getattr(self.app, kind)(*(msg[name] for name, _ in fields))
+        call = self._call(kind, getattr(self.app, kind)(*(msg[name] for name, _ in fields)))
+        if kind in BACKGROUND:
+            job = asyncio.create_task(call)
+            self._background.add(job)
+            job.add_done_callback(self._background.discard)
+        else:
+            await call
+
+    @staticmethod
+    async def _call(kind: str, coro) -> None:
+        """App 메서드 하나의 실패는 로그만 남기고 연결은 유지한다. 내용은 쓰지 않는다(사용자 글이 섞일 수 있다)."""
+        try:
+            await coro
+        except Exception as e:
+            log.error("%s 처리 실패: %s", kind, type(e).__name__)
