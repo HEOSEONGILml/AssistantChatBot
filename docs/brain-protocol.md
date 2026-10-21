@@ -1,6 +1,6 @@
 # 화면 ↔ 백엔드 프로토콜 (v5)
 
-화면과 백엔드는 이 문서로만 이어진다. v5는 조수 설계 전의 최소 규약이다 ([0022](decisions/0022-pivot-to-assistant.md)). 조수 설계가 끝나면 다시 쓴다.
+화면과 백엔드는 이 문서로만 이어진다. v5는 조수 설계 전의 최소 규약이다 ([0022](decisions/0022-pivot-to-assistant.md)). 조수 설계가 끝나면 다시 쓴다. 다음 버전(v6)은 [0030](decisions/0030-io-interface-task-as-conversation.md)에서 정했고, 구현할 때 이 문서를 v6으로 바꾼다.
 
 ## 연결
 
