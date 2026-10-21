@@ -25,6 +25,12 @@ CHAT_TITLE = "대화"
 class Auth(Protocol):
     async def logged_in(self) -> bool: ...
     async def login(self) -> bool: ...
+    async def logout(self) -> None: ...
+
+
+class Recorder(Protocol):
+    async def start(self) -> None: ...
+    def stop(self) -> None: ...
 
 
 def _now() -> datetime:
@@ -89,10 +95,11 @@ class _Events:
 
 
 class App:
-    def __init__(self, store: Store, emit: Emit, auth: Auth, new_run=AgentRun):
+    def __init__(self, store: Store, emit: Emit, auth: Auth, recorder: Recorder, new_run=AgentRun):
         self._store = store
         self._emit = emit
         self._auth = auth
+        self._recorder = recorder
         self._new_run = new_run
         self._runs: dict[int, tuple[AgentRun, _Events, asyncio.Task]] = {}
         self._limits: dict[str, dict] = {}  # 한도 종류별 마지막 값
@@ -119,6 +126,10 @@ class App:
         finally:
             self._logging_in = False
         await self._send({"type": "status", "logged_in": ok})
+
+    async def logout(self) -> None:
+        await self._auth.logout()
+        await self._send({"type": "status", "logged_in": False})
 
     async def request(self, text: str) -> None:
         await self._new_task(text)
@@ -256,7 +267,8 @@ class App:
         self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
     async def get_settings(self) -> None:
-        await self._send({"type": "settings", "permission_mode": self._permission_mode()})
+        await self._send({"type": "settings", "permission_mode": self._permission_mode(),
+                          "recording": self.recording_enabled()})
 
     async def set_permission_mode(self, mode: str) -> None:
         if mode not in PERMISSION_MODES:
@@ -265,18 +277,31 @@ class App:
         self._store.set_setting("permission_mode", mode)
         await self.get_settings()
 
+    async def set_recording(self, enabled: bool) -> None:
+        self._store.set_setting("recording", "on" if enabled else "off")
+        if enabled:
+            await self._recorder.start()
+        else:
+            self._recorder.stop()
+        await self.get_settings()
+
+    def recording_enabled(self) -> bool:
+        return self._store.get_setting("recording", "on") == "on"
+
     async def get_usage(self) -> None:
         await self._send(self._usage())
 
     async def startup(self) -> None:
         """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다. 대화 작업이 없으면 만든다 (하나뿐, 0033).
-        대화 작업이 실패로 닫혀도 다음 say가 저장된 세션을 이어 쓴다."""
+        대화 작업이 실패로 닫혀도 다음 say가 저장된 세션을 이어 쓴다. 화면 기록이 켜져 있으면 screenpipe를 띄운다."""
         for task in self._store.tasks_in_states("working", "waiting"):
             self._store.add_entry(task["id"], "failure", "앱이 꺼져서 멈췄어요")
             self._store.update_task(task["id"], state="failed", seen=False)
         if self._store.chat_task() is None:
             chat = self._store.create_task("chat", CHAT_TITLE)
             self._store.update_task(chat["id"], state="done", seen=True)
+        if self.recording_enabled():
+            await self._recorder.start()
 
     # --- 세션 ---
     async def _new_task(self, text: str) -> dict | None:

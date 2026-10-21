@@ -51,12 +51,11 @@ async def main() -> None:
         return
     store = Store(config.db_path())
     link = Link(secrets.token_urlsafe(32))
-    app = App(store, link.send, Auth())
-    link.app = app
     recorder = Recorder()
+    app = App(store, link.send, Auth(), recorder)
+    link.app = app
     try:
-        await app.startup()
-        await recorder.start()
+        await app.startup()  # 화면 기록이 켜져 있으면 여기서 screenpipe를 띄운다
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(("127.0.0.1", 0))  # 이 PC 안에서만 받는다
         async with serve(link.handler, sock=sock, max_size=2**20):

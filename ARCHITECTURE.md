@@ -17,7 +17,7 @@ flowchart LR
     CORE --> AG["agent.py<br>작업 하나 = 세션 하나"]
     AG --> TL["tools.py<br>백엔드 MCP"]
     TL --> ST
-    CORE --> CL["clients.py<br>로그인·screenpipe"]
+    CORE --> CL["clients.py<br>로그인·로그아웃·screenpipe"]
   end
   AG <-->|"Agent SDK"| CC["Claude Code<br>+ 크롬 확장"]
   CC -->|"MCP (cmd /c npx)"| SPM["screenpipe MCP"]
@@ -28,7 +28,7 @@ flowchart LR
 
 - 화면(Tauri 앱, `app/`)과 백엔드(`backend/`)는 localhost WebSocket으로 통신한다. 규약은 [프로토콜](docs/backend-protocol.md)이다.
 - 백엔드는 화면을 모른다 ([0022](docs/decisions/0022-pivot-to-assistant.md)).
-- 작업 하나 = 대화 하나 = Claude Code 세션 하나다 ([0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0030](docs/decisions/0030-io-interface-task-as-conversation.md)). 스케줄도 작업 하나다 ([0032](docs/decisions/0032-schedule-creation.md)). 대화 탭은 세션 하나를 계속 쓰고, '대화'로 구분한다 ([0033](docs/decisions/0033-chat-tab-single-session.md)).
+- 작업 하나 = 대화 하나 = Claude Code 세션 하나다 ([0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0030](docs/decisions/0030-io-interface-task-as-conversation.md)). 스케줄도 작업 하나다 ([0032](docs/decisions/0032-schedule-creation.md)). 대화 탭은 출처 `chat`인 작업 하나로, 처음 시작할 때 만들고 그 세션을 계속 이어 쓴다. 작업 목록·알림에는 넣지 않는다 ([0033](docs/decisions/0033-chat-tab-single-session.md)). 대화에서 일을 맡기면 에이전트가 `create_task`로 새 작업을 만들고 대화에 작업 칩 줄을 남긴다.
 - 여러 작업이 동시에 돈다. 질문·권한 요청은 대화의 질문 줄이 되고, 사용자의 `say`가 답이 된다.
 
 ## 2. 화면 (`app/`)
@@ -52,16 +52,16 @@ flowchart LR
 
 | 파일 | 하는 일 |
 |---|---|
-| `backend/__main__.py` | 실행 진입점. 이미 떠 있는 백엔드가 있으면 끝낸다. 저장소 → `App` → 끊긴 작업 닫기(`startup`) → screenpipe 띄우기 → 빈 포트에서 WebSocket을 열고 `backend.json`에 포트·토큰을 쓴다 → 스케줄러를 돌린다. 끝날 때 screenpipe를 끄고 `backend.json`을 지운다 |
-| `backend/server.py` | 전송 계층. `hello` 인증·버전 확인, 화면 교체, `type`별로 `App` 메서드를 부른다(`ROUTES`). 필드가 빠지거나 타입이 틀리면 버린다. 메서드 오류는 로그만 남기고 연결을 유지한다. `login`은 기다리지 않고 따로 돌린다 |
-| `backend/core.py` | 작업 관리(`App`). 화면 메시지마다 메서드 하나. 작업마다 Claude Code 세션을 백그라운드로 돌리고, 세션에서 일어난 일을 대화 줄·상태로 저장해 화면에 순서대로 보낸다. 스케줄 실행(`run_schedule`), 권한 모드, 사용량도 여기서 |
+| `backend/__main__.py` | 실행 진입점. 이미 떠 있는 백엔드가 있으면 끝낸다. 저장소 → `App` → `startup`(끊긴 작업 닫기, 대화 작업이 없으면 만들기, 화면 기록 설정이 켜져 있으면 screenpipe 띄우기) → 빈 포트에서 WebSocket을 열고 `backend.json`에 포트·토큰을 쓴다 → 스케줄러를 돌린다. 끝날 때 screenpipe를 끄고 `backend.json`을 지운다 |
+| `backend/server.py` | 전송 계층. `hello` 인증·버전 확인, 화면 교체, `type`별로 `App` 메서드를 부른다(`ROUTES`). 필드가 빠지거나 타입이 틀리면 버린다. 메서드 오류는 로그만 남기고 연결을 유지한다. `login`·`logout`은 기다리지 않고 따로 돌린다 |
+| `backend/core.py` | 작업 관리(`App`). 화면 메시지마다 메서드 하나. 작업마다 Claude Code 세션을 백그라운드로 돌리고, 세션에서 일어난 일을 대화 줄·상태로 저장해 화면에 순서대로 보낸다. 스케줄 실행(`run_schedule`), 대화 작업, 로그아웃, 설정(권한 모드·화면 기록 켜고 끄기), 사용량도 여기서 |
 | `backend/agent.py` | Claude Code 세션 하나(`AgentRun`). 실행 옵션(`build_options`: 하네스, 크롬, 켜고 끄는 도구, screenpipe MCP), 질문·권한 요청을 사용자 답으로 기다리기, 덧붙이기, 멈추기 |
 | `backend/harness.md` | Claude Code에 붙이는 하네스 문서 (역할, 맥락 찾기, 일하는 방식, 하지 말 것, 말투) |
-| `backend/tools.py` | 백엔드 MCP 도구. 작업 기록 찾기·읽기, 제목 붙이기, 스케줄 읽기·만들기·고치기(사용자 확인 뒤 저장) |
-| `backend/store.py` | SQLite 저장소. 작업·대화 줄·스케줄·설정. 검색은 FTS5. 목록 한 쪽은 4줄 |
+| `backend/tools.py` | 백엔드 MCP 도구. 작업 기록 찾기·읽기, 제목 붙이기, 스케줄 읽기·만들기·고치기(사용자 확인 뒤 저장), 새 작업 만들기(`create_task`, 대화에 작업 칩을 남긴다) |
+| `backend/store.py` | SQLite 저장소. 작업·대화 줄·스케줄·설정(권한 모드, 화면 기록 켬/끔). 검색은 FTS5. 목록 한 쪽은 4줄. 작업 목록·알림 보기는 대화 작업을 뺀다 |
 | `backend/schedule_rule.py` | 스케줄 규칙 검사, 다음 실행 시각, 표시 글(`매일 09:00`) |
 | `backend/scheduler.py` | 1분마다 때가 된 스케줄을 `App.run_schedule`에 시킨다. 도는 중이거나 앱이 꺼져 놓친 실행은 건너뛴다 |
-| `backend/clients.py` | 외부 프로세스. `claude auth status/login`(구독 로그인 확인), screenpipe 띄우기·끄기(윈도에서는 `taskkill /T`로 트리째) |
+| `backend/clients.py` | 외부 프로세스. `claude auth status/login/logout`(구독 로그인 확인·로그인·로그아웃), screenpipe 띄우기·끄기(윈도에서는 `taskkill /T`로 트리째) |
 | `backend/config.py` | 데이터 폴더·DB·작업 폴더 경로, Claude Code 환경(`ANTHROPIC_API_KEY`를 빈 값으로 덮는다), screenpipe 명령을 읽는 유일한 곳 (CLAUDE.md 3절) |
 
 ## 4. 저장과 실행

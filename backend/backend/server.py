@@ -29,9 +29,12 @@ ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
     "get_settings": (),
     "set_permission_mode": (("mode", str),),
     "get_usage": (),
+    "logout": (),
+    "set_recording": (("enabled", bool),),
 }
 # 기다리지 않고 따로 돌리는 메시지. 로그인은 사용자가 브라우저에서 끝낼 때까지 걸려 다른 메시지를 막으면 안 된다.
-BACKGROUND = {"login"}
+# 로그아웃도 CLI를 불러 최대 20초 걸릴 수 있다.
+BACKGROUND = {"login", "logout"}
 
 
 def parse(raw) -> dict | None:
@@ -49,7 +52,7 @@ class Link:
         self.token = token
         self.app = None  # 실행할 때 붙인다. App이 Link.send를 쓰므로 서로를 참조한다
         self._ws = None
-        self._background: set[asyncio.Task] = set()  # 도는 중인 로그인. 참조를 쥐어야 GC되지 않는다
+        self._background: set[asyncio.Task] = set()  # 도는 중인 로그인·로그아웃. 참조를 쥐어야 GC되지 않는다
 
     async def send(self, msg: dict) -> None:
         ws = self._ws

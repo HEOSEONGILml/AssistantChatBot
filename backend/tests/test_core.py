@@ -30,6 +30,21 @@ class FakeAuth:
         self.ok = True
         return True
 
+    async def logout(self):
+        self.logout_calls = getattr(self, "logout_calls", 0) + 1
+        self.ok = False
+
+
+class FakeRecorder:
+    def __init__(self):
+        self.calls = []
+
+    async def start(self):
+        self.calls.append("start")
+
+    def stop(self):
+        self.calls.append("stop")
+
 
 class FakeRun:
     """테스트가 이벤트를 직접 일으킨다. run은 end()나 stop()까지 기다린다."""
@@ -97,8 +112,8 @@ class IdleClient:
         self._closed.set()
 
 
-def make(auth=None, real=False):
-    store = Store(None)
+def make(auth=None, real=False, store=None, recorder=None):
+    store = store or Store(None)
     out, runs = [], []
 
     async def emit(msg):
@@ -109,7 +124,7 @@ def make(auth=None, real=False):
         runs.append(r)
         return r
 
-    app = App(store, emit, auth or FakeAuth(), new_run=new_run)
+    app = App(store, emit, auth or FakeAuth(), recorder or FakeRecorder(), new_run=new_run)
     return app, store, out, runs
 
 
@@ -379,9 +394,9 @@ async def test_usage_keeps_latest_per_type():
 async def test_permission_mode_saved_and_used_for_new_runs():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default"}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True}
     await app.set_permission_mode("acceptEdits")
-    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits"}
+    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True}
     await app.set_permission_mode("nonsense")
     assert store.get_setting("permission_mode", "default") == "acceptEdits"
     await app.request("일")
@@ -548,8 +563,7 @@ async def test_chat_resumes_after_restart():
     assert runs[0].prompt == "안녕" and runs[0].options.resume is None
     runs[0].events.session("s1")
     # 일하는 중에 앱이 꺼졌다가 다시 켜진다
-    app2, _, _, runs2 = make()
-    app2._store = store
+    app2, _, _, runs2 = make(store=store)
     await app2.startup()
     assert store.chat_task()["id"] == chat_id and store.chat_task()["state"] == "failed"
     await app2.say(chat_id, "아까 하던 얘기")
@@ -579,3 +593,46 @@ async def test_chat_create_task_through_agent_run():
     await app.stop(chat_id)
     await app.stop(new_id)
     await settle()
+
+
+async def test_logout_sends_status():
+    auth = FakeAuth()
+    app, store, out, runs = make(auth)
+    await app.logout()
+    assert auth.logout_calls == 1
+    assert out == [{"type": "status", "logged_in": False}]
+    await app.request("일")  # 로그아웃 뒤 요청은 기존대로 status만 다시 보낸다
+    assert out[-1] == {"type": "status", "logged_in": False} and runs == []
+
+
+async def test_settings_includes_recording():
+    app, store, out, runs = make()
+    await app.get_settings()
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True}
+    assert app.recording_enabled() is True
+
+
+async def test_set_recording_starts_and_stops():
+    rec = FakeRecorder()
+    app, store, out, runs = make(recorder=rec)
+    await app.set_recording(False)
+    assert rec.calls == ["stop"] and store.get_setting("recording", "on") == "off"
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False}
+    await app.set_recording(True)
+    assert rec.calls == ["stop", "start"] and store.get_setting("recording", "on") == "on"
+    assert out[-1]["recording"] is True and app.recording_enabled() is True
+
+
+async def test_recording_off_persists_across_start():
+    store = Store(None)
+    app, _, _, _ = make(store=store)
+    await app.set_recording(False)
+    rec = FakeRecorder()
+    app2, _, _, _ = make(store=store, recorder=rec)
+    assert app2.recording_enabled() is False
+    await app2.startup()  # 저장된 "off"면 시작 때 screenpipe를 띄우지 않는다
+    assert rec.calls == []
+    rec_on = FakeRecorder()
+    app3, _, _, _ = make(recorder=rec_on)
+    await app3.startup()
+    assert rec_on.calls == ["start"]

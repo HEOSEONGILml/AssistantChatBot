@@ -43,6 +43,20 @@ async def test_login_runs_then_rechecks():
     assert calls == [["claude", "auth", "login", "--claudeai"], ["claude", "auth", "status"]]
 
 
+async def test_logout_runs_auth_logout_with_timeout():
+    calls = []
+
+    async def run(argv, env, timeout=None):
+        calls.append((argv, timeout))
+        return 0, ""
+    await Auth(run=run, exe="claude").logout()
+    assert calls == [(["claude", "auth", "logout"], 20)]
+
+    async def boom(argv, env, timeout=None):
+        raise OSError("x")
+    await Auth(run=boom, exe="claude").logout()  # 실패는 로그만 남긴다
+
+
 class FakeProc:
     def __init__(self):
         self.terminated = False

@@ -132,6 +132,8 @@ ROUTES = [
     ({"type": "get_settings"}, ("get_settings",)),
     ({"type": "set_permission_mode", "mode": "plan"}, ("set_permission_mode", "plan")),
     ({"type": "get_usage"}, ("get_usage",)),
+    ({"type": "logout"}, ("logout",)),
+    ({"type": "set_recording", "enabled": False}, ("set_recording", False)),
 ]
 
 
@@ -160,6 +162,9 @@ BAD = [
     {"type": "add_schedule", "name": "아침", "rule": "매일 9시", "instruction": "요약"},
     {"type": "set_schedule_enabled", "task_id": 3, "enabled": 1},
     {"type": "set_permission_mode", "mode": 3},
+    {"type": "set_recording", "enabled": "off"},
+    {"type": "set_recording", "enabled": 0},
+    {"type": "set_recording"},
 ]
 
 
@@ -184,6 +189,29 @@ class SlowLoginApp(FakeApp):
     async def login(self):
         self.events.append(("login",))
         await self.release.wait()
+
+
+class SlowLogoutApp(FakeApp):
+    def __init__(self):
+        super().__init__()
+        self.release = asyncio.Event()
+
+    async def logout(self):
+        self.events.append(("logout",))
+        await self.release.wait()
+
+
+async def test_pending_logout_does_not_block_other_messages(server):
+    link, url = server
+    link.app = SlowLogoutApp()
+    async with connect(url) as ws:
+        await ws.send(hello())
+        await ws.send(json.dumps({"v": 6, "type": "logout"}))
+        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        try:
+            await wait_for(lambda: ("get_usage",) in link.app.events)
+        finally:
+            link.app.release.set()
 
 
 async def test_pending_login_does_not_block_other_messages(server):

@@ -12,6 +12,7 @@ from backend import config
 log = logging.getLogger(__name__)
 
 STATUS_TIMEOUT = 20  # 초. 상태 확인이 멈추면 로그인 안 된 것으로 본다
+LOGOUT_TIMEOUT = 20  # 초. 로그아웃은 브라우저를 거치지 않아 상태 확인과 같은 제한을 둔다 (잠정)
 HEALTH_URL = "http://localhost:3030/health"
 # 콘솔 창이 번쩍이지 않게 한다. 윈도 밖에서는 없는 값이라 0.
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -95,6 +96,14 @@ class Auth:
             log.warning("로그인 실행 실패: %s", type(e).__name__)
             return False
         return await self.logged_in()
+
+    async def logout(self) -> None:
+        if not self._exe:
+            return
+        try:
+            await self._run([self._exe, "auth", "logout"], config.claude_env(), timeout=LOGOUT_TIMEOUT)
+        except Exception as e:
+            log.warning("로그아웃 실행 실패: %s", type(e).__name__)
 
 
 class Recorder:

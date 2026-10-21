@@ -10,21 +10,22 @@
 - 화면은 그 파일을 읽어 접속하고, 첫 메시지로 `hello`를 보낸다. 5초 안에 오지 않거나 토큰이 틀리면 백엔드가 끊는다.
 - 새 화면이 `hello`에 성공하면 이전 화면은 끊긴다. 화면은 하나다.
 - 모든 메시지는 JSON이고 `v`(프로토콜 버전, 지금 `6`)와 `type`을 갖는다. `hello`의 버전이 다르면 백엔드가 끊는다.
-- 접속하면 백엔드가 `status`를 먼저 보낸다.
+- 접속하면 백엔드가 `status`를 먼저 보내고, 이어서 대화 탭의 대화 작업을 `task`로 보낸다. 화면은 그 작업 ID로 대화 탭을 연다(`get_task`)·말한다(`say`) ([0033](decisions/0033-chat-tab-single-session.md), [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 대화 탭").
 
 ## 화면 → 백엔드
 
 필드가 빠지거나 타입이 틀린 메시지, 모르는 `type`은 로그만 남기고 버린다. 연결은 유지한다. 정수 자리에 `true`, 참거짓 자리에 `1`도 틀린 타입이다. 처리 중에 오류가 나도 로그(오류 종류만)를 남기고 연결은 유지한다.
 
-메시지는 온 순서대로 하나씩 처리한다. `login`만 예외다: 사용자가 브라우저에서 로그인을 마칠 때까지 걸리므로 따로 돌리고, 그동안 다른 메시지를 계속 처리한다.
+메시지는 온 순서대로 하나씩 처리한다. `login`·`logout`만 예외다: 로그인은 사용자가 브라우저에서 마칠 때까지, 로그아웃은 CLI가 끝날 때까지(최대 20초) 걸리므로 따로 돌리고, 그동안 다른 메시지를 계속 처리한다.
 
 | type | 필드 | 뜻 |
 |---|---|---|
 | `hello` | `token`: 문자열 | 접속 인증 |
 | `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다. 로그인이 이미 진행 중이면 무시한다 |
+| `logout` | 없음 | 설정 탭 로그아웃 버튼. `claude auth logout`(20초 제한)을 부르고 `status {logged_in: false}`를 보낸다 |
 | `request` | `text`: 문자열 | 작업 탭 입력칸. 새 작업을 만든다 |
 | `add_schedule` | `name`: 문자열, `rule`: 규칙, `instruction`: 문자열 | 새 스케줄 양식의 [등록]. 확인 없이 바로 저장한다 |
-| `say` | `task_id`: 정수, `text`: 문자열 | 대화 안에서 말하기. 질문의 답, 덧붙이기, 되물음, 등록 확인의 [등록] 모두 |
+| `say` | `task_id`: 정수, `text`: 문자열 | 대화 안에서 말하기. 질문의 답, 덧붙이기, 되물음, 등록 확인의 [등록] 모두. 대화 탭의 말하기도 대화 작업 ID로 보낸다 |
 | `stop` | `task_id`: 정수 | 멈추기 |
 | `seen` | `task_id`: 정수 | 열어 봤을 때 |
 | `list_tasks` | `page`: 정수(1부터), `view`: `"user"` \| `"alerts"` | 작업 탭(`user`)·알림 탭(`alerts`) 한 쪽 |
@@ -34,6 +35,7 @@
 | `set_schedule_enabled` | `task_id`: 정수, `enabled`: 참거짓 | 스케줄 스위치 |
 | `get_settings` | 없음 | 설정 탭 |
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새 작업부터 적용 |
+| `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다) |
 | `get_usage` | 없음 | 사용량 탭 |
 
 - **규칙 `rule`**: `{"repeat": "daily"|"weekdays"|"weekly"|"monthly", "time": "HH:MM", "weekday": 0-6, "day": 1-31}`. `weekday`(월=0)는 `weekly`일 때, `day`는 `monthly`일 때만 필요하다 ([0032](decisions/0032-schedule-creation.md)). 틀린 규칙은 버린다.
@@ -44,14 +46,14 @@
 
 | type | 필드 | 언제 |
 |---|---|---|
-| `status` | `logged_in`: 참거짓 | 접속할 때, `login`이 끝났을 때, 로그아웃 상태에서 `request`·`say`가 왔을 때 |
-| `task` | `task`: 작업 | 작업이 생기거나 바뀔 때 |
+| `status` | `logged_in`: 참거짓 | 접속할 때, `login`·`logout`이 끝났을 때, 로그아웃 상태에서 `request`·`say`가 왔을 때(대화의 `create_task`도) |
+| `task` | `task`: 작업 | 작업이 생기거나 바뀔 때, 접속할 때(대화 작업) |
 | `entry` | `task_id`, `entry`: 대화 줄 | 대화 줄이 쌓일 때 |
 | `tasks` | `view`, `page`, `pages`: 전체 쪽 수, `items`: 작업 목록 | `list_tasks`의 답 |
 | `task_detail` | `task`: 작업, `entries`: 대화 줄 전체, `schedule`: 스케줄 또는 `null` | `get_task`의 답 |
 | `schedules` | `page`, `pages`, `items`: `{task_id, name, label, next_run, state}` 목록 | `list_schedules`의 답 |
 | `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
-| `settings` | `permission_mode` | `get_settings`의 답, 바뀌었을 때 |
+| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬) | `get_settings`의 답, 바뀌었을 때 |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
 
 ### 작업 `task`
@@ -59,7 +61,7 @@
 | 필드 | 값 |
 |---|---|
 | `id` | 정수 |
-| `source` | `"user"`(사용자 요청), `"schedule"`(스케줄) |
+| `source` | `"user"`(사용자 요청), `"schedule"`(스케줄), `"chat"`(대화 탭의 대화 작업. 하나뿐이고 백엔드가 처음 시작할 때 제목 `대화`로 만든다) |
 | `title` | 제목. 요청 글 앞 30자로 시작하고, 에이전트가 짧은 제목으로 바꿀 수 있다 |
 | `state` | 아래 작업 상태 |
 | `seen` | 참거짓. 끝난 뒤 사용자가 열어 봤는지 |
@@ -76,7 +78,7 @@
 | `failed` | 못 함. 앱이 꺼져 끊긴 작업도 다음 시작 때 여기로 닫는다 |
 | `stopped` | 멈춤 |
 
-알림 목록(`view: "alerts"`)은 답 기다림, 안 본 실패, 안 본 완료 순이다.
+알림 목록(`view: "alerts"`)은 답 기다림, 안 본 실패, 안 본 완료 순이다. 대화 작업(`source: "chat"`)은 작업 목록(`user`)에도 알림 목록에도 넣지 않는다. 대화 작업도 끝나면 `done`·`failed`가 되지만, 다시 `say`하면 저장된 세션을 이어 쓴다.
 
 ### 대화 줄 `entry`
 
@@ -87,7 +89,7 @@
 | `kind` | 아래 종류 |
 | `text` | 글 |
 | `choices` | 고를 답 목록 또는 `null`. 질문과 등록 확인에만 있다 |
-| `data` | 등록 확인의 내용 또는 `null` |
+| `data` | 등록 확인의 내용, 작업 칩의 `{task_id}`, 또는 `null` |
 
 | `kind` | 뜻 |
 |---|---|
@@ -99,6 +101,7 @@
 | `proposal` | 등록 확인. `choices`는 `["등록", "고치기"]`, `data`는 `{name, rule, label, instruction, first_run}` (고칠 때는 `changed`: 바뀐 칸 이름 목록도) |
 | `run` | 스케줄 실행 구분선 (예: `10/21 (수) 09:00 실행`) |
 | `edit` | 지시서 수정 |
+| `chip` | 작업 칩. 대화에서 일을 맡겨 에이전트가 `create_task`로 새 작업을 만들었을 때 대화에 남는다. `text`는 새 작업 제목, `data`는 `{"task_id": 새 작업 ID}`. 누르면 그 작업 대화로 간다 |
 
 등록 확인에 답하는 법: [등록]은 `say`로 `"등록"`을 보낸다. [고치기]는 양식을 열고, 고친 값을 `set_schedule`로 보낸다. 이때 백엔드는 `user` 줄 `고쳐서 등록: <이름> (<반복>)`을 남긴다.
 
@@ -147,6 +150,29 @@ sequenceDiagram
   B-->>S: task {state: done, seen: false}
   S->>B: seen {task_id}
   B-->>S: task {seen: true}
+```
+
+## 예: 대화 탭에서 일 맡기기
+
+```mermaid
+sequenceDiagram
+  participant S as 화면
+  participant B as 백엔드
+  participant C as Claude Code (대화 세션)
+  participant N as Claude Code (새 작업 세션)
+  S->>B: hello {token}
+  B-->>S: status {logged_in: true}
+  B-->>S: task {source: chat, id: 1}
+  S->>B: say {task_id: 1, text: "회의 자료 모아 줘"}
+  B-->>S: entry {task_id: 1, kind: user}
+  B->>C: 세션 이어 쓰기 (resume)
+  C->>B: create_task {text}
+  B-->>S: task {id: 2, source: user, state: working}
+  B-->>S: entry {task_id: 2, kind: user}
+  B->>N: 새 세션 시작
+  B-->>S: entry {task_id: 1, kind: chip, data: {task_id: 2}}
+  C-->>B: 끝
+  B-->>S: entry {task_id: 1, kind: result}
 ```
 
 ## 닫힘 코드
