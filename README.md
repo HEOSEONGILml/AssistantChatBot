@@ -1,6 +1,6 @@
 # TamagotchiChatBot
 
-Windows 화면 한 자리에 있는 강아지 조수다. 사용자가 요청하면 대답하거나, 사용자가 보고 있는 브라우저를 조작해 일을 처리한다 ([vision](docs/vision.md)).
+사용자의 화면 히스토리를 파악해서, 작업 맥락을 일일이 설명하지 않아도 하고자 하는 일을 알아듣고 처리하는 computer-use 에이전트다. 화면 한 자리에 강아지 모습으로 있다 ([vision](docs/vision.md)).
 
 - 상태: 다마고치에서 조수로 바꾸는 중이다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 지금은 화면 ↔ 두뇌 껍데기만 있고, 조수 기능은 설계 전이다.
 - 구조: [`ARCHITECTURE.md`](ARCHITECTURE.md), 작업 규칙: [`CLAUDE.md`](CLAUDE.md)

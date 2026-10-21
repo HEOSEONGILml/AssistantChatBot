@@ -61,6 +61,7 @@ flowchart LR
 | [`docs/glossary.md`](docs/glossary.md) | 용어집 |
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜 |
 | [`docs/decisions/`](docs/decisions/) | 결정 기록. 결정 하나에 파일 하나 |
+| [`docs/references/similar-products.md`](docs/references/similar-products.md) | 비슷한 제품 조사: 실행 쪽(UFO², Cowork, 브라우저 에이전트)과 기억 쪽(screenpipe, Recall) |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약. Jev를 다시 쓰게 되면 본다 |
 | `docs/superpowers/specs/`, `plans/` | 조수 설계 스펙과 구현 계획 (아직 없음) |
 
