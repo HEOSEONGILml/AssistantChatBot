@@ -12,7 +12,7 @@
 | **전송 계층** | 화면과 두뇌 핵심을 잇는 부분(`server.py`). 지금은 localhost WebSocket |
 | **프로토콜** | 화면과 두뇌가 주고받는 메시지 규약. [`brain-protocol.md`](brain-protocol.md)가 기준이다 |
 | **1단계·2단계** | 에이전트를 만드는 순서. 1단계는 Claude Code로 구현하고, 2단계는 그 부분을 직접 설계한 에이전트로 바꾼다 ([0023](decisions/0023-claude-code-first-then-own-agent.md)) |
-| **지금 상황** | 요청을 보낼 때 사용자가 보고 있는 창의 상황. 입력 계층의 핵심이다 ([0024](decisions/0024-observation-common-plus-enrichment.md)) |
+| **화면 기록** | 요청과 상관없이 백그라운드에서 사용자 화면을 기록하는 작업. 에이전트가 맥락을 찾는 데이터 출처다 ([0026](decisions/0026-input-layer-passes-request-only.md)). 1단계는 screenpipe |
 | **공통 관찰** | 모든 프로그램에서 같게 얻는 지금 상황: 창 정보, 화면 캡처, 접근성 트리 |
 | **선택적 강화** | 더 좋은 정보원이 있는 프로그램에서만 공통 관찰에 덧붙이는 정보. 예: 브라우저의 주소·페이지 내용 |
 | **관찰 공급자** | 지금 상황의 한 부분을 만들어 주는 부품. 프로그램 지원을 늘릴 때 하나씩 더한다 |
