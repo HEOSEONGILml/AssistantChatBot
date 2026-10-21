@@ -1,4 +1,4 @@
-"""전송 계층: 화면 하나와 WebSocket으로 메시지를 주고받는다. 규약은 docs/brain-protocol.md가 기준이다."""
+"""전송 계층: 화면 하나와 WebSocket으로 메시지를 주고받는다. 규약은 docs/backend-protocol.md가 기준이다."""
 import asyncio
 import hmac
 import json
@@ -28,7 +28,7 @@ class Link:
 
     def __init__(self, token: str):
         self.token = token
-        self.brain = None  # 실행할 때 붙인다. Brain이 Link.send를 쓰므로 서로를 참조한다
+        self.app = None  # 실행할 때 붙인다. App이 Link.send를 쓰므로 서로를 참조한다
         self._ws = None
 
     async def send(self, msg: dict) -> None:
@@ -55,7 +55,7 @@ class Link:
         old, self._ws = self._ws, ws
         if old is not None:
             await old.close(CLOSE_REPLACED, "replaced")
-        await self.brain.connected(True)
+        await self.app.connected(True)
         try:
             async for raw in ws:
                 msg = parse(raw)
@@ -68,18 +68,18 @@ class Link:
         finally:
             if self._ws is ws:
                 self._ws = None
-                await self.brain.connected(False)
+                await self.app.connected(False)
 
     async def _dispatch(self, msg: dict) -> None:
         kind = msg["type"]
         if kind == "message" and isinstance(msg.get("text"), str):
-            await self.brain.handle_message(msg["text"])
+            await self.app.handle_message(msg["text"])
         elif kind == "set_key":
             try:
                 config.write_key(str(msg.get("name")), str(msg.get("value", "")))
             except Exception:
                 log.exception("키 저장 실패")  # 키 값은 로그에 쓰지 않는다
                 return
-            await self.brain.set_keys(config.read_keys())
+            await self.app.set_keys(config.read_keys())
         else:
             log.warning("모르는 메시지를 버림: %s", kind)

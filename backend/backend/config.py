@@ -10,13 +10,13 @@ log = logging.getLogger(__name__)
 
 KEY_NAMES = ("typesafe", "gemini")
 # OS 자격 저장소(Windows 자격 증명 관리자)에 저장할 때 쓰는 서비스 이름
-KEYRING_SERVICE = "TamagotchiChatBot.brain"
+KEYRING_SERVICE = "TamagotchiChatBot.backend"
 
 
 def data_dir() -> Path:
-    """백엔드 데이터 폴더. 화면(Tauri)도 이 경로의 brain.json을 읽는다 (docs/brain-protocol.md)."""
+    """백엔드 데이터 폴더. 화면(Tauri)도 이 경로의 backend.json을 읽는다 (docs/backend-protocol.md)."""
     base = os.environ.get("APPDATA") or str(Path.home())
-    d = Path(base) / "TamagotchiChatBot" / "brain"
+    d = Path(base) / "TamagotchiChatBot" / "backend"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

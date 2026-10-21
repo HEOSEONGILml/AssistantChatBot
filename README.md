@@ -10,7 +10,7 @@
 | 폴더 | 내용 | 스택 |
 |---|---|---|
 | `app/` | 화면: 입력창·설정 창·트레이 | Tauri 2 (Rust + TypeScript, Vite) |
-| `brain/` | 백엔드: PC 안에서 도는 파이썬 프로세스 | Python, uv, WebSocket |
+| `backend/` | 백엔드: PC 안에서 도는 파이썬 프로세스 | Python, uv, WebSocket |
 | `docs/` | 비전·결정 기록·프로토콜 | Markdown |
 
 ## 필요한 것
@@ -28,11 +28,11 @@
 ```bash
 git clone <이 저장소>
 cd TamagotchiChatBot
-cd brain && uv sync && cd ..      # 백엔드 의존성 (brain/.venv)
+cd backend && uv sync && cd ..      # 백엔드 의존성 (backend/.venv)
 cd app && npm install && cd ..    # 화면 의존성
 ```
 
-백엔드 의존성: `websockets`, `keyring` (개발: `pytest`, `pytest-asyncio`). 화면 의존성: `@tauri-apps/api`와 플러그인(global-shortcut, store, opener), Vite, Vitest. 정확한 버전은 `brain/uv.lock`, `app/package-lock.json`, `app/src-tauri/Cargo.lock`.
+백엔드 의존성: `websockets`, `keyring` (개발: `pytest`, `pytest-asyncio`). 화면 의존성: `@tauri-apps/api`와 플러그인(global-shortcut, store, opener), Vite, Vitest. 정확한 버전은 `backend/uv.lock`, `app/package-lock.json`, `app/src-tauri/Cargo.lock`.
 
 ## 실행
 
@@ -47,12 +47,12 @@ npm run tauri dev
 - 끌 때는 트레이 아이콘 → 종료. 함께 띄운 백엔드도 꺼진다.
 - 개발용 앱은 확인이 끝나면 바로 닫는다.
 
-백엔드만 따로 띄우기: `cd brain && uv run python -m brain`
+백엔드만 따로 띄우기: `cd backend && uv run python -m backend`
 
 ## 테스트
 
 ```bash
-cd brain && uv run pytest              # 백엔드
+cd backend && uv run pytest              # 백엔드
 cd app && npm test                     # 화면 순수 로직 (Vitest)
 cd app && npx tsc --noEmit             # 타입 검사
 cd app/src-tauri && cargo test         # Rust 셸

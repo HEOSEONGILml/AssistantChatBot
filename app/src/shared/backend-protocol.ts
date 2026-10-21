@@ -1,16 +1,16 @@
-// 백엔드 프로토콜 v5 (docs/brain-protocol.md). 조수 설계 전의 최소 규약이다.
+// 백엔드 프로토콜 v5 (docs/backend-protocol.md). 조수 설계 전의 최소 규약이다.
 export const PROTOCOL_VERSION = 5;
 
 const AI_STATUSES = ["ok", "no_keys"] as const;
 export type AiStatus = (typeof AI_STATUSES)[number];
 
-export type BrainMessage = { type: "status"; ai: AiStatus };
+export type BackendMessage = { type: "status"; ai: AiStatus };
 export type Outgoing =
   | { type: "hello"; token: string }
   | { type: "message"; text: string }
   | { type: "set_key"; name: "typesafe" | "gemini"; value: string };
 
-export function parseBrainMessage(raw: unknown): BrainMessage | null {
+export function parseBackendMessage(raw: unknown): BackendMessage | null {
   let m: unknown;
   try { m = typeof raw === "string" ? JSON.parse(raw) : null; } catch { return null; }
   if (!m || typeof m !== "object") return null;

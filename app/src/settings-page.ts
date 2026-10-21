@@ -1,6 +1,6 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { loadSettings, saveSettings, type Settings } from "./shared/settings";
-import type { AiStatus } from "./shared/brain-protocol";
+import type { AiStatus } from "./shared/backend-protocol";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const msg = $("msg");
@@ -8,7 +8,7 @@ const KEYS = ["typesafe", "gemini"] as const;
 
 const AI_STATE_TEXT: Record<AiStatus, string> = { ok: "정상", no_keys: "키를 넣어 주세요" };
 let aiStatus: AiStatus | null = null;
-listen<AiStatus | null>("brain-status", (e) => {
+listen<AiStatus | null>("backend-status", (e) => {
   aiStatus = e.payload;
   $("ai-state").textContent = aiStatus ? AI_STATE_TEXT[aiStatus] : "백엔드에 연결되지 않음";
 });
@@ -16,7 +16,7 @@ listen<AiStatus | null>("brain-status", (e) => {
 async function init() {
   const s = await loadSettings();
   ($("inputShortcut") as HTMLInputElement).value = s.inputShortcut;
-  await emit("brain-status-request");
+  await emit("backend-status-request");
 }
 
 $("save").addEventListener("click", async () => {
@@ -27,7 +27,7 @@ $("save").addEventListener("click", async () => {
     // 키는 백엔드가 보관한다. 백엔드에 연결되지 않았으면 보내지 못하므로 입력값을 그대로 둔다
     if (keys.length && aiStatus === null) throw new Error("백엔드에 연결되지 않아 키를 저장하지 못했어요");
     for (const k of keys) {
-      await emit("brain-set-key", { name: k, value: ($(k) as HTMLInputElement).value.trim() });
+      await emit("backend-set-key", { name: k, value: ($(k) as HTMLInputElement).value.trim() });
       ($(k) as HTMLInputElement).value = "";
     }
     await saveSettings(s);

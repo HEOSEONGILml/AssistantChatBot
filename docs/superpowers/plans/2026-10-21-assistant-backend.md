@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 백엔드(`brain/`)를 v6 프로토콜로 작업·스케줄·작업 기록을 다루고, 작업마다 Claude Code 세션을 띄워 일하게 만든다.
+**Goal:** 백엔드(`backend/`)를 v6 프로토콜로 작업·스케줄·작업 기록을 다루고, 작업마다 Claude Code 세션을 띄워 일하게 만든다.
 
 **Architecture:** 프론트 메시지는 `server.py`(전송)가 받아 `core.py`의 `App`에 넘긴다. `App`은 SQLite 저장소(`store.py`)에 작업 기록을 쓰고, 작업마다 `agent.py`의 `AgentRun`으로 Claude Code 세션(Agent SDK)을 돌린다. Claude Code는 백엔드 MCP 도구(`tools.py`)와 screenpipe MCP로 데이터를 찾고, 크롬 확장으로 브라우저를 조작한다. 스케줄러(`scheduler.py`)는 1분마다 때가 된 스케줄 세션을 이어 실행한다.
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - 문서와 코드는 같은 커밋에서 맞춘다 (CLAUDE.md 1절). 각 Task의 커밋에 관련 문서 수정을 함께 넣는다.
-- 환경 변수와 경로는 `brain/brain/config.py`에서만 읽는다 (CLAUDE.md 3절).
+- 환경 변수와 경로는 `backend/backend/config.py`에서만 읽는다 (CLAUDE.md 3절).
 - 외부 호출(Claude Code SDK, `claude` CLI, screenpipe)은 `agent.py`·`clients.py`를 거친다. 실패는 로그에 남기고 작업은 `failed`로 끝낸다.
 - 라이브러리 API는 Context7(`/anthropics/claude-agent-sdk-python`)로 확인하고 쓴다.
 - Claude Code는 `ANTHROPIC_API_KEY`를 뺀 환경으로 띄운다. 있으면 그 키로 과금되고 크롬 조작이 꺼진다.
@@ -49,26 +49,26 @@
 
 | 파일 | 할 일 |
 |---|---|
-| `brain/brain/config.py` (고침) | 데이터 폴더, 작업 폴더, DB 경로, screenpipe 명령. 키 보관(keyring)은 지운다 |
-| `brain/brain/store.py` (새) | SQLite: `tasks`, `entries`, `schedules`, `settings`, FTS5 검색 |
-| `brain/brain/schedule_rule.py` (새) | 스케줄 규칙 → 다음 실행 시각, 표시 글 |
-| `brain/brain/tools.py` (새) | 백엔드 MCP 도구 7개 |
-| `brain/brain/agent.py` (새) | Claude Code 세션 하나를 돌리고 질문·권한을 중계 |
-| `brain/brain/harness.md` (새) | 하네스 문서 (0029 다섯 칸) |
-| `brain/brain/clients.py` (새) | `claude auth status/login`, screenpipe 프로세스 |
-| `brain/brain/core.py` (다시 씀) | `App`: 프론트 메시지 처리, 작업 관리, 사용량 |
-| `brain/brain/scheduler.py` (새) | 1분 tick, 때가 된 스케줄 실행 |
-| `brain/brain/server.py` (고침) | v6, 메시지 분배 |
-| `brain/brain/__main__.py` (고침) | 조립과 실행 |
-| `docs/brain-protocol.md` (다시 씀) | v6 |
+| `backend/backend/config.py` (고침) | 데이터 폴더, 작업 폴더, DB 경로, screenpipe 명령. 키 보관(keyring)은 지운다 |
+| `backend/backend/store.py` (새) | SQLite: `tasks`, `entries`, `schedules`, `settings`, FTS5 검색 |
+| `backend/backend/schedule_rule.py` (새) | 스케줄 규칙 → 다음 실행 시각, 표시 글 |
+| `backend/backend/tools.py` (새) | 백엔드 MCP 도구 7개 |
+| `backend/backend/agent.py` (새) | Claude Code 세션 하나를 돌리고 질문·권한을 중계 |
+| `backend/backend/harness.md` (새) | 하네스 문서 (0029 다섯 칸) |
+| `backend/backend/clients.py` (새) | `claude auth status/login`, screenpipe 프로세스 |
+| `backend/backend/core.py` (다시 씀) | `App`: 프론트 메시지 처리, 작업 관리, 사용량 |
+| `backend/backend/scheduler.py` (새) | 1분 tick, 때가 된 스케줄 실행 |
+| `backend/backend/server.py` (고침) | v6, 메시지 분배 |
+| `backend/backend/__main__.py` (고침) | 조립과 실행 |
+| `docs/backend-protocol.md` (다시 씀) | v6 |
 
 ---
 
 ### Task 1: 저장소
 
 **Files:**
-- Create: `brain/brain/store.py`, `brain/tests/test_store.py`
-- Modify: `brain/brain/config.py` (`db_path()`, `work_dir()` 추가, keyring·`KEY_NAMES`·`read_keys`·`write_key` 삭제), `brain/tests/test_config.py`, `brain/pyproject.toml`(`uv remove keyring`)
+- Create: `backend/backend/store.py`, `backend/tests/test_store.py`
+- Modify: `backend/backend/config.py` (`db_path()`, `work_dir()` 추가, keyring·`KEY_NAMES`·`read_keys`·`write_key` 삭제), `backend/tests/test_config.py`, `backend/pyproject.toml`(`uv remove keyring`)
 
 **Interfaces:**
 - Produces:
@@ -101,7 +101,7 @@ def test_schedule_roundtrip_and_settings_default(): ...
     # rule dict 그대로 돌아옴; get_setting("permission_mode","default") == "default"
 ```
 
-- [ ] **Step 2: 실패 확인** — `cd brain && uv run pytest tests/test_store.py -v` → FAIL (`ModuleNotFoundError: brain.store`)
+- [ ] **Step 2: 실패 확인** — `cd backend && uv run pytest tests/test_store.py -v` → FAIL (`ModuleNotFoundError: backend.store`)
 - [ ] **Step 3: `store.py` 구현.** `sqlite3`, 시작 때 `CREATE TABLE IF NOT EXISTS`. `rule`·`choices`·`data`는 JSON 문자열로 저장. FTS5 가상 테이블 `task_text(task_id, text)`에 요청 글·제목·대화 글을 넣는다. config의 키 관련 코드와 테스트를 지우고 `uv remove keyring`.
 - [ ] **Step 4: 통과 확인** — `uv run pytest -q` → 모두 PASS
 - [ ] **Step 5: 커밋** — `feat(backend): 작업 기록 저장소 (tasks·entries·schedules·settings, FTS5)`
@@ -111,7 +111,7 @@ def test_schedule_roundtrip_and_settings_default(): ...
 ### Task 2: 스케줄 규칙
 
 **Files:**
-- Create: `brain/brain/schedule_rule.py`, `brain/tests/test_schedule_rule.py`
+- Create: `backend/backend/schedule_rule.py`, `backend/tests/test_schedule_rule.py`
 
 **Interfaces:**
 - Produces: `next_run(rule: dict, after: datetime) -> datetime` (after보다 엄격히 뒤의 첫 실행 시각, 같은 tz), `label(rule: dict) -> str` (`"매일 09:00"`, `"평일 14:00"`, `"매주 월 10:30"`, `"매월 1일 09:00"`), `validate(rule: dict) -> None` (잘못되면 `ValueError`)
@@ -137,7 +137,7 @@ def test_validate_rejects_bad_time_and_missing_weekday():
 ### Task 3: 백엔드 MCP 도구
 
 **Files:**
-- Create: `brain/brain/tools.py`, `brain/tests/test_tools.py`
+- Create: `backend/backend/tools.py`, `backend/tests/test_tools.py`
 
 **Interfaces:**
 - Consumes: `Store`(Task 1), `schedule_rule.validate/label/next_run`(Task 2)
@@ -175,8 +175,8 @@ async def test_create_schedule_rejects_bad_rule(): ...         # is_error, confi
 ### Task 4: Claude Code 세션 하나 돌리기
 
 **Files:**
-- Create: `brain/brain/agent.py`, `brain/brain/harness.md`, `brain/tests/test_agent.py`
-- Modify: `brain/brain/config.py` (`claude_env() -> dict[str, str]`: 지금 환경에서 `ANTHROPIC_API_KEY` 뺀 것), `brain/pyproject.toml` (`uv add claude-agent-sdk`)
+- Create: `backend/backend/agent.py`, `backend/backend/harness.md`, `backend/tests/test_agent.py`
+- Modify: `backend/backend/config.py` (`claude_env() -> dict[str, str]`: 지금 환경에서 `ANTHROPIC_API_KEY` 뺀 것), `backend/pyproject.toml` (`uv add claude-agent-sdk`)
 
 **Interfaces:**
 - Consumes: `tools.backend_server`, `TaskContext`(Task 3)
@@ -215,7 +215,7 @@ def test_build_options_values(): ...                            # 위 옵션 값
 ### Task 5: App — 작업 관리
 
 **Files:**
-- Rewrite: `brain/brain/core.py`, `brain/tests/test_core.py`
+- Rewrite: `backend/backend/core.py`, `backend/tests/test_core.py`
 
 **Interfaces:**
 - Consumes: `Store`, `AgentRun`, `build_options`, `backend_server`, `schedule_rule`
@@ -259,7 +259,7 @@ async def test_permission_mode_saved_and_used_for_new_runs(): ...
 ### Task 6: 스케줄러
 
 **Files:**
-- Create: `brain/brain/scheduler.py`, `brain/tests/test_scheduler.py`
+- Create: `backend/backend/scheduler.py`, `backend/tests/test_scheduler.py`
 
 **Interfaces:**
 - Consumes: `Store.all_schedules`, `schedule_rule.next_run`, `App.run_schedule`
@@ -288,8 +288,8 @@ async def test_disabled_schedule_never_runs(): ...
 ### Task 7: 로그인과 screenpipe
 
 **Files:**
-- Create: `brain/brain/clients.py`, `brain/tests/test_clients.py`
-- Modify: `brain/brain/config.py` (`screenpipe_cmd() -> list[str]` = `["npx","-y","screenpipe","record"]`. 소리 설정은 정하지 않았으니 기본값 그대로)
+- Create: `backend/backend/clients.py`, `backend/tests/test_clients.py`
+- Modify: `backend/backend/config.py` (`screenpipe_cmd() -> list[str]` = `["npx","-y","screenpipe","record"]`. 소리 설정은 정하지 않았으니 기본값 그대로)
 
 **Interfaces:**
 - Produces:
@@ -316,8 +316,8 @@ async def test_recorder_skips_when_already_running(): ...
 ### Task 8: v6 전송과 조립, 문서
 
 **Files:**
-- Modify: `brain/brain/server.py`, `brain/brain/__main__.py`, `brain/tests/test_server.py`
-- Rewrite: `docs/brain-protocol.md` (v6, Task 5의 메시지와 필드 그대로)
+- Modify: `backend/backend/server.py`, `backend/backend/__main__.py`, `backend/tests/test_server.py`
+- Rewrite: `docs/backend-protocol.md` (v6, Task 5의 메시지와 필드 그대로)
 - Modify: `ARCHITECTURE.md` (3절 백엔드 표, 4절 저장 위치에 `assistant.db`·`work/`), `README.md` (의존성 `claude-agent-sdk`, 필요한 것: Claude Code·Claude in Chrome 확장·구독 로그인, 키 입력 문구 삭제), `docs/manual-checks/backend.md` (새: 실제 Claude Code로 확인할 것 — 스펙 8절 "시험하지 않은 것" 다섯 줄)
 
 **Interfaces:**
@@ -328,7 +328,7 @@ async def test_recorder_skips_when_already_running(): ...
 - [ ] **Step 1: 실패하는 테스트** — 기존 `test_server.py`를 v6으로: `hello`(v=6) 뒤 `request` → 가짜 App의 `request("…")` 호출, 버전 5 거부, 모르는 type 무시, `say`에 `task_id`가 문자열이면 버림.
 - [ ] **Step 2: 실패 확인** — FAIL
 - [ ] **Step 3: 구현과 문서**
-- [ ] **Step 4: 전체 확인** — `cd brain && uv run pytest -q` → 모두 PASS. 그다음 `uv run python -m brain`을 띄워 `brain.log`에 "백엔드 시작"과 screenpipe 시작이 찍히는지 보고 끈다.
+- [ ] **Step 4: 전체 확인** — `cd backend && uv run pytest -q` → 모두 PASS. 그다음 `uv run python -m backend`을 띄워 `backend.log`에 "백엔드 시작"과 screenpipe 시작이 찍히는지 보고 끈다.
 - [ ] **Step 5: 커밋** — `feat(backend): 프로토콜 v6 전송과 조립, 문서 v6`
 
 ---

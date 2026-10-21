@@ -1,13 +1,13 @@
 import keyring.errors
 import pytest
 
-from brain import config
+from backend import config
 
 
 def test_data_dir_under_appdata(tmp_path, monkeypatch):
     monkeypatch.setenv("APPDATA", str(tmp_path))
     d = config.data_dir()
-    assert d == tmp_path / "TamagotchiChatBot" / "brain"
+    assert d == tmp_path / "TamagotchiChatBot" / "backend"
     assert d.is_dir()
 
 

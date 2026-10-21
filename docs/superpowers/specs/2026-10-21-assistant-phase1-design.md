@@ -35,7 +35,7 @@ flowchart TB
     DOG["강아지 창<br>자세 · 배지 · 툴팁"]
     PANEL["패널<br>알림 · 작업 · 스케줄 · 사용량 · 설정"]
   end
-  subgraph BE["백엔드 (Python, brain/)"]
+  subgraph BE["백엔드 (Python, backend/)"]
     WS["WebSocket 서버<br>프로토콜 v6"]
     TM["작업 관리<br>작업마다 Claude Code 세션"]
     SCH["스케줄러<br>1분마다"]
@@ -86,7 +86,7 @@ flowchart TB
 
 ## 4. 프로토콜 v6
 
-[0030](../../decisions/0030-io-interface-task-as-conversation.md)이 기준이다. 구현할 때 [brain-protocol.md](../../brain-protocol.md)를 v6으로 바꾼다. 모든 메시지는 지금처럼 `v`와 `type`을 갖는다.
+[0030](../../decisions/0030-io-interface-task-as-conversation.md)이 기준이다. 구현할 때 [backend-protocol.md](../../backend-protocol.md)를 v6으로 바꾼다. 모든 메시지는 지금처럼 `v`와 `type`을 갖는다.
 
 **작업 하나 = 대화 하나.** 스케줄도 작업 하나다.
 

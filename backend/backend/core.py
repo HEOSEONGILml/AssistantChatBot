@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 Emit = Callable[[dict], Awaitable[None]]
 
 
-class Brain:
+class App:
     def __init__(self, *, emit: Emit):
         self._emit = emit
         self._ai = "no_keys"

@@ -3,20 +3,20 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { loadSettings, saveSettings, DEFAULT_SETTINGS, type Settings } from "./shared/settings";
-import type { AiStatus } from "./shared/brain-protocol";
-import { connectBrain } from "./brain-link";
+import type { AiStatus } from "./shared/backend-protocol";
+import { connectBackend } from "./backend-link";
 
 let aiStatus: AiStatus | null = null; // null: 백엔드에 연결되지 않음
-const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
-const brain = connectBrain({
+const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("backend-status", s); };
+const backend = connectBackend({
   onMessage: (m) => { if (m.type === "status") setStatus(m.ai); },
   onOpen: () => {},
   onClose: () => setStatus(null),
 });
 
-listen<{ text: string }>("input-sent", (e) => { brain.send({ type: "message", text: e.payload.text }); });
-listen<{ name: "typesafe" | "gemini"; value: string }>("brain-set-key", (e) => { brain.send({ type: "set_key", ...e.payload }); });
-listen("brain-status-request", () => { emit("brain-status", aiStatus); });
+listen<{ text: string }>("input-sent", (e) => { backend.send({ type: "message", text: e.payload.text }); });
+listen<{ name: "typesafe" | "gemini"; value: string }>("backend-set-key", (e) => { backend.send({ type: "set_key", ...e.payload }); });
+listen("backend-status-request", () => { emit("backend-status", aiStatus); });
 
 // 전역 단축키. 등록은 한 번에 하나씩(직렬) 처리한다: 저장을 빠르게 두 번 하면 등록이 엉키기 때문이다.
 let active: Settings | null = null;

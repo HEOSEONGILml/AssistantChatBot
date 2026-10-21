@@ -80,7 +80,7 @@
 
 - Claude API 키는 고려하지 않는다. **Claude Code 구독 로그인**만 고려해 설계한다 (사용자).
 - 화면은 API 키 입력 대신 **로그인**을 요청한다 (사용자).
-- 지금 코드와 [프로토콜](brain-protocol.md)은 아직 API 키(`set_key`, `no_keys`)를 쓴다. 바꾸는 일은 따로 한다.
+- 지금 코드와 [프로토콜](backend-protocol.md)은 아직 API 키(`set_key`, `no_keys`)를 쓴다. 바꾸는 일은 따로 한다.
 
 ## 스케줄 작업 (확정, 2026-10-21)
 

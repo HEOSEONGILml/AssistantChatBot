@@ -1,14 +1,14 @@
 use tauri::{Manager, RunEvent, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
-mod brain;
+mod backend;
 
-#[tauri::command] fn brain_endpoint() -> Result<brain::Endpoint, String> { brain::endpoint() }
-#[tauri::command] fn brain_start(state: tauri::State<brain::BrainProcess>) -> Result<(), String> { brain::ensure_running(&state) }
+#[tauri::command] fn backend_endpoint() -> Result<backend::Endpoint, String> { backend::endpoint() }
+#[tauri::command] fn backend_start(state: tauri::State<backend::BackendProcess>) -> Result<(), String> { backend::ensure_running(&state) }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(brain::BrainProcess(std::sync::Mutex::new(None)))
+        .manage(backend::BackendProcess(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -37,11 +37,11 @@ pub fn run() {
                 if window.label() == "settings" { api.prevent_close(); let _ = window.hide(); }
             }
         })
-        .invoke_handler(tauri::generate_handler![brain_endpoint, brain_start])
+        .invoke_handler(tauri::generate_handler![backend_endpoint, backend_start])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
             // 앱이 끝나면 이 앱이 띄운 백엔드도 끈다
-            if let RunEvent::Exit = event { brain::stop(&app.state::<brain::BrainProcess>()); }
+            if let RunEvent::Exit = event { backend::stop(&app.state::<backend::BackendProcess>()); }
         });
 }

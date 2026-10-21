@@ -11,12 +11,12 @@ flowchart LR
   U["사용자"] -->|"단축키, 입력"| IN["입력창"]
   U -->|"트레이 → 설정"| SET["설정 창<br>단축키·키"]
   IN -->|"input-sent"| MAIN["주 창 (보이지 않음)<br>백엔드 연결"]
-  SET <-->|"brain-set-key, brain-status"| MAIN
+  SET <-->|"backend-set-key, backend-status"| MAIN
   MAIN <-->|"WebSocket v5"| B["백엔드"]
   B --> K[("OS 자격 저장소<br>API 키")]
 ```
 
-- 화면(Tauri 앱, `app/`)과 백엔드(`brain/`)는 localhost WebSocket으로 통신한다. 규약은 [프로토콜](docs/brain-protocol.md)이다.
+- 화면(Tauri 앱, `app/`)과 백엔드(`backend/`)는 localhost WebSocket으로 통신한다. 규약은 [프로토콜](docs/backend-protocol.md)이다.
 - 백엔드는 화면을 모른다 ([0022](docs/decisions/0022-pivot-to-assistant.md)).
 - 백엔드는 지금 키 상태만 알리고, 받은 요청은 처리하지 않는다.
 
@@ -28,29 +28,29 @@ flowchart LR
 | 입력창 `input` | `input.html`, `src/input.ts` | 단축키(기본 `Ctrl+Shift+Space`)로 화면 가운데에 열고 닫는다. Enter로 보낸다 |
 | 설정 창 `settings` | `settings.html`, `src/settings-page.ts` | 트레이 메뉴로 연다. 단축키와 API 키를 저장한다 |
 
-- `src/brain-link.ts`: 백엔드에 접속한다. 끊기거나 접속하지 못하면 2초 뒤 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
-- `src/shared/brain-protocol.ts`: 프로토콜 메시지 해석과 생성.
+- `src/backend-link.ts`: 백엔드에 접속한다. 끊기거나 접속하지 못하면 2초 뒤 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
+- `src/shared/backend-protocol.ts`: 프로토콜 메시지 해석과 생성.
 - `src/shared/settings.ts`: 화면 설정(단축키) 저장. 저장본에 예전 설정이 있어도 지금 쓰는 값만 꺼낸다.
-- `src-tauri/src/brain.rs`: 접속 정보 파일 읽기, 개발 환경에서 `brain/.venv`의 파이썬으로 백엔드 띄우기, 앱이 끝날 때 함께 끄기.
+- `src-tauri/src/backend.rs`: 접속 정보 파일 읽기, 개발 환경에서 `backend/.venv`의 파이썬으로 백엔드 띄우기, 앱이 끝날 때 함께 끄기.
 - `src-tauri/src/lib.rs`: 트레이(설정, 종료)와 창 관리.
 - `public/sprites/dog/`: 강아지 스프라이트. 지금은 쓰는 코드가 없다. 강아지가 화면 한 자리에 있다는 컨셉([vision](docs/vision.md))에 따라 둔다.
 
-## 3. 백엔드 (`brain/`)
+## 3. 백엔드 (`backend/`)
 
 | 파일 | 하는 일 |
 |---|---|
-| `brain/__main__.py` | 실행 진입점. 이미 떠 있는 백엔드가 있으면 끝낸다. 빈 포트에서 WebSocket을 열고 `brain.json`에 포트·토큰을 쓴다 |
-| `brain/server.py` | 전송 계층. `hello` 인증, 화면 교체, 메시지 분배 |
-| `brain/core.py` | 서비스 핵심. 키가 모두 있으면 `ok`, 아니면 `no_keys`를 알린다. `message`는 받기만 한다 |
-| `brain/config.py` | 데이터 폴더와 API 키를 읽는 유일한 곳 (CLAUDE.md 3절). 키는 Windows 자격 증명 관리자에 둔다 |
+| `backend/__main__.py` | 실행 진입점. 이미 떠 있는 백엔드가 있으면 끝낸다. 빈 포트에서 WebSocket을 열고 `backend.json`에 포트·토큰을 쓴다 |
+| `backend/server.py` | 전송 계층. `hello` 인증, 화면 교체, 메시지 분배 |
+| `backend/core.py` | 서비스 핵심. 키가 모두 있으면 `ok`, 아니면 `no_keys`를 알린다. `message`는 받기만 한다 |
+| `backend/config.py` | 데이터 폴더와 API 키를 읽는 유일한 곳 (CLAUDE.md 3절). 키는 Windows 자격 증명 관리자에 둔다 |
 
 ## 4. 저장과 실행
 
 | 무엇 | 위치 |
 |---|---|
-| 백엔드 로그 | `%APPDATA%\TamagotchiChatBot\brain\logs\brain.log` |
-| 백엔드 접속 정보 | `%APPDATA%\TamagotchiChatBot\brain\brain.json` |
-| API 키 | Windows 자격 증명 관리자 (`TamagotchiChatBot.brain`) |
+| 백엔드 로그 | `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log` |
+| 백엔드 접속 정보 | `%APPDATA%\TamagotchiChatBot\backend\backend.json` |
+| API 키 | Windows 자격 증명 관리자 (`TamagotchiChatBot.backend`) |
 | 화면 설정 | `%APPDATA%\com.tamagotchi.app\settings.json` |
 
 ## 5. 문서 지도
@@ -59,7 +59,7 @@ flowchart LR
 |---|---|
 | [`docs/vision.md`](docs/vision.md) | 제품 비전. 사용자가 말하거나 확인한 것만 적는다 |
 | [`docs/glossary.md`](docs/glossary.md) | 용어집 |
-| [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 백엔드 프로토콜 |
+| [`docs/backend-protocol.md`](docs/backend-protocol.md) | 화면 ↔ 백엔드 프로토콜 |
 | [`docs/decisions/`](docs/decisions/) | 결정 기록. 결정 하나에 파일 하나 |
 | [`docs/design/`](docs/design/) | 디자인 요청서와 결과. [출력 계층 요청서](docs/design/2026-10-21-output-ui-brief.md), [출력 계층 화면 디자인](docs/design/2026-10-21-output-ui/README.md) |
 | [`docs/spikes/`](docs/spikes/) | 기술 확인 시험. [Agent SDK로 띄운 Claude Code의 크롬 조작·질문·권한](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
