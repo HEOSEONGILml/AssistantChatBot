@@ -17,7 +17,7 @@ flowchart LR
 ```
 
 - 화면(Tauri 앱, `app/`)과 두뇌(파이썬 서비스, `brain/`)는 localhost WebSocket으로 통신한다. 규약은 [프로토콜](docs/brain-protocol.md)이다.
-- 두뇌는 화면을 모른다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)).
+- 두뇌는 화면을 모른다 ([0022](docs/decisions/0022-pivot-to-assistant.md)).
 - 두뇌는 지금 키 상태만 알리고, 받은 요청은 처리하지 않는다.
 
 ## 2. 화면 (`app/`)
@@ -70,11 +70,6 @@ flowchart LR
 
 | 번호 | 제목 | 상태 |
 |---|---|---|
-| [0002](docs/decisions/0002-platform-order.md) | Windows PC 먼저, Android는 그다음 | 채택 |
-| [0006](docs/decisions/0006-user-provided-api-keys.md) | 서버 없이 사용자가 입력한 API 키로 직접 호출 | 채택 |
-| [0008](docs/decisions/0008-tech-stack-tauri.md) | Windows 앱은 Tauri(Rust + TypeScript) | 일부 수정됨 (0011) |
-| [0011](docs/decisions/0011-python-brain-local-sidecar.md) | 두뇌는 PC 안에서 도는 파이썬 프로세스 | 채택 (일부 개정: 0012) |
-| [0012](docs/decisions/0012-brain-as-frontend-independent-service.md) | 두뇌는 화면과 독립된 WebSocket 서비스 | 채택 |
 | [0022](docs/decisions/0022-pivot-to-assistant.md) | 다마고치를 접고 브라우저를 조작하는 조수로 바꾼다 | 채택 |
 
-0001, 0003~0005, 0007, 0009, 0010, 0013~0021은 0022로 대체되어 지웠다. 남은 기록에서 이 번호로 가는 링크는 git 기록에서 찾는다.
+0001~0021은 다마고치 시절 기록이라 지웠다. 아직 유효한 원칙은 0022에 옮겼고, 원문은 git 기록 `4b8c747`에 있다.

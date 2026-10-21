@@ -1,6 +1,6 @@
 # 화면 ↔ 두뇌 프로토콜 (v5)
 
-화면과 두뇌는 이 문서로만 이어진다 ([0012](decisions/0012-brain-as-frontend-independent-service.md)). v5는 조수 설계 전의 최소 규약이다 ([0022](decisions/0022-pivot-to-assistant.md)). 조수 설계가 끝나면 다시 쓴다.
+화면과 두뇌는 이 문서로만 이어진다. v5는 조수 설계 전의 최소 규약이다 ([0022](decisions/0022-pivot-to-assistant.md)). 조수 설계가 끝나면 다시 쓴다.
 
 ## 연결
 

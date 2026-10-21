@@ -1,5 +1,5 @@
 // 보이지 않는 주 창: 두뇌 연결을 들고 입력창·설정 창과 두뇌 사이를 잇는다. 단축키도 여기서 등록한다.
-// 조수 설계 전의 빈 껍데기다 (vision 2026-10-21).
+// 조수 설계 전의 빈 껍데기다 (0022).
 import { emit, listen } from "@tauri-apps/api/event";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { loadSettings, saveSettings, DEFAULT_SETTINGS, type Settings } from "./shared/settings";

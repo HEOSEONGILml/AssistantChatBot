@@ -28,7 +28,7 @@
 - **외부 호출 격리**: Jev, LLM 등 외부 AI 호출은 클라이언트 계층을 거친다. 실패 시 fallback 동작을 정하고 실패를 기록한다.
 - **행동의 지역성**: 함수 하나만 감싸는 얇은 래퍼 모듈을 만들지 않는다.
 
-화면은 Tauri(Rust + TypeScript)다 ([0008](docs/decisions/0008-tech-stack-tauri.md)). 앱은 `app/`에 있다. 두뇌는 파이썬 서비스이고 `brain/`에 있다 ([0012](docs/decisions/0012-brain-as-frontend-independent-service.md)). 화면 ↔ 두뇌 규약은 [`docs/brain-protocol.md`](docs/brain-protocol.md)다.
+화면은 Tauri(Rust + TypeScript)다. 앱은 `app/`에 있다. 두뇌는 화면과 독립된 파이썬 서비스이고 `brain/`에 있다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 화면 ↔ 두뇌 규약은 [`docs/brain-protocol.md`](docs/brain-protocol.md)다.
 
 | 작업 | 명령 (`app/`에서) |
 |---|---|

@@ -23,7 +23,7 @@ pub fn endpoint() -> Result<Endpoint, String> {
     parse_endpoint(&std::fs::read_to_string(path).map_err(|e| e.to_string())?)
 }
 
-/// 개발 환경: 저장소 brain/의 가상환경 파이썬으로 띄운다. 배포용 묶음은 범위 밖 (두뇌 스펙 1절)
+/// 개발 환경: 저장소 brain/의 가상환경 파이썬으로 띄운다. 배포용 묶음은 아직 범위 밖
 pub fn ensure_running(state: &BrainProcess) -> Result<(), String> {
     let mut slot = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(child) = slot.as_mut() {

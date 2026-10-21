@@ -1,4 +1,4 @@
-"""두뇌 실행: brain/ 에서 `uv run python -m brain`. 화면과 상관없이 혼자 실행할 수 있다 (0012)."""
+"""두뇌 실행: brain/ 에서 `uv run python -m brain`. 화면과 상관없이 혼자 실행할 수 있다 (0022)."""
 import asyncio
 import json
 import logging

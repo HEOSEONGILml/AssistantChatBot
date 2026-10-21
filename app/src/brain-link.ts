@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { outgoing, parseBrainMessage, type BrainMessage, type Outgoing } from "./shared/brain-protocol";
 
-const RETRY_MS = 2000; // 잠정값: 다시 접속하는 간격 (두뇌 스펙 9절)
+const RETRY_MS = 2000; // 잠정값: 다시 접속하는 간격
 
 type Handlers = { onMessage(m: BrainMessage): void; onOpen(): void; onClose(): void };
 
