@@ -3,7 +3,6 @@ name = "backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "keyring>=25.7.0",
     "websockets>=16.1.1",
 ]
 

@@ -7,7 +7,6 @@ from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
-from backend import config
 from backend.__main__ import already_running
 from backend.server import CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION, Link
 
@@ -109,19 +108,6 @@ async def test_garbage_is_ignored(server):
         await ws.send(json.dumps({"v": 5, "type": "message", "text": "됨"}))
         await wait_for(lambda: ("message", "됨") in link.app.events)
     assert ("message", 3) not in link.app.events
-
-
-async def test_set_key(server, monkeypatch):
-    link, url = server
-    written = {}
-    monkeypatch.setattr(config, "write_key", lambda n, v: written.__setitem__(n, v))
-    monkeypatch.setattr(config, "read_keys", lambda: {"typesafe": None, "gemini": "g"})
-    async with connect(url) as ws:
-        await ws.send(hello())
-        await ws.send(json.dumps({"v": 5, "type": "set_key", "name": "gemini", "value": "g"}))
-        await wait_for(lambda: any(e[0] == "keys" for e in link.app.events))
-    assert written == {"gemini": "g"}
-    assert ("keys", {"typesafe": None, "gemini": "g"}) in link.app.events
 
 
 async def test_already_running(tmp_path, server):

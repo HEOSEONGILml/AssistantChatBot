@@ -49,7 +49,6 @@ async def main() -> None:
     link = Link(secrets.token_urlsafe(32))
     app = App(emit=link.send)
     link.app = app
-    await app.set_keys(config.read_keys())
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))  # 이 PC 안에서만 받는다
     async with serve(link.handler, sock=sock, max_size=2**20):

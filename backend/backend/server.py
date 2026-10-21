@@ -6,7 +6,6 @@ import logging
 
 from websockets.exceptions import ConnectionClosed
 
-from . import config
 
 log = logging.getLogger(__name__)
 
@@ -74,12 +73,5 @@ class Link:
         kind = msg["type"]
         if kind == "message" and isinstance(msg.get("text"), str):
             await self.app.handle_message(msg["text"])
-        elif kind == "set_key":
-            try:
-                config.write_key(str(msg.get("name")), str(msg.get("value", "")))
-            except Exception:
-                log.exception("키 저장 실패")  # 키 값은 로그에 쓰지 않는다
-                return
-            await self.app.set_keys(config.read_keys())
         else:
             log.warning("모르는 메시지를 버림: %s", kind)
