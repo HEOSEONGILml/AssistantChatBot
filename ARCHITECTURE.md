@@ -83,6 +83,6 @@ flowchart LR
 | [0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md) | Claude Code는 하네스 문서로 동작 원칙을 받고, 작업 하나에 세션 하나 | 채택 |
 | [0030](docs/decisions/0030-io-interface-task-as-conversation.md) | 입출력 인터페이스: 작업 하나를 대화 하나로 | 채택 (구현 전) |
 | [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md) | 에이전트는 데이터 계층을 검색 도구로 직접 찾아본다 (의미 검색은 나중에) | 채택 |
-| [0032](docs/decisions/0032-schedule-creation.md) | 스케줄은 탭과 에이전트 둘 다로 만들고 확인받는다. 에이전트는 자기 작업에 갇히지 않는다 | 채택 |
+| [0032](docs/decisions/0032-schedule-creation.md) | 스케줄은 탭과 에이전트 둘 다로 만들고 확인받는다. 스케줄은 세션 하나라 대화할 수 있다. 에이전트는 자기 작업에 갇히지 않는다 | 채택 |
 
 0001~0021은 다마고치 시절 기록이라 지웠다. 아직 유효한 원칙은 0022에 옮겼고, 원문은 git 기록 `4b8c747`에 있다.

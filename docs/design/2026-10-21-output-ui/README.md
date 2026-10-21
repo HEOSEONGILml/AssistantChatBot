@@ -20,6 +20,8 @@ flowchart LR
   Tasks --> TaskInput[작업 지시 입력칸]
   Schedules --> SchedInput[스케줄 지시 입력칸]
   SchedInput -->|알아들은 일정| Confirm[등록 확인]
+  Schedules -->|행 클릭| SchedDetail[스케줄 대화<br/>작업 지시서 + 히스토리]
+  SchedDetail -->|지시서 수정| SchedEdit[작업 지시서 수정]
   Alerts -->|항목 클릭| Thread[작업 대화]
   Tasks -->|행 클릭| Thread
   Thread -->|창으로 크게 보기| Window[상세 창]
@@ -32,6 +34,9 @@ flowchart LR
 | 접근 | 마우스로. 강아지 클릭 하나. 단축키는 불편하다 | 사용자 |
 | 말풍선 | 두지 않는다 | 사용자 |
 | 패널 구성 | 알림·작업·스케줄·사용량·설정 탭 | Claude 제안, 사용자 확정 |
+| 스케줄 상세 | 스케줄을 누르면 작업 지시서와 히스토리(대화 내역)가 보인다 | 사용자 |
+| 스케줄 = 세션 하나 | 스케줄도 Claude Code 세션 하나라 대화할 수 있다. 실행이 같은 대화에 날짜 구분선과 함께 쌓이고, 아래 입력칸으로 스케줄에 말한다. [0032](../../decisions/0032-schedule-creation.md) | 사용자 |
+| 작업 지시서 수정 | 지시서를 수정할 수 있다. 대화 위 지시서 줄의 "수정"으로 이름·언제·할 일을 고친다 | 사용자 (화면 모양은 Claude 제안) |
 | 지시 입력 | 작업 지시는 작업 탭에서, 스케줄 지시는 스케줄 탭에서. 입력칸은 두 탭의 맨 아래에 있다 | 사용자 |
 | 스케줄 만들기 | 스케줄 탭에서 추가하는 것이 기본. 에이전트에게 말로 시켜도 되고, 그때는 확인받고 만든다 ([0032](../../decisions/0032-schedule-creation.md)) | 사용자 |
 | 공간 | 화면을 많이 차지하지 않는다. 목록은 페이지로 나눈다 | 사용자 |
@@ -101,6 +106,8 @@ flowchart LR
 | `Settings.dc.html` | 13 설정 탭, 권한 모드 |
 | `Usage.dc.html` | 14 사용량 탭, 구독 사용량 한도 |
 | `ScheduleAdd.dc.html` | 15 스케줄 등록 확인 |
+| `ScheduleDetail.dc.html` | 16 스케줄 대화: 작업 지시서와 히스토리, 대화 입력 |
+| `ScheduleEdit.dc.html` | 17 작업 지시서 수정 |
 
 `canvas.json`은 캔버스 배치(아트보드 위치·크기·제목)다.
 

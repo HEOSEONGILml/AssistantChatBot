@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>작업 지시서 수정</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+.dog{width:128px;height:96px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:1024px 864px;background-repeat:no-repeat;image-rendering:pixelated}
+.p-sit{background-position:0 -96px}
+</style>
+</helmet>
+<div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
+<div aria-hidden="true" style="position: absolute; left: 24px; top: 24px; right: -40px; bottom: 80px; background: #F7F8FA; border: 1px solid #D5DAE1; border-radius: 10px"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
+<section aria-label="작업 지시서 수정" style="position: absolute; right: 20px; bottom: 156px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 4px; padding: 0 4px; border-bottom: 1px solid #E6E9EE">
+<a href="ScheduleDetail.dc.html" aria-label="스케줄 대화로" style="flex: none; width: 44px; height: 44px; color: #1B1F27; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<span style="flex: 1; font-size: 14px; font-weight: 700">작업 지시서 수정</span>
+</div>
+<form style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="sname" style="font-size: 12px; font-weight: 700; color: #5B6472">이름</label>
+<input id="sname" type="text" value="메일 요약" style="height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; color: #1B1F27">
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="swhen" style="font-size: 12px; font-weight: 700; color: #5B6472">언제</label>
+<input id="swhen" type="text" value="매일 09:00" style="height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; color: #1B1F27">
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="sbody" style="font-size: 12px; font-weight: 700; color: #5B6472">할 일</label>
+<textarea id="sbody" style="height: 120px; box-sizing: border-box; padding: 9px 12px; border: 2px solid #1D4ED8; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; resize: none; overflow-y: auto; outline: none">아침마다 받은 메일을 읽고, 답장이 필요한 것과 참고만 할 것으로 나눠서 요약해 줘.
+뉴스레터는 뺀다.</textarea>
+</div>
+<span style="font-size: 12px; color: #5B6472">저장하면 다음 실행부터 적용돼요</span>
+<div style="display: flex; justify-content: flex-end; gap: 6px">
+<a href="ScheduleDetail.dc.html" style="min-height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid #C4CAD3; border-radius: 10px; color: #1B1F27; font-size: 13px; font-weight: 500; text-decoration: none">취소</a>
+<button type="submit" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">저장</button>
+</div>
+</form>
+<div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
+</section>
+<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 128px; height: 96px"><span class="dog p-sit" style="display: block"></span></a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":640}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

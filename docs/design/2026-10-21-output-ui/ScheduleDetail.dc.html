@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>스케줄 대화</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+.dog{width:128px;height:96px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:1024px 864px;background-repeat:no-repeat;image-rendering:pixelated}
+.p-walk{background-position:-256px -384px}
+textarea::placeholder{color:#6B7280}
+</style>
+</helmet>
+<div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
+<div aria-hidden="true" style="position: absolute; left: 24px; top: 24px; right: -40px; bottom: 80px; background: #F7F8FA; border: 1px solid #D5DAE1; border-radius: 10px"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
+<section aria-label="스케줄 대화" style="position: absolute; right: 20px; bottom: 156px; width: 340px; height: 460px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
+<div style="flex: none; display: flex; align-items: center; gap: 4px; padding: 0 4px; border-bottom: 1px solid #E6E9EE">
+<a href="SchedulePanel.dc.html" aria-label="스케줄 목록으로" style="flex: none; width: 44px; height: 44px; color: #1B1F27; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">메일 요약</span>
+<span style="font-size: 12px; color: #5B6472"><span style="color: #0F5F52; font-weight: 500">스케줄</span> · 매일 09:00 · 다음 내일 09:00</span>
+</div>
+<button type="button" aria-label="창으로 크게 보기" style="flex: none; width: 44px; height: 44px; border: 0; background: transparent; color: #5B6472; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-8 8"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></button>
+</div>
+<div style="flex: none; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 16px; border-bottom: 1px solid #E6E9EE; background: #F7F8FA; font-size: 13px">
+<span style="flex: none; font-size: 12px; font-weight: 700; color: #5B6472">작업 지시서</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #3D4552">받은 메일을 답장할 것과 참고할 것으로 나눠 요약. 뉴스레터는 뺀다</span>
+<a href="ScheduleEdit.dc.html" style="flex: none; min-height: 40px; padding: 0 10px; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; text-decoration: none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>수정</a>
+</div>
+<div tabindex="0" aria-label="스케줄 대화 기록" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse">
+<ol style="margin: 0; padding: 12px; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.55">
+<li style="align-self: center; font-size: 12px; color: #5B6472">10/20 09:00 실행</li>
+<li><button type="button" aria-expanded="false" style="min-height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; background: #F3F4F6; color: #5B6472; font: inherit; font-size: 12px; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#E3F4EA"></circle><path d="M7.5 12.5l3 3 6-6.5" stroke="#15803D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>진행 6단계 · 다 했어요<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></li>
+<li style="align-self: flex-start; max-width: 85%; padding: 8px 12px; border-radius: 12px 12px 12px 4px; background: #F3F4F6">메일 12통 중 답장이 필요한 건 3통이에요. 견적서 확인, 회의 시간 조율, 계약서 서명.</li>
+<li style="align-self: flex-end; max-width: 80%; padding: 8px 12px; border-radius: 12px 12px 4px 12px; background: #E3ECFF">뉴스레터는 앞으로 아예 빼 줘</li>
+<li style="align-self: flex-start; max-width: 85%; padding: 8px 12px; border-radius: 12px 12px 12px 4px; background: #F3F4F6">작업 지시서에 "뉴스레터는 뺀다"를 넣었어요. 다음 실행부터 적용돼요.</li>
+<li style="align-self: center; font-size: 12px; color: #5B6472">10/21 09:00 실행</li>
+<li><span style="min-height: 32px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; background: #F3F4F6; color: #5B6472; font-size: 12px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#A7DCD3" stroke-width="3"></circle><path d="M21 12a9 9 0 0 0-9-9" stroke="#0F766E" stroke-width="3" stroke-linecap="round"></path></svg>메일 읽는 중</span></li>
+</ol>
+</div>
+<form style="flex: none; display: flex; align-items: flex-end; gap: 6px; padding: 8px; border-top: 1px solid #E6E9EE">
+<label for="schedmsg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">이 스케줄에 말하기</label>
+<textarea id="schedmsg" rows="1" placeholder="이 스케줄에 말하기" style="flex: 1; min-width: 0; height: 40px; max-height: 120px; box-sizing: border-box; padding: 9px 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; resize: none; overflow-y: auto"></textarea>
+<button type="submit" aria-label="보내기" style="flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</form>
+<div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
+</section>
+<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 128px; height: 96px"><span class="dog p-walk" style="display: block"></span></a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":640}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
