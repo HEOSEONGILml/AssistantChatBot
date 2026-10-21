@@ -1,4 +1,4 @@
-"""파이썬 서비스의 환경 값과 키를 읽는 유일한 곳 (CLAUDE.md 3절). 다른 모듈은 환경 변수를 직접 읽지 않는다."""
+"""백엔드의 환경 값과 키를 읽는 유일한 곳 (CLAUDE.md 3절). 다른 모듈은 환경 변수를 직접 읽지 않는다."""
 import logging
 import os
 from pathlib import Path
@@ -14,7 +14,7 @@ KEYRING_SERVICE = "TamagotchiChatBot.brain"
 
 
 def data_dir() -> Path:
-    """파이썬 서비스 데이터 폴더. 화면(Tauri)도 이 경로의 brain.json을 읽는다 (docs/brain-protocol.md)."""
+    """백엔드 데이터 폴더. 화면(Tauri)도 이 경로의 brain.json을 읽는다 (docs/brain-protocol.md)."""
     base = os.environ.get("APPDATA") or str(Path.home())
     d = Path(base) / "TamagotchiChatBot" / "brain"
     d.mkdir(parents=True, exist_ok=True)

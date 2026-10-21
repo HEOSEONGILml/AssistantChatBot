@@ -1,4 +1,4 @@
-//! 파이썬 서비스 접속 정보와 실행. 규약: docs/brain-protocol.md
+//! 백엔드 접속 정보와 실행. 규약: docs/brain-protocol.md
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -9,14 +9,14 @@ pub struct Endpoint {
     pub token: String,
 }
 
-/// 이 앱이 띄운 파이썬 서비스 프로세스. 앱을 끌 때 함께 끈다 (다른 곳에서 띄운 파이썬 서비스는 건드리지 않는다)
+/// 이 앱이 띄운 백엔드 프로세스. 앱을 끌 때 함께 끈다 (다른 곳에서 띄운 백엔드는 건드리지 않는다)
 pub struct BrainProcess(pub Mutex<Option<Child>>);
 
 pub fn parse_endpoint(s: &str) -> Result<Endpoint, String> {
     serde_json::from_str(s).map_err(|e| e.to_string())
 }
 
-/// 파이썬 서비스가 시작할 때 쓰는 접속 정보 파일. 경로는 파이썬 서비스의 config.data_dir()와 같다
+/// 백엔드가 시작할 때 쓰는 접속 정보 파일. 경로는 백엔드의 config.data_dir()와 같다
 pub fn endpoint() -> Result<Endpoint, String> {
     let appdata = std::env::var_os("APPDATA").ok_or("APPDATA 환경 변수가 없습니다")?;
     let path = PathBuf::from(appdata).join("TamagotchiChatBot").join("brain").join("brain.json");
@@ -39,7 +39,7 @@ pub fn ensure_running(state: &BrainProcess) -> Result<(), String> {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: 콘솔 창을 띄우지 않는다
     }
-    *slot = Some(cmd.spawn().map_err(|e| format!("파이썬 서비스 실행 실패: {e}"))?);
+    *slot = Some(cmd.spawn().map_err(|e| format!("백엔드 실행 실패: {e}"))?);
     Ok(())
 }
 

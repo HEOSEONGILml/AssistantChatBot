@@ -10,7 +10,7 @@ const AI_STATE_TEXT: Record<AiStatus, string> = { ok: "정상", no_keys: "키를
 let aiStatus: AiStatus | null = null;
 listen<AiStatus | null>("brain-status", (e) => {
   aiStatus = e.payload;
-  $("ai-state").textContent = aiStatus ? AI_STATE_TEXT[aiStatus] : "파이썬 서비스에 연결되지 않음";
+  $("ai-state").textContent = aiStatus ? AI_STATE_TEXT[aiStatus] : "백엔드에 연결되지 않음";
 });
 
 async function init() {
@@ -24,8 +24,8 @@ $("save").addEventListener("click", async () => {
   const s: Settings = { inputShortcut: ($("inputShortcut") as HTMLInputElement).value.trim() };
   try {
     const keys = KEYS.filter((k) => ($(k) as HTMLInputElement).value.trim());
-    // 키는 파이썬 서비스가 보관한다. 파이썬 서비스에 연결되지 않았으면 보내지 못하므로 입력값을 그대로 둔다
-    if (keys.length && aiStatus === null) throw new Error("파이썬 서비스에 연결되지 않아 키를 저장하지 못했어요");
+    // 키는 백엔드가 보관한다. 백엔드에 연결되지 않았으면 보내지 못하므로 입력값을 그대로 둔다
+    if (keys.length && aiStatus === null) throw new Error("백엔드에 연결되지 않아 키를 저장하지 못했어요");
     for (const k of keys) {
       await emit("brain-set-key", { name: k, value: ($(k) as HTMLInputElement).value.trim() });
       ($(k) as HTMLInputElement).value = "";

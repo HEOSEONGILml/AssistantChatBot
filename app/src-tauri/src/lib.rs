@@ -41,7 +41,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            // 앱이 끝나면 이 앱이 띄운 파이썬 서비스도 끈다
+            // 앱이 끝나면 이 앱이 띄운 백엔드도 끈다
             if let RunEvent::Exit = event { brain::stop(&app.state::<brain::BrainProcess>()); }
         });
 }

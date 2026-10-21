@@ -1,4 +1,4 @@
-// 파이썬 서비스 프로토콜 v5 (docs/brain-protocol.md). 조수 설계 전의 최소 규약이다.
+// 백엔드 프로토콜 v5 (docs/brain-protocol.md). 조수 설계 전의 최소 규약이다.
 export const PROTOCOL_VERSION = 5;
 
 const AI_STATUSES = ["ok", "no_keys"] as const;
