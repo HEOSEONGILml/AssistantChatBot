@@ -150,7 +150,7 @@ flowchart TB
 | `permission_mode` | 설정 탭 값 (기본 `default`). 새 작업부터 적용 |
 | `can_use_tool` | 질문·권한 요청을 받아 대화의 질문 줄로 바꾼다 |
 | 한도 | 두지 않는다 (사용자). 모델은 Claude Code 기본값 |
-| 환경 변수 | `ANTHROPIC_API_KEY`를 빼고 띄운다. 있으면 그 키로 과금되고 크롬 조작이 꺼진다 |
+| 환경 변수 | `ANTHROPIC_API_KEY`를 빼고 띄운다. 있으면 그 키로 과금되고 크롬 조작이 꺼진다. SDK는 `env`를 지금 환경 위에 덮어쓰므로 빈 값(`""`)으로 덮는다 (`config.claude_env`) |
 
 - **Claude Code 출력 → 대화 줄**:
   - 에이전트가 말한 글 → 진행

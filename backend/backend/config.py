@@ -20,3 +20,11 @@ def work_dir() -> Path:
     d = data_dir() / "work"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def claude_env() -> dict[str, str]:
+    """Claude Code에 줄 환경. ANTHROPIC_API_KEY가 있으면 그 키로 과금되고 크롬 조작이 꺼진다.
+    SDK는 이 값을 os.environ 위에 덮어쓰므로, 키를 빼는 것만으로는 안 되고 빈 값으로 덮는다."""
+    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    env["ANTHROPIC_API_KEY"] = ""
+    return env
