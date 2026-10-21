@@ -60,6 +60,14 @@
 - 공개 코드에서 확인한 것 (2026-10-21): `npx screenpipe record`로 기록, `localhost:3030`의 REST 검색 API, MCP 서버(`screenpipe-mcp`). 기록 방식은 바뀔 때만 찍기 + 접근성 트리 우선·OCR 보조로, [0024](decisions/0024-observation-common-plus-enrichment.md)와 같은 모양이다.
 - 1단계 조합: screenpipe(기억) + Claude Code(에이전트, MCP로 히스토리 검색, `--chrome`으로 브라우저 조작).
 
+### 데이터 계층 (Claude 제안, 사용자 수용, 2026-10-21)
+
+- 데이터마다 저장소·쓰기·읽기·관리 주체를 정했다. → [0027](decisions/0027-data-layer-ownership.md)
+  - 화면 기록: screenpipe가 쓰고 관리한다. 에이전트가 MCP로 읽는다.
+  - 대화·작업 기록, 스케줄 작업: 백엔드 SQLite. 백엔드가 쓰고 관리한다. 에이전트는 대화·작업 기록을 MCP로 읽는다.
+  - 설정·키: 단축키는 화면, 키는 백엔드.
+- 데이터마다 쓰는 주체는 하나이고, 에이전트는 읽기만 한다.
+
 ## 스케줄 작업 (확정, 2026-10-21)
 
 - 자동화 스케줄을 염두에 둔다. **스케줄링은 직접 구현한다** (사용자). screenpipe의 pipes를 빌려 쓰지 않는다. → [0025](decisions/0025-own-scheduler.md)
