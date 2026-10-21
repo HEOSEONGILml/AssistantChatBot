@@ -90,7 +90,7 @@ flowchart LR
 | [`docs/references/similar-products.md`](docs/references/similar-products.md) | 비슷한 제품 조사: 실행 쪽(UFO², Cowork, 브라우저 에이전트)과 기억 쪽(screenpipe, Recall) |
 | [`docs/references/typesafe-jev.md`](docs/references/typesafe-jev.md) | Jev API 요약. Jev를 다시 쓰게 되면 본다 |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 설계 스펙. [조수 1단계](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md) |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 구현 계획. [1단계 백엔드](docs/superpowers/plans/2026-10-21-assistant-backend.md) |
+| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 구현 계획. [1단계 백엔드](docs/superpowers/plans/2026-10-21-assistant-backend.md), [백엔드 추가분: 대화·설정 탭](docs/superpowers/plans/2026-10-21-assistant-backend-chat-settings.md) |
 
 다마고치 시절의 스펙·계획·실측·검수 기록은 지웠다. git 기록 `4b8c747`에 있다.
 
