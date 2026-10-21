@@ -362,3 +362,50 @@ async def test_permission_mode_saved_and_used_for_new_runs():
     assert store.get_setting("permission_mode", "default") == "acceptEdits"
     await app.request("일")
     assert runs[0].options.permission_mode == "acceptEdits"
+
+
+async def test_run_schedule_opens_session_then_resumes_and_records_result():
+    from datetime import datetime, timedelta, timezone
+    app, store, out, runs = make()
+    t = store.create_task("schedule", "메일")
+    store.update_task(t["id"], state="done", seen=True)
+    store.create_schedule(t["id"], "메일", RULE, "요약")
+    now = datetime(2026, 10, 22, 18, 0, 5, tzinfo=timezone(timedelta(hours=9)))
+    await app.run_schedule(1, now)
+    await settle()
+    [run] = runs
+    assert run.prompt == "[스케줄 실행 · 10/22 (목) 18:00] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해."
+    assert run.options.resume is None  # 양식으로 만든 스케줄은 세션이 아직 없다
+    assert store.get_task(1)["state"] == "working"
+    assert [(e["kind"], e["text"]) for e in store.entries(1)] == [("run", "10/22 (목) 18:00 실행")]
+    run.events.session("s1")
+    run.events.finished("메일 3통 요약", False)
+    run.end()
+    await settle()
+    s = store.get_schedule(1)
+    assert s["last_result"] == "done" and s["last_run_at"] == "2026-10-22T18:00:05+09:00"
+    assert of(out, "schedule")[-1]["schedule"]["last_result"] == "done"
+
+    await app.run_schedule(1, now)  # 두 번째는 저장된 세션을 이어간다
+    await settle()
+    assert runs[1].options.resume == "s1"
+    runs[1].events.finished("실패", True)
+    runs[1].end()
+    await settle()
+    assert store.get_schedule(1)["last_result"] == "failed"
+
+
+async def test_run_schedule_skips_busy_and_logged_out():
+    from datetime import datetime
+    auth = FakeAuth(ok=False)
+    app, store, out, runs = make(auth)
+    t = store.create_task("schedule", "메일")
+    store.update_task(t["id"], state="done")
+    store.create_schedule(t["id"], "메일", RULE, "요약")
+    now = datetime(2026, 10, 22, 18, 0).astimezone()
+    await app.run_schedule(1, now)
+    assert runs == [] and store.entries(1) == []
+    auth.ok = True
+    store.update_task(1, state="waiting")
+    await app.run_schedule(1, now)
+    assert runs == [] and store.entries(1) == []

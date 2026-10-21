@@ -202,6 +202,32 @@ class App:
         schedule = self._store.update_schedule(task_id, enabled=enabled)
         await self._send({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
+    async def run_schedule(self, task_id: int, now: datetime) -> None:
+        """스케줄 한 번 실행. 세션이 있으면 이어가고 없으면 새로 연다. 끝나면 last_run_at·last_result
+        (끝난 작업의 상태 done/failed/stopped)를 기록하고 schedule 메시지를 보낸다."""
+        task = self._store.get_task(task_id)
+        if task is None or self._store.get_schedule(task_id) is None:
+            log.warning("없는 스케줄을 실행하려 함: %d", task_id)
+            return
+        if task["state"] in ("working", "waiting"):
+            log.info("스케줄 %d: 아직 실행 중이라 건너뜀", task_id)
+            return
+        if not await self._auth.logged_in():
+            log.warning("스케줄 %d: 로그아웃 상태라 이번 실행을 건너뜀", task_id)
+            return
+        when = f"{now:%m/%d} ({'월화수목금토일'[now.weekday()]}) {now:%H:%M}"
+        self._entry(task_id, "run", f"{when} 실행")
+        self._set(task_id, state="working")
+        self._start(task_id, f"[스케줄 실행 · {when}] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해.",
+                    resume=task["session_id"])
+        self._runs[task_id][2].add_done_callback(lambda _: self._schedule_ran(task_id, now))
+        await self._flush()
+
+    def _schedule_ran(self, task_id: int, now: datetime) -> None:
+        schedule = self._store.update_schedule(task_id, last_run_at=_iso(now),
+                                               last_result=self._store.get_task(task_id)["state"])
+        self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
+
     async def get_settings(self) -> None:
         await self._send({"type": "settings", "permission_mode": self._permission_mode()})
 
