@@ -28,3 +28,8 @@ def claude_env() -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
     env["ANTHROPIC_API_KEY"] = ""
     return env
+
+
+def screenpipe_cmd() -> list[str]:
+    """screenpipe 녹화 명령. 소리 설정은 정하지 않아 기본값 그대로."""
+    return ["npx", "-y", "screenpipe", "record"]

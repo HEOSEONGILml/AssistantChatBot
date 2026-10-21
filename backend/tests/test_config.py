@@ -13,3 +13,7 @@ def test_db_path_and_work_dir(tmp_path, monkeypatch):
     assert config.db_path() == config.data_dir() / "assistant.db"
     w = config.work_dir()
     assert w == config.data_dir() / "work" and w.is_dir()
+
+
+def test_screenpipe_cmd():
+    assert config.screenpipe_cmd() == ["npx", "-y", "screenpipe", "record"]
