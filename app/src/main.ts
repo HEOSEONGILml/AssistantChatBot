@@ -1,4 +1,4 @@
-// 보이지 않는 주 창: 두뇌 연결을 들고 입력창·설정 창과 두뇌 사이를 잇는다. 단축키도 여기서 등록한다.
+// 보이지 않는 주 창: 파이썬 서비스 연결을 들고 입력창·설정 창과 파이썬 서비스 사이를 잇는다. 단축키도 여기서 등록한다.
 // 조수 설계 전의 빈 껍데기다 (0022).
 import { emit, listen } from "@tauri-apps/api/event";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
@@ -6,7 +6,7 @@ import { loadSettings, saveSettings, DEFAULT_SETTINGS, type Settings } from "./s
 import type { AiStatus } from "./shared/brain-protocol";
 import { connectBrain } from "./brain-link";
 
-let aiStatus: AiStatus | null = null; // null: 두뇌에 연결되지 않음
+let aiStatus: AiStatus | null = null; // null: 파이썬 서비스에 연결되지 않음
 const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("brain-status", s); };
 const brain = connectBrain({
   onMessage: (m) => { if (m.type === "status") setStatus(m.ai); },

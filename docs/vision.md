@@ -76,7 +76,7 @@
 
 - **Windows PC를 먼저** 만든다. → [0022](decisions/0022-pivot-to-assistant.md)
 - Android는 사용자가 지시할 때 별도로 한다.
-- **두뇌는 화면에 의존하지 않는다** (2026-10-15). → [0022](decisions/0022-pivot-to-assistant.md)
+- **파이썬 서비스는 화면에 의존하지 않는다** (2026-10-15). → [0022](decisions/0022-pivot-to-assistant.md)
 
 ## 아직 정하지 않은 것
 

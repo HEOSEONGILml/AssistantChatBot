@@ -28,20 +28,20 @@
 - **외부 호출 격리**: Jev, LLM 등 외부 AI 호출은 클라이언트 계층을 거친다. 실패 시 fallback 동작을 정하고 실패를 기록한다.
 - **행동의 지역성**: 함수 하나만 감싸는 얇은 래퍼 모듈을 만들지 않는다.
 
-화면은 Tauri(Rust + TypeScript)다. 앱은 `app/`에 있다. 두뇌는 화면과 독립된 파이썬 서비스이고 `brain/`에 있다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 화면 ↔ 두뇌 규약은 [`docs/brain-protocol.md`](docs/brain-protocol.md)다.
+화면은 Tauri(Rust + TypeScript)다. 앱은 `app/`에 있다. 파이썬 서비스는 화면과 독립되어 있고 `brain/`에 있다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 화면 ↔ 파이썬 서비스 규약은 [`docs/brain-protocol.md`](docs/brain-protocol.md)다.
 
 | 작업 | 명령 (`app/`에서) |
 |---|---|
 | 개발 실행 | `npm run tauri dev` |
 | 프론트엔드 테스트 | `npm test` |
 | Rust 테스트 | `cd src-tauri && cargo test` |
-| 두뇌 준비 (처음 한 번, 의존성 바뀔 때) | `cd ../brain && uv sync` |
-| 두뇌 테스트 | `cd ../brain && uv run pytest` |
+| 파이썬 서비스 준비 (처음 한 번, 의존성 바뀔 때) | `cd ../brain && uv sync` |
+| 파이썬 서비스 테스트 | `cd ../brain && uv run pytest` |
 | 설치 파일 빌드 | `npm run tauri build` → `src-tauri/target/release/bundle/nsis/*-setup.exe`, `bundle/msi/*.msi` |
 
 **개발용 앱(`npm run tauri dev`)은 확인이 끝나면 바로 닫는다.** 개발 서버가 꺼지면 앱 창이 오류 페이지를 띄운 채 남아 사용자 화면을 가릴 수 있다 (2026-10-14 사고).
 
-화면과 분리된 순수 로직(`src/shared/*.ts`)과 두뇌(`brain/brain/*.py`)는 단위 테스트한다. 창·Win32·실제 브라우저에 의존하는 동작은 `docs/manual-checks/`에 체크리스트를 만들어 확인한다.
+화면과 분리된 순수 로직(`src/shared/*.ts`)과 파이썬 서비스(`brain/brain/*.py`)는 단위 테스트한다. 창·Win32·실제 브라우저에 의존하는 동작은 `docs/manual-checks/`에 체크리스트를 만들어 확인한다.
 
 ## 4. Jev 사용 규칙
 

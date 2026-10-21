@@ -1,4 +1,4 @@
-// 두뇌와의 WebSocket 연결 하나. 끊기거나 접속하지 못하면 두뇌를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
+// 파이썬 서비스와의 WebSocket 연결 하나. 끊기거나 접속하지 못하면 파이썬 서비스를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
 import { invoke } from "@tauri-apps/api/core";
 import { outgoing, parseBrainMessage, type BrainMessage, type Outgoing } from "./shared/brain-protocol";
 
@@ -10,7 +10,7 @@ export function connectBrain(h: Handlers): { send(msg: Outgoing): boolean } {
   let ws: WebSocket | null = null;
 
   const retry = () => {
-    invoke("brain_start").catch((e) => console.warn("두뇌 실행 실패", e));
+    invoke("brain_start").catch((e) => console.warn("파이썬 서비스 실행 실패", e));
     setTimeout(attempt, RETRY_MS);
   };
 

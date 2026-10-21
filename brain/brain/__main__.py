@@ -1,4 +1,4 @@
-"""두뇌 실행: brain/ 에서 `uv run python -m brain`. 화면과 상관없이 혼자 실행할 수 있다 (0022)."""
+"""파이썬 서비스 실행: brain/ 에서 `uv run python -m brain`. 화면과 상관없이 혼자 실행할 수 있다 (0022)."""
 import asyncio
 import json
 import logging
@@ -26,7 +26,7 @@ def setup_logging(logs: Path) -> None:
 
 
 async def already_running(info: Path) -> bool:
-    """brain.json의 포트에 다른 두뇌가 살아 있으면 True. 같은 데이터를 두 두뇌가 쓰지 않게 한다."""
+    """brain.json의 포트에 다른 파이썬 서비스가 살아 있으면 True. 같은 데이터를 두 파이썬 서비스가 쓰지 않게 한다."""
     try:
         port = int(json.loads(info.read_text(encoding="utf-8"))["port"])
     except (OSError, ValueError, KeyError, TypeError):
@@ -44,7 +44,7 @@ async def main() -> None:
     setup_logging(data / "logs")
     info = data / "brain.json"
     if await already_running(info):
-        log.info("두뇌가 이미 실행 중이라 끝낸다")
+        log.info("파이썬 서비스가 이미 실행 중이라 끝낸다")
         return
     link = Link(secrets.token_urlsafe(32))
     brain = Brain(emit=link.send)
@@ -55,7 +55,7 @@ async def main() -> None:
     async with serve(link.handler, sock=sock, max_size=2**20):
         port = sock.getsockname()[1]
         info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
-        log.info("두뇌 시작: 포트 %d", port)
+        log.info("파이썬 서비스 시작: 포트 %d", port)
         try:
             await asyncio.Future()  # 끌 때까지 연결을 받는다
         finally:
