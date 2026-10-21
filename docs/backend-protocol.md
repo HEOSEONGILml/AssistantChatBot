@@ -15,11 +15,11 @@ sequenceDiagram
   participant B as 백엔드
   S->>B: hello {token}
   B-->>S: status {ai}
-  S->>B: set_key {name, value}
-  B-->>S: status {ai}
   S->>B: message {text}
   Note over B: 아직 처리하지 않는다
 ```
+
+> 키 저장(keyring)은 백엔드에서 걷어냈다. 그래서 v5의 `set_key`는 더 처리하지 않고 무시한다(모르는 메시지로 버린다). 현재 앱(`app/src`)은 화면 계획을 하기 전까지 `set_key`를 계속 보낸다. 프로토콜은 결정 0030에 따라 v6로 통째로 바뀐다(백엔드 계획 Task 8).
 
 ## 화면 → 백엔드
 
@@ -27,7 +27,6 @@ sequenceDiagram
 |---|---|---|
 | `hello` | `token` | 접속 인증 |
 | `message` | `text` | 사용자가 입력창에서 보낸 요청 |
-| `set_key` | `name`(`typesafe`·`gemini`), `value` | API 키 저장. 백엔드가 OS 자격 저장소에 보관한다 |
 
 ## 백엔드 → 화면
 
