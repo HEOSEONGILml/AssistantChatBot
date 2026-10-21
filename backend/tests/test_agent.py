@@ -230,3 +230,71 @@ def test_harness_has_tool_names():
                  "recent_tasks", "search_tasks", "get_task", "set_task_title", "get_schedule", "AskUserQuestion"):
         assert name in HARNESS
     assert agent.HARNESS.startswith("#")
+
+
+async def test_concurrent_waits_are_serialized():
+    events = FakeEvents()
+    run = AgentRun(1, events)
+    first = asyncio.ensure_future(run.can_use_tool("WebFetch", {}, ToolPermissionContext()))
+    second = asyncio.ensure_future(run.can_use_tool("WebSearch", {}, ToolPermissionContext()))
+    await until(lambda: run.waiting)
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert events.of("question") == [("WebFetch 사용을 허용할까요?", ["허용", "거부"])]
+    await run.say("허용")
+    assert isinstance(await first, PermissionResultAllow)
+    await until(lambda: run.waiting)
+    assert events.of("question")[1] == ("WebSearch 사용을 허용할까요?", ["허용", "거부"])
+    await run.say("아니")
+    res = await second
+    assert isinstance(res, PermissionResultDeny) and res.message == "아니"
+
+
+async def test_stop_releases_all_queued_waits():
+    client = FakeClient([init(), result()], asyncio.Event())
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries)
+    perm = asyncio.ensure_future(run.can_use_tool("WebFetch", {}, ToolPermissionContext()))
+    conf = asyncio.ensure_future(run.confirm("proposal", "등록할까요?", {}))
+    await until(lambda: run.waiting)
+    await run.stop()
+    res = await asyncio.wait_for(perm, 1)
+    assert isinstance(res, PermissionResultDeny) and res.interrupt is True
+    assert await asyncio.wait_for(conf, 1) == "거부"
+    await asyncio.wait_for(task, 1)
+    assert events.of("confirm_request") == []
+    assert events.of("finished") == []
+
+
+async def test_stop_during_ask_user_question_denies_with_interrupt():
+    run = AgentRun(1, FakeEvents())
+    tool_input = {"questions": [{"question": QUESTION, "options": [{"label": "열기"}]}]}
+    pending = asyncio.ensure_future(run.can_use_tool("AskUserQuestion", tool_input, ToolPermissionContext()))
+    await until(lambda: run.waiting)
+    await run.stop()
+    res = await pending
+    assert isinstance(res, PermissionResultDeny) and res.interrupt is True
+
+
+async def test_stop_during_connect_disconnects_client():
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class Slow(FakeClient):
+        async def connect(self):
+            started.set()
+            await release.wait()
+
+    client = Slow([result()])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await started.wait()
+    await run.stop()
+    release.set()
+    await task
+    assert client.queries == []
+    assert client.disconnected >= 1
+    assert events.of("finished") == []

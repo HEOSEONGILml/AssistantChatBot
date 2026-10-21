@@ -59,6 +59,8 @@ class AgentRun:
         self._make_client = make_client
         self._client = None
         self._answer: asyncio.Future | None = None
+        # SDK는 권한 요청·도구 호출을 따로 돌리므로 질문이 겹칠 수 있다. 한 번에 하나만 보이고 기다린다.
+        self._ask_lock = asyncio.Lock()
         self._stopped = False
 
     @property
@@ -67,13 +69,15 @@ class AgentRun:
 
     async def run(self, prompt: str, options) -> None:
         """끝(ResultMessage)까지 돌린다. 멈춘 경우엔 finished를 부르지 않는다 (앱이 멈춤으로 둔다)."""
+        client = None
         try:
-            self._client = self._make_client(options=options)
-            await self._client.connect()
+            # 지역 변수로도 쥐어, 연결 중 stop이 와도 이 클라이언트를 끝에 반드시 끊는다
+            client = self._client = self._make_client(options=options)
+            await client.connect()
             if self._stopped:
                 return
-            await self._client.query(prompt)
-            async for m in self._client.receive_messages():
+            await client.query(prompt)
+            async for m in client.receive_messages():
                 if self._handle(m):
                     return
             if not self._stopped:
@@ -85,7 +89,8 @@ class AgentRun:
             log.exception("작업 %d: Claude Code 실행 실패 (%s)", self.task_id, type(e).__name__)
             self._events.finished("Claude Code를 실행하지 못했어요", True)
         finally:
-            await self._close()
+            self._client = None
+            await self._disconnect(client)
 
     def _handle(self, m) -> bool:
         """메시지 하나를 이벤트로. 끝이면 True."""
@@ -107,21 +112,25 @@ class AgentRun:
     async def can_use_tool(self, tool_name: str, tool_input: dict, ctx: ToolPermissionContext):
         if tool_name == "AskUserQuestion":
             answers = {}
-            for q in tool_input.get("questions", []):
-                self._events.question(q["question"], [o["label"] for o in q.get("options", [])])
-                answers[q["question"]] = await self._wait()
-                if self._stopped:
-                    return PermissionResultDeny(message=STOP_ANSWER, interrupt=True)
+            async with self._ask_lock:  # 한 도구의 질문들은 이어서 묻는다
+                for q in tool_input.get("questions", []):
+                    answers[q["question"]] = await self._ask(
+                        lambda: self._events.question(q["question"], [o["label"] for o in q.get("options", [])]))
+                    if self._stopped:
+                        return PermissionResultDeny(message=STOP_ANSWER, interrupt=True)
             return PermissionResultAllow(updated_input={**tool_input, "answers": answers})
-        self._events.question(ctx.title or f"{tool_name} 사용을 허용할까요?", ["허용", "거부"])
-        answer = await self._wait()
+        async with self._ask_lock:
+            answer = await self._ask(
+                lambda: self._events.question(ctx.title or f"{tool_name} 사용을 허용할까요?", ["허용", "거부"]))
+        if self._stopped:
+            return PermissionResultDeny(message=STOP_ANSWER, interrupt=True)
         if answer == "허용":
             return PermissionResultAllow()
         return PermissionResultDeny(message=str(answer))
 
     async def confirm(self, kind: str, text: str, data: dict) -> str | dict:
-        self._events.confirm_request(kind, text, data)
-        return await self._wait()
+        async with self._ask_lock:
+            return await self._ask(lambda: self._events.confirm_request(kind, text, data))
 
     def notify(self, task: dict) -> None:
         self._events.task_changed()
@@ -141,14 +150,23 @@ class AgentRun:
             log.warning("작업 %d: 세션이 없어 덧붙이지 못했다", self.task_id)
 
     async def stop(self) -> None:
+        """지금 질문은 "거부"로 풀고, 줄 서 있던 질문은 _ask에서 바로 "거부"로 끝난다."""
         self._stopped = True
         self.answer(STOP_ANSWER)
-        if self._client is not None:
+        client = self._client
+        if client is not None:
             try:
-                await self._client.interrupt()
+                await client.interrupt()
             except Exception as e:
                 log.warning("작업 %d: 멈춤 요청 실패 (%s)", self.task_id, type(e).__name__)
-        await self._close()
+            await self._disconnect(client)
+
+    async def _ask(self, emit) -> str | dict:
+        """_ask_lock을 쥔 채로 부른다. 멈췄으면 묻지 않고 "거부"."""
+        if self._stopped:
+            return STOP_ANSWER
+        emit()
+        return await self._wait()
 
     async def _wait(self) -> str | dict:
         self._answer = asyncio.get_running_loop().create_future()
@@ -160,8 +178,7 @@ class AgentRun:
             self._events.answered()
         return value
 
-    async def _close(self) -> None:
-        client, self._client = self._client, None
+    async def _disconnect(self, client) -> None:
         if client is not None:
             try:
                 await client.disconnect()
