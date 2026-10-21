@@ -21,6 +21,7 @@ class FakeAuth:
     def __init__(self, ok=True):
         self.ok = ok
         self.login_calls = 0
+        self.logout_calls = 0
 
     async def logged_in(self):
         return self.ok
@@ -31,7 +32,7 @@ class FakeAuth:
         return True
 
     async def logout(self):
-        self.logout_calls = getattr(self, "logout_calls", 0) + 1
+        self.logout_calls += 1
         self.ok = False
 
 
@@ -565,7 +566,9 @@ async def test_chat_resumes_after_restart():
     # 일하는 중에 앱이 꺼졌다가 다시 켜진다
     app2, _, _, runs2 = make(store=store)
     await app2.startup()
-    assert store.chat_task()["id"] == chat_id and store.chat_task()["state"] == "failed"
+    # 대화 작업은 실패로 닫지 않고 실패 줄도 남기지 않는다
+    assert store.chat_task()["id"] == chat_id and store.chat_task()["state"] == "done"
+    assert [e["kind"] for e in store.entries(chat_id)] == ["user"]
     await app2.say(chat_id, "아까 하던 얘기")
     assert runs2[0].prompt == "아까 하던 얘기" and runs2[0].options.resume == "s1"
     assert store.get_task(chat_id)["state"] == "working"

@@ -14,6 +14,8 @@ log = logging.getLogger(__name__)
 STATUS_TIMEOUT = 20  # 초. 상태 확인이 멈추면 로그인 안 된 것으로 본다
 LOGOUT_TIMEOUT = 20  # 초. 로그아웃은 브라우저를 거치지 않아 상태 확인과 같은 제한을 둔다 (잠정)
 HEALTH_URL = "http://localhost:3030/health"
+# 끈 직후 다시 켤 때 죽어 가는 screenpipe가 내려가길 기다린다: 0.5초씩 10번 = 5초 (잠정)
+DOWN_WAIT_S, DOWN_WAIT_TRIES = 0.5, 10
 # 콘솔 창이 번쩍이지 않게 한다. 윈도 밖에서는 없는 값이라 0.
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -109,15 +111,20 @@ class Auth:
 class Recorder:
     """screenpipe를 띄운다. 이미 떠 있으면(사용자가 따로 켠 경우) 건드리지 않는다."""
 
-    def __init__(self, spawn=_spawn, health=_health, kill=_kill):
+    def __init__(self, spawn=_spawn, health=_health, kill=_kill, sleep=asyncio.sleep):
         self._spawn = spawn
         self._health = health
         self._kill = kill
+        self._sleep = sleep
         self._proc = None
+        self._just_stopped = False  # 내가 띄운 것을 방금 껐다
 
     async def start(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
             return  # 내가 띄운 게 아직 살아 있다
+        if self._just_stopped:
+            self._just_stopped = False
+            await self._wait_down()
         if await self._health():
             log.info("screenpipe가 이미 떠 있어 그대로 둔다")
             return
@@ -132,3 +139,11 @@ class Recorder:
         proc, self._proc = self._proc, None
         if proc is not None:
             self._kill(proc)
+            self._just_stopped = True
+
+    async def _wait_down(self) -> None:
+        """끈 screenpipe가 아직 health에 답하면 내려갈 때까지 잠깐 기다린다 (남의 것으로 잘못 보지 않게)."""
+        for _ in range(DOWN_WAIT_TRIES):
+            if not await self._health():
+                return
+            await self._sleep(DOWN_WAIT_S)

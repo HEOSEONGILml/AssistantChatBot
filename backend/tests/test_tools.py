@@ -202,3 +202,13 @@ async def test_create_task_when_logged_out_is_error(setup):
     res = await tools["create_task"].handler({"text": "일"})
     assert res["is_error"]
     assert store.entries(tid) == [] and ctx.added == []
+
+
+async def test_set_task_title_refused_in_chat():
+    store = Store(None)
+    chat = store.create_task("chat", "대화")
+    ctx = FakeCtx(chat["id"], store=store)
+    tools = {t.name: t for t in build_tools(store, ctx)}
+    res = await tools["set_task_title"].handler({"title": "회의 자료"})
+    assert res["is_error"]
+    assert store.get_task(chat["id"])["title"] == "대화" and ctx.notified == []

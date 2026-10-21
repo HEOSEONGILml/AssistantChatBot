@@ -96,6 +96,8 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
 
     @tool("set_task_title", "이 작업의 제목을 정한다.", {"title": str})
     async def set_task_title(args):
+        if store.get_task(ctx.task_id)["source"] == "chat":
+            return _text("대화 탭의 제목은 바꾸지 않는다", True)
         ctx.notify(store.update_task(ctx.task_id, title=args["title"]))
         return _ok({"ok": True})
 

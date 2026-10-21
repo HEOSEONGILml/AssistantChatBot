@@ -22,7 +22,7 @@
 |---|---|---|
 | `hello` | `token`: 문자열 | 접속 인증 |
 | `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다. 로그인이 이미 진행 중이면 무시한다 |
-| `logout` | 없음 | 설정 탭 로그아웃 버튼. `claude auth logout`(20초 제한)을 부르고 `status {logged_in: false}`를 보낸다 |
+| `logout` | 없음 | 설정 탭 로그아웃 버튼. `claude auth logout`(20초 제한)을 부르고 `status {logged_in: false}`를 보낸다. 이미 돌고 있는 작업은 멈추지 않고 계속 돈다 |
 | `request` | `text`: 문자열 | 작업 탭 입력칸. 새 작업을 만든다 |
 | `add_schedule` | `name`: 문자열, `rule`: 규칙, `instruction`: 문자열 | 새 스케줄 양식의 [등록]. 확인 없이 바로 저장한다 |
 | `say` | `task_id`: 정수, `text`: 문자열 | 대화 안에서 말하기. 질문의 답, 덧붙이기, 되물음, 등록 확인의 [등록] 모두. 대화 탭의 말하기도 대화 작업 ID로 보낸다 |
@@ -35,7 +35,7 @@
 | `set_schedule_enabled` | `task_id`: 정수, `enabled`: 참거짓 | 스케줄 스위치 |
 | `get_settings` | 없음 | 설정 탭 |
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새 작업부터 적용 |
-| `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다) |
+| `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
 
 - **규칙 `rule`**: `{"repeat": "daily"|"weekdays"|"weekly"|"monthly", "time": "HH:MM", "weekday": 0-6, "day": 1-31}`. `weekday`(월=0)는 `weekly`일 때, `day`는 `monthly`일 때만 필요하다 ([0032](decisions/0032-schedule-creation.md)). 틀린 규칙은 버린다.
@@ -78,7 +78,7 @@
 | `failed` | 못 함. 앱이 꺼져 끊긴 작업도 다음 시작 때 여기로 닫는다 |
 | `stopped` | 멈춤 |
 
-알림 목록(`view: "alerts"`)은 답 기다림, 안 본 실패, 안 본 완료 순이다. 대화 작업(`source: "chat"`)은 작업 목록(`user`)에도 알림 목록에도 넣지 않는다. 대화 작업도 끝나면 `done`·`failed`가 되지만, 다시 `say`하면 저장된 세션을 이어 쓴다.
+알림 목록(`view: "alerts"`)은 답 기다림, 안 본 실패, 안 본 완료 순이다. 대화 작업(`source: "chat"`)은 작업 목록(`user`)에도 알림 목록에도 넣지 않는다. 대화 작업도 끝나면 `done`·`failed`가 되지만, 다시 `say`하면 저장된 세션을 이어 쓴다. 앱이 꺼져 끊긴 대화 작업은 시작 때 실패로 닫지 않고 `done`으로 되돌린다(실패 줄도 남기지 않는다). 에이전트의 작업 기록 도구(`recent_tasks`, `search_tasks`, `get_task`)는 대화 작업도 찾는다. 대화 작업의 제목은 `대화`로 고정이다(에이전트가 바꾸지 못한다).
 
 ### 대화 줄 `entry`
 

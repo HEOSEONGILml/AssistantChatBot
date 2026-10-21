@@ -100,6 +100,25 @@ async def test_recorder_starts_and_stops_only_its_own(monkeypatch):
     assert len(killed) == 1
 
 
+async def test_recorder_restart_waits_for_old_one_to_go_down(monkeypatch):
+    """끈 직후 다시 켜면 죽어 가는 screenpipe가 health에 답해도 내려갈 때까지 기다렸다 띄운다."""
+    monkeypatch.setattr(clients.shutil, "which", lambda name: None)
+    spawned, slept = [], []
+    answers = iter([False, True, True, False, False])  # 첫 start: 꺼짐 / 끈 뒤: 두 번 더 답하고 내려감 / 마지막 확인
+
+    async def health():
+        return next(answers)
+
+    async def sleep(s):
+        slept.append(s)
+    rec = Recorder(spawn=lambda argv, env: spawned.append(argv) or FakeProc(), health=health,
+                   kill=lambda p: None, sleep=sleep)
+    await rec.start()
+    rec.stop()
+    await rec.start()
+    assert len(spawned) == 2 and len(slept) == 2
+
+
 async def test_recorder_start_failure_is_logged_not_raised():
     def spawn(argv, env):
         raise OSError("no npx")

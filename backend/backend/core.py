@@ -292,9 +292,12 @@ class App:
         await self._send(self._usage())
 
     async def startup(self) -> None:
-        """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다. 대화 작업이 없으면 만든다 (하나뿐, 0033).
-        대화 작업이 실패로 닫혀도 다음 say가 저장된 세션을 이어 쓴다. 화면 기록이 켜져 있으면 screenpipe를 띄운다."""
+        """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다 (대화 작업은 done으로만 되돌린다).
+        대화 작업이 없으면 만든다 (하나뿐, 0033). 다음 say가 저장된 세션을 이어 쓴다. 화면 기록이 켜져 있으면 screenpipe를 띄운다."""
         for task in self._store.tasks_in_states("working", "waiting"):
+            if task["source"] == "chat":
+                self._store.update_task(task["id"], state="done")  # 대화는 실패로 알리지 않는다
+                continue
             self._store.add_entry(task["id"], "failure", "앱이 꺼져서 멈췄어요")
             self._store.update_task(task["id"], state="failed", seen=False)
         if self._store.chat_task() is None:

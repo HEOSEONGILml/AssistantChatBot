@@ -60,7 +60,7 @@
 ### Task 2: 로그아웃과 화면 기록 켜기·끄기, 전송, 문서
 
 **Files:**
-- Modify: `backend/backend/clients.py` (`Auth.logout() -> None`: `claude auth logout`, 20초 제한), `backend/backend/core.py` (`logout()`, `set_recording(enabled)`, `get_settings`의 `recording`), `backend/backend/server.py` (ROUTES에 `logout: ()`, `set_recording: (("enabled", bool),)`; `logout`은 BACKGROUND), `backend/backend/__main__.py` (시작 때 저장된 `recording`이 `"on"`일 때만 `Recorder.start()`; App이 Recorder를 받아 켜고 끈다)
+- Modify: `backend/backend/clients.py` (`Auth.logout() -> None`: `claude auth logout`, 20초 제한), `backend/backend/core.py` (`logout()`, `set_recording(enabled)`, `get_settings`의 `recording`), `backend/backend/server.py` (ROUTES에 `logout: ()`, `set_recording: (("enabled", bool),)`; `logout`은 BACKGROUND), `backend/backend/__main__.py` (Recorder를 만들어 App에 넘긴다. 시작 때 저장된 `recording`이 `"on"`일 때만 `Recorder.start()`하는 것은 `App.startup()`이 한다; App이 Recorder를 받아 켜고 끈다)
 - Modify docs: `docs/backend-protocol.md` (`logout`, `set_recording`, `settings.recording`, 출처 `chat`, 줄 종류 `chip`, 접속 때 대화 작업 `task`), `ARCHITECTURE.md`, `docs/manual-checks/backend.md` (로그아웃 뒤 로그인, 화면 기록 끄기·켜기로 screenpipe 프로세스가 실제로 사라지고 생기는지)
 - Test: `backend/tests/test_clients.py`, `test_core.py`, `test_server.py`
 
@@ -68,7 +68,7 @@
 - `App(store, emit, auth, recorder, new_run=AgentRun)` — `recorder`는 `start()`(async)·`stop()`을 가진 객체. 기존 생성자 순서를 확인해 맞춘다.
 - `App.logout()`: `await auth.logout()` → `status {logged_in: false}`.
 - `App.set_recording(enabled: bool)`: 설정 저장 → `recorder.start()` 또는 `stop()` → `settings` 메시지.
-- `App.recording_enabled() -> bool` (`__main__`이 시작 때 읽는다).
+- `App.recording_enabled() -> bool` (`App.startup()`이 시작 때 읽는다. 구현 때 테스트하기 쉽게 `__main__`에서 옮겼다).
 
 - [ ] **Step 1: 실패하는 테스트**: `test_logout_sends_status`, `test_set_recording_starts_and_stops`, `test_recording_off_persists_across_start`, `test_settings_includes_recording`, server의 `logout`·`set_recording` 라우트(타입이 틀리면 버림), `Auth.logout` 명령 인자
 - [ ] **Step 2: 실패 확인**
