@@ -86,3 +86,17 @@ sequenceDiagram
 - 확인한 것: `claude auth status`는 `loggedIn`, `authMethod`(`claude.ai`), `subscriptionType`을 JSON으로 준다. `claude auth login`에는 `--claudeai`(기본), `--email`, `--sso` 옵션이 있다 (Claude Code 2.1.305). 로그아웃 상태에서 `claude auth login`을 띄워 브라우저가 열리고 끝남을 알아차리는지는 아직 시험하지 않았다.
 - 문서 확인 ([CLI 레퍼런스](https://code.claude.com/docs/en/cli-reference.md)): `claude auth status`는 로그인되어 있으면 종료 코드 0, 아니면 1이다. 로그인 끝남을 알리는 신호는 문서에 없다. `claude auth login` 프로세스가 끝나기를 기다린 뒤 `claude auth status`로 확인하는 방법을 시험해야 한다.
 - **약관 주의** ([Agent SDK 개요](https://code.claude.com/docs/en/agent-sdk/overview.md)): "사전 승인 없이 제3자 개발자가 자기 제품에서 claude.ai 로그인을 제공하는 것을 허용하지 않는다." 개인·내부 앱 예외는 문서에 없다. 1단계 기술 프로토타입(개발자 본인 PC)을 넘어 다른 사람에게 쓰게 하기 전에 Anthropic 승인을 받거나 API 키 방식으로 바꿔야 한다. [0023](0023-claude-code-first-then-own-agent.md)의 결과와 같은 제약이다.
+
+## 수정: 설정 탭과 사용량 탭 (2026-10-21)
+
+디자인에 설정 탭(권한 모드)과 사용량 탭(구독 사용량 한도)이 생겨(사용자) 메시지를 더한다. 메시지 정의는 사용자가 Claude에 맡겼다.
+
+| 방향 | 메시지 | 담는 것 | 언제 |
+|---|---|---|---|
+| 프론트 → 백엔드 | `get_settings` | 없음 | 설정 탭을 열 때 |
+| 프론트 → 백엔드 | `set_permission_mode` | 권한 모드(`default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions`) | 설정 탭에서 바꿀 때. 새 작업부터 적용 |
+| 백엔드 → 프론트 | `settings` | 지금 권한 모드 | `get_settings`의 답, 바뀌었을 때 |
+| 프론트 → 백엔드 | `get_usage` | 없음 | 사용량 탭을 열 때 |
+| 백엔드 → 프론트 | `usage` | 한도 종류별 쓴 비율, 초기화 시각, 마지막으로 받은 시각 | `get_usage`의 답, 값이 바뀌었을 때 |
+
+권한 모드는 백엔드가 설정 데이터로 저장한다([0027](0027-data-layer-ownership.md)의 설정·키 줄에 더함).

@@ -93,3 +93,25 @@ flowchart LR
 - 과장, 아첨, 군말을 하지 않는다. 이모지를 쓰지 않는다.
 - 확인한 것과 짐작한 것을 구분해서 말한다.
 
+
+## 하네스 실행 설정 (사용자가 Claude에 정의를 맡김, 2026-10-21)
+
+SDK `ClaudeAgentOptions`로 작업마다 이렇게 띄운다. 옵션 이름은 Context7의 `claude-agent-sdk-python` 문서로 확인했다.
+
+| 갈래 | 정의 | 이유 |
+|---|---|---|
+| 하네스를 넣는 방식 | `system_prompt={"type": "preset", "preset": "claude_code", "append": 하네스 문서}` | Claude Code 기본 프롬프트의 도구 안내·안전 지침을 살린다. 통째로 바꾸면 그것이 빠진다 |
+| 다른 설정 막기 | `setting_sources=[]` | 이 PC의 사용자 스킬·플러그인·CLAUDE.md가 섞이지 않게 한다. 스파이크에서 사용자 스킬이 불려 왔다 |
+| 작업 폴더 | `cwd` = 백엔드 데이터 폴더 아래 작업 전용 폴더 | 사용자 파일과 떨어뜨린다 |
+| 켜는 도구 | 크롬 도구(`mcp__claude-in-chrome__*`), `AskUserQuestion`, screenpipe MCP, 작업 기록 MCP, `WebSearch`, `WebFetch`, `Read`(화면 기록의 캡처 이미지를 보는 데 필요) | 1단계 첫 기능은 브라우저 제어다 |
+| 끄는 도구 | `disallowed_tools`로 `Bash`, `Write`, `Edit`, `NotebookEdit`, 하위 에이전트(`Task`), `Skill` | 브라우저 밖의 파일·명령을 건드리지 않게 한다 |
+| 권한 | `permission_mode`는 사용자가 패널 설정 탭에서 고른 값(기본: 매번 묻기 `default`). 새 작업부터 적용한다. 권한 요청은 `can_use_tool` 콜백으로 받아 작업 대화의 질문 줄([허용, 거부])로 바꾼다 | 디자인 설정 탭(사용자) |
+| 한도 | `max_turns=50`. 비용 한도(`max_budget_usd`)는 두지 않는다. 모델은 지정하지 않고 Claude Code 기본값을 쓴다 | 구독 로그인이라 금액보다 구독 사용량 한도가 실제 한계다. 50턴은 잠정값이며 근거가 없다. 써 보며 고친다 |
+
+하네스 문서의 질문 규칙(3절)과 금지 동작(4절)은 권한 모드와 상관없이 지킨다. "묻지 않음"(`bypassPermissions`) 모드에서는 권한 콜백이 오지 않으므로, 확인 대상 동작은 하네스 규칙에 따른 `AskUserQuestion`으로만 확인받는다.
+
+## 사용량 값 얻기 (확인한 것과 남은 것, 2026-10-21)
+
+- SDK는 구독 한도 상태가 바뀔 때 `RateLimitEvent`를 흘려보낸다. 담는 것: 상태, 한도 종류(`rate_limit_type`), 쓴 비율(`utilization`), 초기화 시각(`resets_at`) (Context7, `claude-agent-sdk-python` `types.py`).
+- 그래서 백엔드는 작업이 돌 때 받은 한도 종류별 마지막 값을 보관해 사용량 탭에 보낸다. 작업이 돌지 않으면 값이 갱신되지 않는다. 디자인의 "이 PC에서 계산한 근삿값" 표시와 맞다.
+- 시험하지 않은 것: 이 이벤트가 상태가 바뀔 때만 오는지 작업마다 오는지, 한도 종류 이름이 무엇인지(세션·주간·Opus·Sonnet과 어떻게 대응하는지).
