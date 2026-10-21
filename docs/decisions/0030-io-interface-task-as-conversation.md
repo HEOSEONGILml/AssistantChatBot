@@ -84,3 +84,5 @@ sequenceDiagram
 - 디자인 변경: 키 입력 요청 대신 **Claude 로그인 요청**을 보인다 (사용자).
 - 그래서 `set_key`를 빼고 `login`을 더했다. `status`는 키 상태 대신 로그인 상태를 알린다. 설정 창의 TypeSafe·Gemini 키 입력칸은 쓸 곳이 없어 뺀다 (Claude 제안, 사용자 수용).
 - 확인한 것: `claude auth status`는 `loggedIn`, `authMethod`(`claude.ai`), `subscriptionType`을 JSON으로 준다. `claude auth login`에는 `--claudeai`(기본), `--email`, `--sso` 옵션이 있다 (Claude Code 2.1.305). 로그아웃 상태에서 `claude auth login`을 띄워 브라우저가 열리고 끝남을 알아차리는지는 아직 시험하지 않았다.
+- 문서 확인 ([CLI 레퍼런스](https://code.claude.com/docs/en/cli-reference.md)): `claude auth status`는 로그인되어 있으면 종료 코드 0, 아니면 1이다. 로그인 끝남을 알리는 신호는 문서에 없다. `claude auth login` 프로세스가 끝나기를 기다린 뒤 `claude auth status`로 확인하는 방법을 시험해야 한다.
+- **약관 주의** ([Agent SDK 개요](https://code.claude.com/docs/en/agent-sdk/overview.md)): "사전 승인 없이 제3자 개발자가 자기 제품에서 claude.ai 로그인을 제공하는 것을 허용하지 않는다." 개인·내부 앱 예외는 문서에 없다. 1단계 기술 프로토타입(개발자 본인 PC)을 넘어 다른 사람에게 쓰게 하기 전에 Anthropic 승인을 받거나 API 키 방식으로 바꿔야 한다. [0023](0023-claude-code-first-then-own-agent.md)의 결과와 같은 제약이다.
