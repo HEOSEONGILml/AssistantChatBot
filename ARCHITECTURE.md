@@ -33,7 +33,7 @@ flowchart LR
 - `src/shared/settings.ts`: 화면 설정(단축키) 저장. 저장본에 예전 설정이 있어도 지금 쓰는 값만 꺼낸다.
 - `src-tauri/src/brain.rs`: 접속 정보 파일 읽기, 개발 환경에서 `brain/.venv`의 파이썬으로 두뇌 띄우기, 앱이 끝날 때 함께 끄기.
 - `src-tauri/src/lib.rs`: 트레이(설정, 종료)와 창 관리.
-- `public/sprites/dog/`: 강아지 스프라이트. 지금은 쓰는 코드가 없다. 강아지 모습을 남긴다는 판단(확인 전, [vision](docs/vision.md))에 따라 둔다.
+- `public/sprites/dog/`: 강아지 스프라이트. 지금은 쓰는 코드가 없다. 강아지가 화면 한 자리에 있다는 컨셉([vision](docs/vision.md))에 따라 둔다.
 
 ## 3. 두뇌 (`brain/`)
 
@@ -57,7 +57,7 @@ flowchart LR
 
 | 문서 | 내용 |
 |---|---|
-| [`docs/vision.md`](docs/vision.md) | 제품 비전. 사용자가 말한 것과 Claude 판단을 나눠 적는다 |
+| [`docs/vision.md`](docs/vision.md) | 제품 비전. 사용자가 말하거나 확인한 것만 적는다 |
 | [`docs/glossary.md`](docs/glossary.md) | 용어집 |
 | [`docs/brain-protocol.md`](docs/brain-protocol.md) | 화면 ↔ 두뇌 프로토콜 |
 | [`docs/decisions/`](docs/decisions/) | 결정 기록. 결정 하나에 파일 하나 |
@@ -74,6 +74,6 @@ flowchart LR
 | [0022](docs/decisions/0022-pivot-to-assistant.md) | 다마고치를 접고 브라우저를 조작하는 조수로 바꾼다 | 채택 |
 | [0023](docs/decisions/0023-claude-code-first-then-own-agent.md) | 에이전트는 Claude Code로 먼저, 나중에 직접 설계한 에이전트로 | 채택 |
 | [0024](docs/decisions/0024-observation-common-plus-enrichment.md) | 지금 상황은 공통 관찰 + 프로그램별 선택적 강화 | 채택 |
-| [0025](docs/decisions/0025-own-scheduler-common-task-entry.md) | 스케줄 작업은 직접 구현, 에이전트는 "작업 시작" 하나의 입구로 | 채택 |
+| [0025](docs/decisions/0025-own-scheduler.md) | 스케줄 작업은 직접 구현한다 | 채택 |
 
 0001~0021은 다마고치 시절 기록이라 지웠다. 아직 유효한 원칙은 0022에 옮겼고, 원문은 git 기록 `4b8c747`에 있다.
