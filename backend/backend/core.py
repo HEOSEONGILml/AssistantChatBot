@@ -224,8 +224,11 @@ class App:
         await self._flush()
 
     def _schedule_ran(self, task_id: int, now: datetime) -> None:
-        schedule = self._store.update_schedule(task_id, last_run_at=_iso(now),
-                                               last_result=self._store.get_task(task_id)["state"])
+        task = self._store.get_task(task_id)
+        if task is None or self._store.get_schedule(task_id) is None:
+            log.warning("스케줄 %d: 끝났지만 작업이나 스케줄이 없어 결과를 기록하지 않음", task_id)
+            return
+        schedule = self._store.update_schedule(task_id, last_run_at=_iso(now), last_result=task["state"])
         self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
     async def get_settings(self) -> None:

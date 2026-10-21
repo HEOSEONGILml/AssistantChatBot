@@ -67,3 +67,24 @@ async def test_disabled_schedule_never_runs():
     clock.t = datetime(2026, 10, 22, 18, 1, tzinfo=KST)
     await s.tick()
     assert app.calls == []
+
+
+async def test_gap_from_sleep_skips_missed_run_but_next_day_runs():
+    s, clock, app = setup(datetime(2026, 10, 22, 17, 59, tzinfo=KST))
+    clock.t = datetime(2026, 10, 22, 19, 0, tzinfo=KST)  # 절전 후 복귀
+    await s.tick()
+    assert app.calls == []
+    clock.t = datetime(2026, 10, 23, 17, 59, tzinfo=KST)  # 하루 뒤도 한 번 벌어짐
+    await s.tick()
+    clock.t = datetime(2026, 10, 23, 18, 0, 30, tzinfo=KST)
+    await s.tick()
+    assert app.calls == [(1, clock.t)]
+
+
+async def test_missing_task_does_not_abort_tick():
+    s, clock, app = setup(datetime(2026, 10, 22, 17, 59, tzinfo=KST))
+    s._store._db.execute("PRAGMA foreign_keys = OFF")
+    s._store._db.execute("DELETE FROM tasks WHERE id = 1")
+    clock.t = datetime(2026, 10, 22, 18, 0, 30, tzinfo=KST)
+    await s.tick()
+    assert app.calls == []
