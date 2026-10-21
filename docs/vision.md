@@ -126,6 +126,7 @@
 ## 플랫폼 (확정, 2026-10-14)
 
 - **Windows PC를 먼저** 만든다. → [0022](decisions/0022-pivot-to-assistant.md)
+- **1단계는 개발자 PC에서 실행한다** (사용자, 2026-10-21). 저장소를 받아 `uv sync`, `npm install` 뒤 `npm run tauri dev`로 띄운다. 설치 파일 배포는 설계하지 않는다.
 - Android는 사용자가 지시할 때 별도로 한다.
 - **백엔드는 화면에 의존하지 않는다** (2026-10-15). → [0022](decisions/0022-pivot-to-assistant.md)
 
