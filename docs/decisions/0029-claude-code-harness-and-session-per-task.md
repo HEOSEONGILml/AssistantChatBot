@@ -106,7 +106,7 @@ SDK `ClaudeAgentOptions`로 작업마다 이렇게 띄운다. 옵션 이름은 C
 | 켜는 도구 | 크롬 도구(`mcp__claude-in-chrome__*`), `AskUserQuestion`, screenpipe MCP, 작업 기록 MCP, `WebSearch`, `WebFetch`, `Read`(화면 기록의 캡처 이미지를 보는 데 필요) | 1단계 첫 기능은 브라우저 제어다 |
 | 끄는 도구 | `disallowed_tools`로 `Bash`, `Write`, `Edit`, `NotebookEdit`, 하위 에이전트(`Task`), `Skill` | 브라우저 밖의 파일·명령을 건드리지 않게 한다 |
 | 권한 | `permission_mode`는 사용자가 패널 설정 탭에서 고른 값(기본: 매번 묻기 `default`). 새 작업부터 적용한다. 권한 요청은 `can_use_tool` 콜백으로 받아 작업 대화의 질문 줄([허용, 거부])로 바꾼다 | 디자인 설정 탭(사용자) |
-| 한도 | `max_turns=50`. 비용 한도(`max_budget_usd`)는 두지 않는다. 모델은 지정하지 않고 Claude Code 기본값을 쓴다 | 구독 로그인이라 금액보다 구독 사용량 한도가 실제 한계다. 50턴은 잠정값이며 근거가 없다. 써 보며 고친다 |
+| 한도 | **작업 한도를 두지 않는다** (사용자). `max_turns`, `max_budget_usd` 모두 쓰지 않는다. 모델은 지정하지 않고 Claude Code 기본값을 쓴다 | 사용자가 정했다 |
 
 하네스 문서의 질문 규칙(3절)과 금지 동작(4절)은 권한 모드와 상관없이 지킨다. "묻지 않음"(`bypassPermissions`) 모드에서는 권한 콜백이 오지 않으므로, 확인 대상 동작은 하네스 규칙에 따른 `AskUserQuestion`으로만 확인받는다.
 
