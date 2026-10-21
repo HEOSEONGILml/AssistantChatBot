@@ -47,7 +47,8 @@ flowchart LR
 - 화면 글자(OCR)와 소리를 받아 적어 로컬 DB에 쌓고 검색하게 한다. Windows·Mac·Linux. 소스 공개(오픈소스 아님). 무료 등급과 유료 등급이 있다.
 - "pipes": 기록 위에서 도는 자동화(회의 받아 적기, 할 일 뽑기).
 - MCP 서버로 Claude 같은 에이전트가 기록을 검색한다. 도구 목록은 자료마다 다르다(`search`, `search_time_range`, `recent_context` 등).
-- 스스로 나서거나 컴퓨터를 조작한다는 근거는 찾지 못했다.
+- 공개 코드 확인 (2026-10-21): `npx screenpipe record`(기록), `localhost:3030` REST 검색 API, `packages/screenpipe-mcp`(MCP). 플랜은 완성품 데스크톱 앱에만 걸린다. 소스 빌드 라이선스는 개인·비상업 무료, 회사 업무는 평가 7일까지 무료.
+- pipes는 마크다운 하나에 지시문·스케줄을 적으면 정해진 시간에 Claude Code 같은 코딩 에이전트를 돌려 기록을 조회하고 행동한다. 스스로 나서는 기능은 이 예약 실행 정도다.
 - 출처: [screenpipe 블로그](https://screenpipe.com/blog/screen-assistant-ai-2026), [MCP 도구](https://screenpi.pe/resources/use-cases/mcp-tools), [AI Agent Index](https://theaiagentindex.com/agents/screenpipe)
 
 ### 그 밖
