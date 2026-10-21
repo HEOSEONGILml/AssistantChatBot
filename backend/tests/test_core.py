@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -519,3 +520,62 @@ async def test_second_login_while_pending_is_ignored():
     assert out == [{"type": "status", "logged_in": True}]
     await app.login()  # 끝난 뒤에는 다시 할 수 있다
     assert auth.login_calls == 2
+
+
+async def test_chat_task_created_once():
+    app, store, out, runs = make()
+    await app.startup()
+    await app.startup()
+    chat = store.chat_task()
+    assert (chat["source"], chat["title"], chat["state"], chat["seen"], chat["session_id"]) == (
+        "chat", "대화", "done", True, None)
+    assert [t["id"] for t in store.recent_tasks(10)] == [chat["id"]]
+    assert store.entries(chat["id"]) == []
+
+
+async def test_connect_sends_chat_task():
+    app, store, out, runs = make()
+    await app.startup()
+    await app.connected(True)
+    assert out == [{"type": "status", "logged_in": True}, {"type": "task", "task": store.chat_task()}]
+
+
+async def test_chat_resumes_after_restart():
+    app, store, out, runs = make()
+    await app.startup()
+    chat_id = store.chat_task()["id"]
+    await app.say(chat_id, "안녕")
+    assert runs[0].prompt == "안녕" and runs[0].options.resume is None
+    runs[0].events.session("s1")
+    # 일하는 중에 앱이 꺼졌다가 다시 켜진다
+    app2, _, _, runs2 = make()
+    app2._store = store
+    await app2.startup()
+    assert store.chat_task()["id"] == chat_id and store.chat_task()["state"] == "failed"
+    await app2.say(chat_id, "아까 하던 얘기")
+    assert runs2[0].prompt == "아까 하던 얘기" and runs2[0].options.resume == "s1"
+    assert store.get_task(chat_id)["state"] == "working"
+
+
+async def test_chat_create_task_through_agent_run():
+    """대화의 create_task: 새 사용자 작업이 생겨 돌고, 대화에는 칩 줄이 남는다."""
+    app, store, out, runs = make(real=True)
+    await app.startup()
+    chat_id = store.chat_task()["id"]
+    await app.say(chat_id, "회의 자료 모아 줘")
+    tools = {t.name: t for t in build_tools(store, runs[0])}
+    out.clear()
+    res = await tools["create_task"].handler({"text": "회의 자료 모아 줘"})
+    await settle()
+    new_id = json.loads(res["content"][0]["text"])["task_id"]
+    new = store.get_task(new_id)
+    assert (new["source"], new["state"]) == ("user", "working")
+    assert len(runs) == 2 and runs[1].task_id == new_id and new_id in app._runs
+    assert [(e["kind"], e["text"]) for e in store.entries(new_id)] == [("user", "회의 자료 모아 줘")]
+    chip = store.entries(chat_id)[-1]
+    assert (chip["kind"], chip["data"]) == ("chip", {"task_id": new_id})
+    assert {"type": "entry", "task_id": chat_id, "entry": chip} in out
+    assert of(out, "task")[0]["task"]["id"] == new_id
+    await app.stop(chat_id)
+    await app.stop(new_id)
+    await settle()

@@ -43,7 +43,8 @@ _TASK_FIELDS = {"title", "state", "seen", "session_id", "source"}
 _SCHEDULE_FIELDS = {"name", "rule", "instruction", "enabled", "last_run_at", "last_result"}
 # 알림 순서: 답 기다림 -> 실패 -> 완료
 _ALERT_ORDER = "CASE state WHEN 'waiting' THEN 0 WHEN 'failed' THEN 1 ELSE 2 END, id DESC"
-_ALERT_WHERE = "state = 'waiting' OR (state IN ('done','failed') AND seen = 0)"
+# 대화 탭의 대화 작업은 알림에 넣지 않는다 (0030 수정: 대화 탭)
+_ALERT_WHERE = "source != 'chat' AND (state = 'waiting' OR (state IN ('done','failed') AND seen = 0))"
 
 
 def _now() -> str:
@@ -106,6 +107,11 @@ class Store:
 
     def get_task(self, task_id: int) -> dict | None:
         row = self._db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return _task(row) if row else None
+
+    def chat_task(self) -> dict | None:
+        """대화 탭의 대화 작업 (하나뿐이다). 아직 없으면 None."""
+        row = self._db.execute("SELECT * FROM tasks WHERE source = 'chat' ORDER BY id LIMIT 1").fetchone()
         return _task(row) if row else None
 
     def list_tasks(self, page: int, view: str) -> tuple[list[dict], int]:

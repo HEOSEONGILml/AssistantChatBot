@@ -75,3 +75,17 @@ def test_tasks_in_states():
         t = s.create_task("user", title)
         s.update_task(t["id"], state=state)
     assert [t["title"] for t in s.tasks_in_states("working", "waiting")] == ["w", "q"]
+
+
+def test_chat_task_not_in_lists():
+    s = Store(None)
+    assert s.chat_task() is None
+    chat = s.create_task("chat", "대화")
+    s.update_task(chat["id"], state="failed", seen=False)  # 앱이 꺼져 고아 처리된 대화도 알림에 넣지 않는다
+    u = s.create_task("user", "일")
+    s.update_task(u["id"], state="done", seen=False)
+    assert s.chat_task()["id"] == chat["id"]
+    assert [t["id"] for t in s.list_tasks(1, "user")[0]] == [u["id"]]
+    assert [t["id"] for t in s.list_tasks(1, "alerts")[0]] == [u["id"]]
+    s.update_task(chat["id"], state="waiting")
+    assert [t["id"] for t in s.list_tasks(1, "alerts")[0]] == [u["id"]]

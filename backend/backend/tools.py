@@ -1,4 +1,4 @@
-"""에이전트가 쓰는 백엔드 MCP 도구. 작업 기록 검색과 스케줄 등록·수정을 맡는다."""
+"""에이전트가 쓰는 백엔드 MCP 도구. 작업 기록 검색, 스케줄 등록·수정, 새 작업 만들기를 맡는다."""
 import json
 from datetime import datetime
 from typing import Protocol
@@ -24,6 +24,9 @@ class TaskContext(Protocol):
     def entry_added(self, entry: dict) -> None: ...
 
     def schedule_changed(self) -> None: ...
+
+    async def start_task(self, text: str) -> dict | None:
+        """새 사용자 작업을 만들어 돌린다. 로그아웃이면 만들지 않고 None."""
 
 
 def _ok(value) -> dict:
@@ -153,7 +156,17 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
         ctx.schedule_changed()
         return _ok({"ok": True, "saved": values})
 
-    return [recent_tasks, search_tasks, get_task, get_schedule, set_task_title, create_schedule, update_schedule]
+    @tool("create_task", "사용자가 맡긴 일을 새 작업(새 세션)으로 만들어 따로 실행한다. "
+                         "text에는 맡긴 일을 사용자 말 그대로, 맥락이 빠졌으면 채워서 적는다.", {"text": str})
+    async def create_task(args):
+        task = await ctx.start_task(args["text"])
+        if task is None:
+            return _text("로그아웃 상태라 작업을 만들지 못했다", True)
+        ctx.entry_added(store.add_entry(ctx.task_id, "chip", task["title"], data={"task_id": task["id"]}))
+        return _ok({"task_id": task["id"], "title": task["title"]})
+
+    return [recent_tasks, search_tasks, get_task, get_schedule, set_task_title, create_schedule, update_schedule,
+            create_task]
 
 
 def backend_server(store: Store, ctx: TaskContext):

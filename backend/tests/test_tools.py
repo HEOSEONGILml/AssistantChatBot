@@ -11,6 +11,8 @@ RULE = {"repeat": "daily", "time": "09:00"}
 class FakeCtx:
     def __init__(self, task_id, answer="등록", store=None):
         self.task_id = task_id
+        self.started = []
+        self.logged_in = True
         self.answer = answer
         self.store = store
         self.confirms = []
@@ -32,6 +34,12 @@ class FakeCtx:
 
     def schedule_changed(self):
         self.schedule_changes += 1
+
+    async def start_task(self, text):
+        if not self.logged_in:
+            return None
+        self.started.append(text)
+        return self.store.create_task("user", text[:30])
 
 
 @pytest.fixture
@@ -55,7 +63,7 @@ def test_server_and_prefix(setup):
     store, ctx, tools, _ = setup()
     assert MCP_PREFIX == "mcp__assistant__"
     assert set(tools) == {"recent_tasks", "search_tasks", "get_task", "get_schedule",
-                          "set_task_title", "create_schedule", "update_schedule"}
+                          "set_task_title", "create_schedule", "update_schedule", "create_task"}
     assert backend_server(store, ctx)["name"] == "assistant"
 
 
@@ -173,3 +181,24 @@ async def test_update_schedule_no_change_writes_nothing(setup):
     res = await tools["update_schedule"].handler({"name": "아침"})
     assert not res.get("is_error") and "바뀐 내용이 없" in res["content"][0]["text"]
     assert [e for e in store.entries(tid) if e["kind"] == "edit"] == []
+
+
+async def test_create_task_tool_starts_task_and_leaves_chip(setup):
+    store, ctx, tools, tid = setup()
+    res = await tools["create_task"].handler({"text": "다음 주 회의 자료 모아 줘"})
+    assert not res.get("is_error")
+    new = payload(res)
+    assert ctx.started == ["다음 주 회의 자료 모아 줘"]
+    assert new["task_id"] != tid and new["title"] == "다음 주 회의 자료 모아 줘"
+    [chip] = store.entries(tid)
+    assert (chip["kind"], chip["text"], chip["data"]) == ("chip", "다음 주 회의 자료 모아 줘", {"task_id": new["task_id"]})
+    assert ctx.added == [chip]
+    assert store.entries(new["task_id"]) == []  # 칩은 지금 작업(대화)에만 남는다
+
+
+async def test_create_task_when_logged_out_is_error(setup):
+    store, ctx, tools, tid = setup()
+    ctx.logged_in = False
+    res = await tools["create_task"].handler({"text": "일"})
+    assert res["is_error"]
+    assert store.entries(tid) == [] and ctx.added == []

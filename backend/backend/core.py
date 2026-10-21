@@ -19,6 +19,7 @@ PERMISSION_MODES = ("default", "acceptEdits", "plan", "auto", "bypassPermissions
 VIEWS = ("user", "alerts")
 TITLE_LEN = 30
 PROPOSAL_CHOICES = ["등록", "고치기"]
+CHAT_TITLE = "대화"
 
 
 class Auth(Protocol):
@@ -69,6 +70,9 @@ class _Events:
         if schedule is not None:
             self._app._post({"type": "schedule", "schedule": self._app._schedule_view(schedule)})
 
+    async def start_task(self, text: str) -> dict | None:
+        return await self._app._new_task(text)
+
     def finished(self, result_text: str, is_error: bool) -> None:
         self._app._finish(self._id, result_text, is_error)
 
@@ -101,6 +105,9 @@ class App:
     async def connected(self, on: bool) -> None:
         if on:
             await self._send({"type": "status", "logged_in": await self._auth.logged_in()})
+            chat = self._store.chat_task()
+            if chat is not None:
+                await self._send({"type": "task", "task": chat})
 
     async def login(self) -> None:
         if self._logging_in:
@@ -114,13 +121,7 @@ class App:
         await self._send({"type": "status", "logged_in": ok})
 
     async def request(self, text: str) -> None:
-        if not await self._logged_in():
-            return
-        task = self._store.create_task("user", text[:TITLE_LEN])
-        self._post({"type": "task", "task": task})
-        self._entry(task["id"], "user", text)
-        self._start(task["id"], text, resume=None)
-        await self._flush()
+        await self._new_task(text)
 
     async def add_schedule(self, name: str, rule: dict, instruction: str) -> None:
         """양식으로 바로 저장한다 (확인 없음). 세션은 첫 실행 때 연다."""
@@ -268,12 +269,27 @@ class App:
         await self._send(self._usage())
 
     async def startup(self) -> None:
-        """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다."""
+        """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다. 대화 작업이 없으면 만든다 (하나뿐, 0033).
+        대화 작업이 실패로 닫혀도 다음 say가 저장된 세션을 이어 쓴다."""
         for task in self._store.tasks_in_states("working", "waiting"):
             self._store.add_entry(task["id"], "failure", "앱이 꺼져서 멈췄어요")
             self._store.update_task(task["id"], state="failed", seen=False)
+        if self._store.chat_task() is None:
+            chat = self._store.create_task("chat", CHAT_TITLE)
+            self._store.update_task(chat["id"], state="done", seen=True)
 
     # --- 세션 ---
+    async def _new_task(self, text: str) -> dict | None:
+        """사용자 작업을 만들어 돌린다 (작업 탭 입력칸, 대화의 create_task). 로그아웃이면 None."""
+        if not await self._logged_in():
+            return None
+        task = self._store.create_task("user", text[:TITLE_LEN])
+        self._post({"type": "task", "task": task})
+        self._entry(task["id"], "user", text)
+        self._start(task["id"], text, resume=None)
+        await self._flush()
+        return self._store.get_task(task["id"])
+
     async def _logged_in(self) -> bool:
         """로그아웃이면 status를 다시 보내 화면이 로그인 요청을 띄우게 한다."""
         if await self._auth.logged_in():
