@@ -110,11 +110,14 @@ class Recorder:
         if self._proc is not None and self._proc.poll() is None:
             return  # 내가 띄운 게 아직 살아 있다
         if await self._health():
+            log.info("screenpipe가 이미 떠 있어 그대로 둔다")
             return
         try:
             self._proc = self._spawn(_resolve(config.screenpipe_cmd()), config.claude_env())
         except Exception as e:
             log.warning("screenpipe 실행 실패: %s", type(e).__name__)
+            return
+        log.info("screenpipe 시작")
 
     def stop(self) -> None:
         proc, self._proc = self._proc, None

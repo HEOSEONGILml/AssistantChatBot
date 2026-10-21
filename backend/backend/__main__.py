@@ -12,8 +12,11 @@ from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 
 from . import config
+from .clients import Auth, Recorder
 from .core import App
+from .scheduler import Scheduler
 from .server import Link
+from .store import Store
 
 log = logging.getLogger("backend")
 
@@ -46,19 +49,27 @@ async def main() -> None:
     if await already_running(info):
         log.info("백엔드가 이미 실행 중이라 끝낸다")
         return
+    store = Store(config.db_path())
     link = Link(secrets.token_urlsafe(32))
-    app = App(emit=link.send)
+    app = App(store, link.send, Auth())
     link.app = app
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))  # 이 PC 안에서만 받는다
-    async with serve(link.handler, sock=sock, max_size=2**20):
-        port = sock.getsockname()[1]
-        info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
-        log.info("백엔드 시작: 포트 %d", port)
-        try:
-            await asyncio.Future()  # 끌 때까지 연결을 받는다
-        finally:
-            info.unlink(missing_ok=True)
+    await app.startup()
+    recorder = Recorder()
+    try:
+        await recorder.start()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))  # 이 PC 안에서만 받는다
+        async with serve(link.handler, sock=sock, max_size=2**20):
+            port = sock.getsockname()[1]
+            info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
+            log.info("백엔드 시작: 포트 %d", port)
+            try:
+                await Scheduler(store, app).run_forever()  # 끌 때까지 연결을 받으며 스케줄을 돌린다
+            finally:
+                info.unlink(missing_ok=True)
+    finally:
+        recorder.stop()
+        log.info("백엔드 끝")
 
 
 if __name__ == "__main__":

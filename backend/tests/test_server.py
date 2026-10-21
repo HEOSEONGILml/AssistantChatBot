@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import socket
 
@@ -8,24 +9,23 @@ from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
 from backend.__main__ import already_running
+from backend.core import App
 from backend.server import CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION, Link
+from backend.server import ROUTES as ROUTE_TABLE
 
 TOKEN = "secret-token"
 
 
 class FakeApp:
+    """부른 메서드와 인자를 (이름, 인자...)로 적는다."""
+
     def __init__(self):
         self.events = []
 
-    async def connected(self, on):
-        self.events.append(("connected", on))
-
-    async def handle_message(self, text):
-        self.events.append(("message", text))
-
-    async def set_keys(self, keys):
-        self.events.append(("keys", keys))
-
+    def __getattr__(self, name):
+        async def method(*args):
+            self.events.append((name, *args))
+        return method
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ async def server():
         yield link, f"ws://127.0.0.1:{sock.getsockname()[1]}"
 
 
-def hello(token=TOKEN, v=5):
+def hello(token=TOKEN, v=6):
     return json.dumps({"v": v, "type": "hello", "token": token})
 
 
@@ -48,6 +48,10 @@ async def wait_for(pred, tries=100):
             return
         await asyncio.sleep(0.01)
     raise AssertionError("시간 안에 조건이 만족되지 않음")
+
+
+def calls(app):
+    return [e for e in app.events if e[0] != "connected"]
 
 
 async def test_bad_token_is_rejected(server):
@@ -60,23 +64,23 @@ async def test_bad_token_is_rejected(server):
     assert link.app.events == []
 
 
-async def test_wrong_version_is_rejected(server):
+async def test_v5_is_rejected(server):
     _, url = server
     async with connect(url) as ws:
-        await ws.send(hello(v=2))
+        await ws.send(hello(v=5))
         with pytest.raises(ConnectionClosed):
-            await ws.recv()
+            await asyncio.wait_for(ws.recv(), 2)
         assert ws.close_code == CLOSE_VERSION
 
 
-async def test_signal_reaches_app_and_send_reaches_screen(server):
+async def test_request_reaches_app_and_send_reaches_screen(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 5, "type": "message", "text": "안녕"}))
-        await wait_for(lambda: ("message", "안녕") in link.app.events)
-        await link.send({"type": "status", "ai": "ok"})
-        assert json.loads(await ws.recv()) == {"v": 5, "type": "status", "ai": "ok"}
+        await ws.send(json.dumps({"v": 6, "type": "request", "text": "안녕"}))
+        await wait_for(lambda: ("request", "안녕") in link.app.events)
+        await link.send({"type": "status", "logged_in": True})
+        assert json.loads(await ws.recv()) == {"v": 6, "type": "status", "logged_in": True}
     await wait_for(lambda: link.app.events[-1] == ("connected", False))
     assert link.app.events[0] == ("connected", True)
 
@@ -91,23 +95,83 @@ async def test_new_screen_replaces_old(server):
             with pytest.raises(ConnectionClosed):
                 await first.recv()
             assert first.close_code == CLOSE_REPLACED
-            await link.send({"type": "status", "ai": "ok"})
+            await link.send({"type": "status", "logged_in": True})
             assert json.loads(await second.recv())["type"] == "status"
     await wait_for(lambda: ("connected", False) in link.app.events)
     # 교체된 첫 연결은 끊김을 알리지 않는다: 연결 True 두 번, 끊김은 두 번째가 닫힐 때 한 번
     assert link.app.events.count(("connected", False)) == 1
 
 
-async def test_garbage_is_ignored(server):
+async def test_garbage_and_unknown_types_are_ignored(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
         await ws.send("{not json")
-        await ws.send(json.dumps({"v": 5, "type": "dance"}))
-        await ws.send(json.dumps({"v": 5, "type": "message", "text": 3}))
-        await ws.send(json.dumps({"v": 5, "type": "message", "text": "됨"}))
-        await wait_for(lambda: ("message", "됨") in link.app.events)
-    assert ("message", 3) not in link.app.events
+        await ws.send(json.dumps({"v": 6, "type": "dance"}))
+        await ws.send(json.dumps({"v": 6, "type": "message", "text": "v5 메시지"}))
+        await ws.send(json.dumps({"v": 6, "type": "set_key", "provider": "x", "key": "y"}))
+        await ws.send(json.dumps({"v": 6, "type": "request", "text": "됨"}))
+        await wait_for(lambda: ("request", "됨") in link.app.events)
+    assert calls(link.app) == [("request", "됨")]
+
+
+ROUTES = [
+    ({"type": "login"}, ("login",)),
+    ({"type": "request", "text": "메일 정리"}, ("request", "메일 정리")),
+    ({"type": "add_schedule", "name": "아침", "rule": {"repeat": "daily", "time": "09:00"}, "instruction": "요약"},
+     ("add_schedule", "아침", {"repeat": "daily", "time": "09:00"}, "요약")),
+    ({"type": "say", "task_id": 3, "text": "응"}, ("say", 3, "응")),
+    ({"type": "stop", "task_id": 3}, ("stop", 3)),
+    ({"type": "seen", "task_id": 3}, ("seen", 3)),
+    ({"type": "list_tasks", "page": 2, "view": "alerts"}, ("list_tasks", 2, "alerts")),
+    ({"type": "get_task", "task_id": 3}, ("get_task", 3)),
+    ({"type": "list_schedules", "page": 1}, ("list_schedules", 1)),
+    ({"type": "set_schedule", "task_id": 3, "name": "아침", "rule": {"repeat": "weekdays", "time": "08:30"},
+      "instruction": "요약"}, ("set_schedule", 3, "아침", {"repeat": "weekdays", "time": "08:30"}, "요약")),
+    ({"type": "set_schedule_enabled", "task_id": 3, "enabled": False}, ("set_schedule_enabled", 3, False)),
+    ({"type": "get_settings"}, ("get_settings",)),
+    ({"type": "set_permission_mode", "mode": "plan"}, ("set_permission_mode", "plan")),
+    ({"type": "get_usage"}, ("get_usage",)),
+]
+
+
+@pytest.mark.parametrize("msg,call", ROUTES, ids=[m["type"] for m, _ in ROUTES])
+async def test_each_type_calls_its_app_method(server, msg, call):
+    link, url = server
+    async with connect(url) as ws:
+        await ws.send(hello())
+        await ws.send(json.dumps({"v": 6, **msg}))
+        await wait_for(lambda: call in link.app.events)
+
+
+def test_routes_match_app_methods():
+    """경로표의 필드 이름이 실제 App 메서드의 인자 이름·순서와 같다."""
+    for kind, fields in ROUTE_TABLE.items():
+        params = list(inspect.signature(getattr(App, kind)).parameters)[1:]
+        assert params == [name for name, _ in fields], kind
+
+
+BAD = [
+    {"type": "say", "task_id": "3", "text": "응"},
+    {"type": "say", "task_id": 3},
+    {"type": "say", "task_id": True, "text": "응"},
+    {"type": "request"},
+    {"type": "list_tasks", "page": "1", "view": "user"},
+    {"type": "add_schedule", "name": "아침", "rule": "매일 9시", "instruction": "요약"},
+    {"type": "set_schedule_enabled", "task_id": 3, "enabled": 1},
+    {"type": "set_permission_mode", "mode": 3},
+]
+
+
+async def test_wrong_field_types_are_dropped(server):
+    link, url = server
+    async with connect(url) as ws:
+        await ws.send(hello())
+        for msg in BAD:
+            await ws.send(json.dumps({"v": 6, **msg}))
+        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        await wait_for(lambda: ("get_usage",) in link.app.events)
+    assert calls(link.app) == [("get_usage",)]
 
 
 async def test_already_running(tmp_path, server):

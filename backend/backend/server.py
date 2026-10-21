@@ -9,9 +9,27 @@ from websockets.exceptions import ConnectionClosed
 
 log = logging.getLogger(__name__)
 
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 HELLO_TIMEOUT_S = 5
 CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION = 4001, 4002, 4003
+
+# 화면 메시지 type -> App 메서드에 넘길 필드와 타입 (순서대로 인자가 된다). 메서드 이름은 type과 같다.
+ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
+    "login": (),
+    "request": (("text", str),),
+    "add_schedule": (("name", str), ("rule", dict), ("instruction", str)),
+    "say": (("task_id", int), ("text", str)),
+    "stop": (("task_id", int),),
+    "seen": (("task_id", int),),
+    "list_tasks": (("page", int), ("view", str)),
+    "get_task": (("task_id", int),),
+    "list_schedules": (("page", int),),
+    "set_schedule": (("task_id", int), ("name", str), ("rule", dict), ("instruction", str)),
+    "set_schedule_enabled": (("task_id", int), ("enabled", bool)),
+    "get_settings": (),
+    "set_permission_mode": (("mode", str),),
+    "get_usage": (),
+}
 
 
 def parse(raw) -> dict | None:
@@ -71,7 +89,13 @@ class Link:
 
     async def _dispatch(self, msg: dict) -> None:
         kind = msg["type"]
-        if kind == "message" and isinstance(msg.get("text"), str):
-            await self.app.handle_message(msg["text"])
-        else:
+        fields = ROUTES.get(kind)
+        if fields is None:
             log.warning("모르는 메시지를 버림: %s", kind)
+            return
+        # type()으로 비교한다: isinstance면 true가 int로, 1이 bool 자리에서 통과한다
+        bad = [name for name, t in fields if type(msg.get(name)) is not t]
+        if bad:
+            log.warning("필드가 빠지거나 타입이 틀린 메시지를 버림: %s %s", kind, bad)
+            return
+        await getattr(self.app, kind)(*(msg[name] for name, _ in fields))
