@@ -2,7 +2,7 @@
 
 TamagotchiChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
 
-> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다.
+> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)까지 정했고 아직 구현하지 않았다.
 
 ## 1. 한눈에 보기
 
