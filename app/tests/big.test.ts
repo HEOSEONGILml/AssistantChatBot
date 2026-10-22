@@ -35,6 +35,33 @@ describe("큰 창 상태 넘기기", () => {
   });
 });
 
+describe("fromSnapshot가 이전 상태를 다시 쓴다", () => {
+  const entry = (id: number, session_id: number) => ({ id, session_id, at: "2026-10-22T09:00:00", kind: "agent" as const, text: `줄 ${id}`, choices: null, data: null });
+  const base = run(online(),
+    { type: "session_detail", session: session(2), entries: [entry(1, 2)], schedule: null },
+    { type: "session_detail", session: session(4, { state: "working" }), entries: [entry(5, 4)], schedule: null });
+  const wire = (s: State) => JSON.parse(JSON.stringify(toSnapshot(s)));
+
+  it("keeps the old Session and Entry[] when they did not change, so the conversation is not redrawn", () => {
+    const prev = fromSnapshot(wire(base));
+    const next = fromSnapshot(wire(run(base, { type: "activity", session_id: 4, kind: "tool", text: "파일 읽는 중" })), prev);
+    expect(next.sessions.get(2)).toBe(prev.sessions.get(2));
+    expect(next.entries.get(2)).toBe(prev.entries.get(2));
+    expect(next.activity.get(4)?.text).toBe("파일 읽는 중");
+  });
+
+  it("takes the new ones when they changed", () => {
+    const prev = fromSnapshot(wire(base));
+    const next = fromSnapshot(wire(run(base,
+      { type: "entry", session_id: 4, entry: entry(6, 4) },
+      { type: "session", session: session(4, { state: "done" }) })), prev);
+    expect(next.entries.get(4)?.map((e) => e.id)).toEqual([5, 6]);
+    expect(next.entries.get(4)).not.toBe(prev.entries.get(4));
+    expect(next.sessions.get(4)?.state).toBe("done");
+    expect(next.sessions.get(2)).toBe(prev.sessions.get(2));
+  });
+});
+
 describe("bigRequests", () => {
   it("asks for the left list too when a conversation is open in a two-column tab", () => {
     expect(bigRequests(at({ tab: "tasks", screen: "task", sessionId: 9, page: 2 }))).toEqual([

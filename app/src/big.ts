@@ -39,7 +39,7 @@ window.addEventListener("focus", seenIfFocused);
 
 Promise.all([
   listen<Snapshot>("big-state", (e) => {
-    const s = fromSnapshot(e.payload);
+    const s = fromSnapshot(e.payload, state ?? undefined);
     state = s;
     if (!s.connected) answered.clear();
     pruneAnswered(answered, (id) => s.sessions.get(id)?.state === "waiting");

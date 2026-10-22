@@ -1,7 +1,7 @@
 // 큰 창(12): 패널 전체를 넓게 그린다. 값은 다이제스트 2절 "큰 창(12번)", 3절 12·19번·지우기 버튼 위치, 4절의 큰 창 값.
 // 알림·작업·스케줄 탭은 두 칸(왼쪽 300px 목록, 오른쪽 고른 대화 또는 양식), 대화·사용량·설정은 한 칸(context "정한 값").
 // 패널의 목록·양식·대화·지우기 확인을 그대로 쓰고, 탭 바와 오른쪽 대화 머리만 큰 창 모양이다.
-import type { Outgoing, Session } from "../shared/protocol";
+import type { Entry, Outgoing, Session } from "../shared/protocol";
 import { STATE_TEXT, TWO_COLUMN, type State, type Tab, type View } from "../shared/state";
 import { clockText } from "../shared/forms";
 import { h, svg, switchButton, trashIcon } from "./dom";
@@ -15,6 +15,7 @@ import { usageBody } from "./usage";
 type Send = (m: Outgoing) => unknown;
 type Go = (v: View) => void;
 
+const NO_ENTRIES: Entry[] = []; // 줄을 아직 모를 때도 같은 배열(대화 화면이 참조 비교로 다시 그리지 않게)
 const TABS: [Tab, string][] = [["alerts", "알림"], ["chat", "대화"], ["tasks", "작업"], ["schedules", "스케줄"], ["usage", "사용량"], ["settings", "설정"]];
 
 // 탭 바: 글자 탭 6개. 크게 보기는 없다
@@ -86,7 +87,7 @@ export function renderBig(root: HTMLElement, s: State, send: Send, go: Go): void
     headSlot.replaceChildren(...(isChat ? [] : head(s, t, send, go, askDelete)));
     setContent(content, `conv|${t.id}|${v.screen}`, () => []);
     renderConversation(content, {
-      session: t, entries: s.entries.get(t.id) ?? [], activity: s.activity.get(t.id), height: 0, compact: false,
+      session: t, entries: s.entries.get(t.id) ?? NO_ENTRIES, activity: s.activity.get(t.id), height: 0, compact: false,
     }, send, go);
     return;
   }

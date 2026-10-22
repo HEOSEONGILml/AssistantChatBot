@@ -276,8 +276,17 @@ export function toSnapshot(s: State): Snapshot {
   return { ...s, sessions: [...s.sessions], entries: [...s.entries], schedules: [...s.schedules], activity: [...s.activity] };
 }
 
-export function fromSnapshot(x: Snapshot): State {
-  return { ...x, sessions: new Map(x.sessions), entries: new Map(x.entries), schedules: new Map(x.schedules), activity: new Map(x.activity) };
+// prev: 큰 창이 지난번에 되살린 상태. 값이 같은 세션·대화 줄은 그 객체를 다시 써서
+// 대화 화면이 참조 비교로 다시 그리지 않게 한다(다른 세션 소식에 선택·포커스가 풀리지 않게)
+export function fromSnapshot(x: Snapshot, prev?: State): State {
+  const keep = <V>(old: Map<number, V> | undefined, pairs: [number, V][]): Map<number, V> => new Map(pairs.map(([k, v]) => {
+    const o = old?.get(k);
+    return [k, o !== undefined && JSON.stringify(o) === JSON.stringify(v) ? o : v];
+  }));
+  return {
+    ...x, sessions: keep(prev?.sessions, x.sessions), entries: keep(prev?.entries, x.entries),
+    schedules: new Map(x.schedules), activity: new Map(x.activity),
+  };
 }
 
 // 알림 탭: 보고 있는 쪽의 첫 `waiting` 세션만 질문 카드로 보인다. 나머지는 행
