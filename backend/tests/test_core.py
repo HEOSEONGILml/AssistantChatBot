@@ -1368,3 +1368,54 @@ async def test_probe_result_ignored_after_session_init(monkeypatch):
     await sent(app)
     await app.get_settings()
     assert out[-1]["mcp_servers"] == [{"name": "screenpipe", "description": "화면 기록 검색", "status": "connected"}]
+
+
+async def test_turn_result_keeps_session_working():
+    """덧붙인 말로 차례가 이어지면 첫 차례 결과는 result 줄로 남기고 세션은 working 그대로다 (보수 계획 Task 2)."""
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].events.turn_result("첫 답", False)
+    await settle()
+    assert store.get_session(1)["state"] == "working"
+    assert [(e["kind"], e["text"]) for e in store.entries(1)][-1] == ("result", "첫 답")
+    runs[0].events.turn_result("첫 차례 실패", True)
+    runs[0].events.finished("둘 다 했어요", False)
+    runs[0].end()
+    await settle()
+    assert store.get_session(1)["state"] == "done"
+    assert [e["kind"] for e in store.entries(1)] == ["user", "result", "failure", "result"]
+
+
+async def test_turn_result_after_stop_is_dropped():
+    app, store, out, runs = make()
+    await app.request("일")
+    await app.stop(1)
+    runs[0].events.turn_result("늦은 답", False)
+    assert store.entries(1)[-1]["kind"] == "user"
+
+
+async def test_usage_falls_back_when_raw_or_windows_unusable():
+    """raw가 dict가 아니거나 unifiedWindows에서 창을 하나도 못 읽으면 풀린 칸을 쓴다."""
+    app, store, out, runs = make()
+    await app.request("일")
+    ev = runs[0].events
+    ev.rate_limit({"type": "five_hour", "utilization": 0.1, "resets_at": 100, "raw": "모양이 다름"})
+    ev.rate_limit({"type": "seven_day", "utilization": 0.3, "resets_at": 200,
+                   "raw": {"unifiedWindows": {"seven_day": "모양이 다름"}}})
+    await settle()
+    limits = of(out, "usage")[-1]["limits"]
+    assert [(l["type"], l["utilization"], l["resets_at"]) for l in limits] == [
+        ("five_hour", 0.1, 100), ("seven_day", 0.3, 200)]
+
+
+async def test_usage_save_failure_still_sends_usage(caplog):
+    app, store, out, runs = make()
+    await app.request("일")
+
+    def broken(key, value):
+        raise OSError("디스크 경로 C:\비밀")
+    store.set_setting = broken
+    runs[0].events.rate_limit({"type": "five_hour", "utilization": None, "resets_at": 1792728600, "raw": RAW})
+    await settle()
+    assert len(of(out, "usage")[-1]["limits"]) == 2
+    assert "OSError" in caplog.text and "비밀" not in caplog.text

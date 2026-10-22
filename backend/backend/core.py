@@ -125,6 +125,10 @@ class _Events:
     async def start_session(self, source: str, fields: dict) -> dict | None:
         return await self._app._new_session(source, fields)
 
+    def turn_result(self, result_text: str, is_error: bool) -> None:
+        """덧붙인 말로 다음 차례가 이어질 때 앞 차례의 결과. 줄로만 남기고 세션은 working 그대로다."""
+        self._app._finish(self._id, result_text, is_error, final=False)
+
     def finished(self, result_text: str, is_error: bool) -> None:
         self._app._finish(self._id, result_text, is_error)
 
@@ -140,17 +144,17 @@ class _Events:
         self._app.mcp_status(servers)
 
     def rate_limit(self, info: dict) -> None:
-        """창별 값은 원본의 unifiedWindows에서 읽는다. 없거나 모양이 다르면 풀린 칸(창 하나)을 쓴다."""
+        """창별 값은 원본의 unifiedWindows에서 읽는다. 없거나 창을 하나도 못 읽으면 풀린 칸(창 하나)을 쓴다."""
         at = _iso(_now())
-        windows = (info.get("raw") or {}).get("unifiedWindows")
-        if isinstance(windows, dict):
-            limits = [{"type": name, "utilization": w.get("utilization"), "resets_at": w.get("resetsAt")}
-                      for name, w in windows.items() if isinstance(w, dict)]
-        elif info.get("type") is not None:
+        raw = info.get("raw")
+        windows = raw.get("unifiedWindows") if isinstance(raw, dict) else None
+        limits = [{"type": name, "utilization": w.get("utilization"), "resets_at": w.get("resetsAt")}
+                  for name, w in windows.items() if isinstance(w, dict)] if isinstance(windows, dict) else []
+        if not limits:
+            if info.get("type") is None:
+                log.warning("세션 %d: 종류 없는 사용량 이벤트를 버림", self._id)
+                return
             limits = [{k: info.get(k) for k in ("type", "utilization", "resets_at")}]
-        else:
-            log.warning("세션 %d: 종류 없는 사용량 이벤트를 버림", self._id)
-            return
         for limit in limits:
             self._app._limits[limit["type"]] = {**limit, "received_at": at}
         self._app._save_usage()
@@ -626,12 +630,14 @@ class App:
         self._set(session_id, state="working")
         self._start(session_id, prompt, resume=session["claude_session_id"])
 
-    def _finish(self, session_id: int, text: str, is_error: bool) -> None:
+    def _finish(self, session_id: int, text: str, is_error: bool, final: bool = True) -> None:
+        """결과 줄을 남긴다. final이면 세션도 끝낸다 (아니면 덧붙인 말로 다음 차례가 이어지는 중)."""
         session = self._store.get_session(session_id)
         if session is None or session["state"] == "stopped":
             return  # 지우거나 멈춘 뒤 늦게 온 끝은 버린다
         self._entry(session_id, "failure" if is_error else "result", text)
-        self._set(session_id, state="failed" if is_error else "done", seen=False)
+        if final:
+            self._set(session_id, state="failed" if is_error else "done", seen=False)
 
     # --- 저장과 알림 (지운 세션에는 쓰지 않는다) ---
     def _entry(self, session_id: int, kind: str, text: str, **extra) -> None:
@@ -662,8 +668,11 @@ class App:
             {k: v.get(k) for k in ("type", "utilization", "resets_at", "received_at")} for v in self._limits.values()]}
 
     def _save_usage(self) -> None:
-        """다시 켜도 보이게 마지막 값을 DB 설정에 둔다."""
-        self._store.set_setting("usage", json.dumps(self._usage()["limits"]))
+        """다시 켜도 보이게 마지막 값을 DB 설정에 둔다. 저장에 실패해도 화면에는 보낸다."""
+        try:
+            self._store.set_setting("usage", json.dumps(self._usage()["limits"]))
+        except Exception as e:
+            log.warning("사용량을 저장하지 못했다 (%s)", type(e).__name__)
 
     def _load_usage(self) -> None:
         try:

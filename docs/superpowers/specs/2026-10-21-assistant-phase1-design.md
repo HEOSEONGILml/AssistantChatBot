@@ -167,6 +167,7 @@ flowchart TB
 | `setting_sources` | `[]` (이 PC의 사용자 스킬·플러그인·CLAUDE.md를 섞지 않는다) |
 | `cwd` | 백엔드 데이터 폴더 아래 작업 전용 폴더 |
 | 크롬 | `extra_args={"chrome": None}` |
+| 사용자 말 다시 받기 | `extra_args={"replay-user-messages": None}`. Claude Code가 보낸 말을 처리하기 시작할 때 그 말을 `UserMessage`로 다시 보낸다. 덧붙인 말이 처리됐는지 아는 데 쓴다 (아래 "덧붙이기") |
 | 도구 | Claude Code 기본 도구 전부 + 크롬 도구, screenpipe MCP, 백엔드 MCP. 끄는 도구는 없다 (사용자, [0036](../../decisions/0036-no-claude-code-tool-restrictions.md)) |
 | `permission_mode` | 설정 탭 값 (기본 `default`). 새 작업부터 적용 |
 | `can_use_tool` | 질문·권한 요청을 받아 대화의 질문 줄로 바꾼다 |
@@ -183,10 +184,23 @@ flowchart TB
   - 에이전트가 말한 글 → 진행
   - `AskUserQuestion` 또는 권한 요청(`can_use_tool`) → 질문 (권한은 [허용, 거부]), 작업 상태는 답 기다림
   - 사용자 `say` → 콜백의 답으로 돌려준다. `AskUserQuestion`은 `updated_input`의 `answers`에 질문 글을 키로 넣는다. 선택지 밖의 글도 된다 ([스파이크](../../spikes/2026-10-21-agent-sdk-claude-code.md))
-  - 끝(`ResultMessage`) → 결과 또는 실패
+  - 끝(`ResultMessage`) → 결과 또는 실패. 덧붙인 말이 남아 다음 차례가 이어지면 앞 차례 결과는 중간 결과다 (아래 "덧붙이기")
   - 도구 사용(클릭 등)은 기록하지 않는다 ([0027](../../decisions/0027-data-layer-ownership.md))
   - `stop` → 세션을 멈추고 상태를 멈춤으로
-- **덧붙이기**: 질문을 기다리는 중이 아닐 때 온 `say`는 진행 중인 세션에 사용자 메시지로 넣는다.
+- **덧붙이기**: 질문을 기다리는 중이 아닐 때 온 `say`는 진행 중인 세션에 사용자 메시지로 넣는다. 원래 Claude Code처럼 덧붙인 말까지 보고 답한다 (사용자, 2026-10-22).
+  - **실측** (2026-10-23, 이 PC, CLI 2.1.306):
+
+| 상황 | Claude Code가 보내는 것 |
+|---|---|
+| 글로만 답하는 중에 덧붙임 | 첫 `ResultMessage` 뒤 곧바로(0.1초) `SystemMessage(init)`, 덧붙인 말의 다시 받기(`UserMessage`), 두 번째 차례의 답과 `ResultMessage`(두 말을 모두 반영) |
+| 도구를 쓰는 중에 덧붙임 | 도구 결과 뒤 덧붙인 말의 다시 받기가 같은 차례 안에 오고, `ResultMessage`는 하나 |
+
+  - **실행 끝내기**: 보낸 말 수(처음 말 + 덧붙인 말)와 다시 받은 말 수를 센다. 다시 받은 말은 글(`str`)이고 도구 결과가 아니며 `origin`이 없거나 `human`인 `UserMessage`다. `ResultMessage`를 받았을 때
+    - 덧붙인 말이 없거나 보낸 말을 모두 다시 받았으면 바로 끝낸다 (합쳐진 경우도 여기서 끝난다).
+    - 아니면 결과를 쥐고 다음 차례를 기다린다. `init`이나 다시 받기가 오면 쥔 결과를 중간 결과로 보내고 계속 받는다. 3초(`FOLLOWUP_GRACE`, 잠정값. 실측에서 다음 차례는 0.1초 안에 시작했다) 안에 둘 다 오지 않으면 쥔 결과로 끝낸다.
+    - 멈추면 기다리지 않는다.
+  - **중간 결과**: 앞 차례 결과 글은 `result`(오류면 `failure`) 줄로 남기고 세션은 `working` 그대로 둔다. 마지막 차례가 끝날 때 `done`/`failed`가 된다.
+  - **신호 근거**: 다시 받기는 [Agent SDK 파일 체크포인트 문서](https://code.claude.com/docs/en/agent-sdk/file-checkpointing)(`replay-user-messages`)와 설치된 SDK 0.2.170의 `UserMessage.uuid`·`origin`에서 확인했고, 위 실측으로 두 경우 모두 덧붙인 말이 처리될 때 다시 온다는 것을 확인했다. 시간만으로 기다리는 방식(결과마다 3초)보다 합쳐진 경우를 바로 끝낼 수 있어 이것을 쓴다.
 - **사용량**: SDK의 `RateLimitEvent` 원본(`raw`)의 `unifiedWindows`에서 창별(`five_hour`, `seven_day` 등) 쓴 비율·초기화 시각을 읽어 마지막 값을 `usage`로 보낸다. 원본에 없으면 풀린 칸(창 하나)을 쓴다. 받은 값은 DB에 저장해 다시 켜도 보인다 ([프로토콜](../../backend-protocol.md) usage). 작업이 돌지 않으면 갱신되지 않는다. 화면은 "이 PC에서 계산한 근삿값"이라고 밝힌다.
 
 ### 5.2 하네스 문서
@@ -277,7 +291,7 @@ flowchart TB
 
 | 무엇 | 왜 중요한가 |
 |---|---|
-| 일하는 도중 덧붙이기(`say`)를 세션에 넣는 것 | 작업 대화의 기본 동작 |
+| 일하는 도중 덧붙이기(`say`)를 세션에 넣는 것 (2026-10-23 확인: 5.1 "덧붙이기") | 작업 대화의 기본 동작 |
 | 여러 작업이 크롬 하나를 함께 쓰는 것 | 동시 작업을 허용했다 |
 | `claude auth login`을 띄워 브라우저가 열리고 끝남을 알아차리는 것 | 로그인 요청 화면 |
 | `RateLimitEvent`가 언제 오는지 (이름과 값 모양은 2026-10-23 확인: [프로토콜](../../backend-protocol.md) usage) | 사용량 탭 |

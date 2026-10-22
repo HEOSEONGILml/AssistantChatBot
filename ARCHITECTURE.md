@@ -163,6 +163,7 @@ flowchart LR
 | 외부 설정 | `setting_sources=[]` | `CLAUDE.md`·사용자 설정을 읽지 않음 |
 | 세션 이어 쓰기 | `resume=<claude_session_id>` | 끝난 세션에 `say`, 스케줄 재실행 |
 | 부분 메시지 | `include_partial_messages=True` | `StreamEvent`의 `content_block_start`로 지금 하는 일(`activity`)을 만든다 |
+| 사용자 말 다시 받기 | `extra_args={"replay-user-messages": None}` | 덧붙인 말이 처리됐는지 안다 (아래 "실행 끝내기") |
 
 #### 백엔드 Tools
 
@@ -214,6 +215,7 @@ sequenceDiagram
 | 스케줄 등록·수정 도구 | `proposal` ([등록]·[고치기]). 수정이 저장되면 `edit` 줄이 붙는다 | `waiting` |
 | 사용자 답 | — | `working` |
 | 끝 | `result` / `failure` | `done` / `failed` |
+| 끝, 그러나 덧붙인 말로 다음 차례가 이어짐 | `result` / `failure` (중간 결과) | `working` 그대로 |
 | Claude Code 세션 ID | — (`claude_session_id`에 저장. 이어 쓰기에 쓴다) | — |
 | 사용량 | — (원본의 `unifiedWindows`를 창별로 읽어 `settings`의 `usage`에 저장. `usage`로 보낸다) | — |
 | `init`의 `mcp_servers` | — (메모리에만. 바뀌면 `settings`로 보낸다) | — |
@@ -221,6 +223,7 @@ sequenceDiagram
 
 - 질문은 한 번에 하나만 보인다. 겹치면 줄 서서 기다린다.
 - 돌고 있는 세션에 `say`하면 질문 대기 중엔 답, 아니면 덧붙인다.
+- **실행 끝내기** (`AgentRun.run`): 덧붙인 말이 없거나 보낸 말을 Claude Code가 모두 다시 보냈으면(처리 시작) `ResultMessage`에서 끝낸다. 처리 안 된 덧붙인 말이 남았으면 결과를 쥐고 다음 차례(`init`·다시 받기)를 3초(`FOLLOWUP_GRACE`, 잠정값) 기다린다. 오면 쥔 결과를 중간 결과로 보내고 계속, 안 오면 쥔 결과로 끝낸다. 멈추면 기다리지 않는다. 근거와 실측은 [스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md) 5.1 "덧붙이기".
 - 여러 세션이 동시에 돈다. 화면으로 가는 메시지는 한 줄로 순서대로 나간다.
 
 ### 3.4 세션 상태 전이
@@ -581,7 +584,7 @@ erDiagram
 | `Schedule` | `schedules` 행 | `enabled`가 bool. `label`(규칙 표시 글), `next_run`(다음 실행 시각, 꺼지면 `null`)을 계산해 더한다 |
 | `ScheduleRow` | `schedules` + `sessions.state` | `{session_id, name, label, next_run, state}`. `state`는 `running`(세션이 working·waiting) · `next`(켜짐) · `off`(꺼짐) |
 | `Page<T>` | 목록 | `{page, pages, items}`. 한 쪽 4줄 |
-| `Limit` | 백엔드 메모리 | `{type, utilization, resets_at, received_at}` |
+| `Limit` | 백엔드 메모리 + `settings.usage` | `{type, utilization, resets_at, received_at}` |
 
 #### 4.3.3 백엔드 메모리 (`core.py` `App`)
 

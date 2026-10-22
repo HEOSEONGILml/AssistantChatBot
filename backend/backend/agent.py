@@ -7,7 +7,7 @@ from typing import Protocol
 
 from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, PermissionResultAllow,
                               PermissionResultDeny, RateLimitEvent, ResultMessage, SystemMessage, TextBlock,
-                              ToolPermissionContext)
+                              ToolPermissionContext, UserMessage)
 from claude_agent_sdk.types import StreamEvent
 
 from . import config
@@ -25,6 +25,8 @@ STOP_ANSWER = "거부"
 PROBE_TIMEOUT = 10  # 초. 시작 때 MCP 상태 읽기가 매달리면 포기한다 (계획 2026-10-22-mcp-list Review Focus 4)
 PROBE_POLL = 1  # 초. 연결 중(pending)인 MCP가 있으면 이 간격으로 다시 읽는다 (잠정값)
 DISCONNECT_TIMEOUT = 5  # 초. 끊기가 매달려도 시작 때 읽기를 끝낸다 (잠정값)
+# 초. 결과 뒤 처리 안 된 덧붙인 말이 있을 때 다음 차례를 기다리는 시간 (잠정값. 2026-10-23 실측에서 다음 차례는 0.1초 안에 시작했다)
+FOLLOWUP_GRACE = 3
 
 # 도구 이름 -> 준비 중 줄의 글. 앞부분이 맞으면 그 글이다 (context 정한 값 표)
 _TOOL_PREFIX_TEXT = (("mcp__screenpipe__", "화면 기록에서 찾는 중"),
@@ -61,7 +63,8 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
         system_prompt={"type": "preset", "preset": "claude_code", "append": HARNESS},
         setting_sources=[],
         cwd=config.work_dir(),
-        extra_args={"chrome": None},
+        # replay-user-messages: 보낸 말을 처리하기 시작할 때 다시 받아, 덧붙인 말이 처리됐는지 안다
+        extra_args={"chrome": None, "replay-user-messages": None},
         # 데이터 찾기 도구는 묻지 않는다
         allowed_tools=[MCP_PREFIX + "*", "mcp__screenpipe__*"],
         env=config.claude_env(),
@@ -110,6 +113,7 @@ class RunEvents(Protocol):
     def entry_added(self, entry: dict) -> None: ...
     def schedule_changed(self) -> None: ...
     async def start_session(self, source: str, fields: dict) -> dict | None: ...
+    def turn_result(self, result_text: str, is_error: bool) -> None: ...
     def finished(self, result_text: str, is_error: bool) -> None: ...
     def claude_session(self, claude_session_id: str) -> None: ...
     def rate_limit(self, info: dict) -> None: ...
@@ -132,13 +136,18 @@ class AgentRun:
         # 마지막 글은 최종 답(ResultMessage)과 같으므로, 다음 메시지가 올 때까지 진행으로 보내지 않고 쥔다
         self._held: str | None = None
         self._activity: tuple[str, str] | None = None  # 마지막으로 보낸 지금 하는 일
+        # 덧붙인 말 (스펙 5.1 실행 끝내기): 보낸 말 수와 Claude Code가 처리하기 시작한(다시 보낸) 말 수
+        self._sent = 0
+        self._replayed = 0
+        # 처리 안 된 덧붙인 말이 남아 다음 차례를 기다리는 동안 쥔 결과 (글, 오류인가)
+        self._pending_result: tuple[str, bool] | None = None
 
     @property
     def waiting(self) -> bool:
         return self._answer is not None and not self._answer.done()
 
     async def run(self, prompt: str, options) -> None:
-        """끝(ResultMessage)까지 돌린다. 멈춘 경우엔 finished를 부르지 않는다 (앱이 멈춤으로 둔다)."""
+        """끝(마지막 차례의 ResultMessage)까지 돌린다. 멈춘 경우엔 finished를 부르지 않는다 (앱이 멈춤으로 둔다)."""
         client = None
         try:
             # 지역 변수로도 쥐어, 연결 중 stop이 와도 이 클라이언트를 끝에 반드시 끊는다
@@ -146,14 +155,30 @@ class AgentRun:
             await client.connect()
             if self._stopped:
                 return
+            self._sent += 1
             await client.query(prompt)
-            async for m in client.receive_messages():
+            messages = client.receive_messages()
+            while True:
+                try:
+                    if self._pending_result is None:
+                        m = await anext(messages)
+                    else:  # 다음 차례가 FOLLOWUP_GRACE 안에 시작하지 않으면 쥔 결과로 끝낸다
+                        m = await asyncio.wait_for(anext(messages), FOLLOWUP_GRACE)
+                except StopAsyncIteration:
+                    break
+                except TimeoutError:
+                    log.info("세션 %d: 덧붙인 말의 다음 차례가 오지 않아 끝낸다", self.session_id)
+                    break
                 if self._handle(m):
                     return
-            if not self._stopped:
-                self._flush()
-                log.warning("세션 %d: 결과 없이 세션이 끝났다", self.session_id)
-                self._events.finished("결과 없이 끝났어요", True)
+            if self._stopped:
+                return
+            if self._pending_result is not None:
+                self._events.finished(*self._pending_result)
+                return
+            self._flush()
+            log.warning("세션 %d: 결과 없이 세션이 끝났다", self.session_id)
+            self._events.finished("결과 없이 끝났어요", True)
         except Exception as e:
             if self._stopped:
                 return
@@ -179,7 +204,14 @@ class AgentRun:
                 self._flush()
                 if isinstance(b, TextBlock) and b.text.strip():
                     self._held = b.text
+        elif isinstance(m, UserMessage):
+            # 도구 결과와 Claude Code가 끼워 넣은 차례(origin이 human이 아님)는 우리가 보낸 말이 아니다
+            if (isinstance(m.content, str) and m.tool_use_result is None and m.parent_tool_use_id is None
+                    and (m.origin is None or m.origin.get("kind") == "human")):
+                self._replayed += 1
+                self._next_turn()
         elif isinstance(m, SystemMessage) and m.subtype == "init":
+            self._next_turn()
             self._events.claude_session(m.data["session_id"])
             self._events.mcp_status(m.data.get("mcp_servers"))  # 모양 검사는 앱이 한다
         elif isinstance(m, RateLimitEvent):
@@ -191,9 +223,20 @@ class AgentRun:
             if self._held is not None and self._held.strip() != (m.result or "").strip():
                 self._flush()
             self._held = None
+            if self._replayed < self._sent and self._sent > 1:
+                # 덧붙인 말이 아직 처리되지 않았다. 다음 차례가 오면 이 결과는 중간 결과가 된다
+                self._pending_result = (m.result or "", m.is_error)
+                return False
             self._events.finished(m.result or "", m.is_error)
             return True
         return False
+
+    def _next_turn(self) -> None:
+        """다음 차례가 시작됐다. 쥔 결과가 있으면 중간 결과로 보낸다."""
+        if self._pending_result is not None:
+            if not self._stopped:
+                self._events.turn_result(*self._pending_result)
+            self._pending_result = None
 
     def _flush(self) -> None:
         if self._held is not None:
@@ -245,6 +288,7 @@ class AgentRun:
         if self.waiting:
             self.answer(text)
         elif self._client is not None and not self._stopped:
+            self._sent += 1  # 결과가 오기 전에 세어야 처리 안 된 말로 본다
             await self._client.query(text)
         else:
             log.warning("세션 %d: 세션이 없어 덧붙이지 못했다", self.session_id)

@@ -20,7 +20,7 @@ flowchart LR
 
 | # | 무엇 | 어떻게 | 기대 | 결과 |
 |---|---|---|---|---|
-| 1 | 일하는 도중 덧붙이기(`say`) | 오래 걸리는 `request`를 보내고, 질문이 없는 동안 같은 `session_id`로 `say`를 보낸다 | 덧붙인 말이 세션에 들어가 에이전트가 반영한다. `entry {kind: user}`가 쌓이고 세션은 `working` 그대로 | [ ] |
+| 1 | 일하는 도중 덧붙이기(`say`) | 오래 걸리는 `request`를 보내고, 질문이 없는 동안 같은 `session_id`로 `say`를 보낸다 | 덧붙인 말이 세션에 들어가 에이전트가 반영한다. `entry {kind: user}`가 쌓이고 세션은 `working` 그대로. 글로만 답하는 중에 덧붙이면 앞 차례 `result` 뒤에도 `working`이고, 덧붙인 말의 답까지 받은 뒤 `done` (스펙 5.1 "덧붙이기") | [ ] |
 | 2 | 여러 작업이 크롬 하나를 함께 쓰기 | 크롬을 쓰는 `request` 두 개를 잇달아 보낸다 | 두 작업이 서로의 탭을 망가뜨리지 않고 끝난다. 안 되면 동시 작업 방식을 다시 정한다 | [ ] |
 | 3 | 로그인 흐름 (`claude auth login`) | `claude auth logout` 뒤 백엔드에 붙어 `status {logged_in: false}`를 확인하고 `login`을 보낸다 | 브라우저가 열리고, 로그인을 마치면 `status {logged_in: true}`가 온다. 끝나지 않고 멈추면 시간 제한을 정한다 | [ ] |
 | 4 | 사용량 이벤트(`RateLimitEvent`)가 오는 때와 종류 이름 | 작업을 몇 개 돌리며 `usage` 메시지와 로그를 본다 | 언제 오는지, `type`에 어떤 이름이 오는지(예: 5시간·주간) 적는다. 사용량 탭 디자인에 맞는지 본다. 백엔드를 다시 켜도 `usage`에 마지막 값이 남는다 | [ ] 2026-10-23: 짧은 세션 한 번에 이벤트 1개. 원본 `unifiedWindows`에 `five_hour`·`seven_day` 둘 ([프로토콜](../backend-protocol.md) usage). 여러 작업에 걸친 오는 때와 재시작은 아직 |

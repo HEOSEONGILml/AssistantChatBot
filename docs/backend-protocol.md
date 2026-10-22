@@ -102,7 +102,7 @@
 | `user` | 사용자 말 |
 | `progress` | 진행 (에이전트가 말한 글). 최종 답과 같은 마지막 글은 `result`로만 보낸다. 대화 탭 세션에서는 앱이 그리지 않는다 |
 | `question` | 질문. `choices`가 고를 답이다. 권한 요청은 `["허용", "거부"]`. 선택지 밖의 글로 답해도 된다 |
-| `result` | 결과 |
+| `result` | 결과. 일하는 중에 덧붙인 말로 다음 차례가 이어지면 앞 차례의 결과도 `result`(오류면 `failure`)로 오고, 세션은 `working` 그대로다. 마지막 차례의 결과와 함께 `done`·`failed`가 된다 ([스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 5.1 "덧붙이기") |
 | `failure` | 실패 |
 | `proposal` | 등록 확인. `choices`는 `["등록", "고치기"]`, `data`는 `{name, rule, label, instruction, first_run}` (고칠 때는 `changed`: 바뀐 칸 이름 목록도) |
 | `run` | 스케줄 실행 구분선 (예: `10/21 (수) 09:00 실행`) |

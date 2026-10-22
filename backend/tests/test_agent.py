@@ -2,7 +2,8 @@ import asyncio
 import sys
 
 from claude_agent_sdk import (AssistantMessage, PermissionResultAllow, PermissionResultDeny, RateLimitEvent,
-                              RateLimitInfo, ResultMessage, SystemMessage, TextBlock, ToolPermissionContext)
+                              RateLimitInfo, ResultMessage, SystemMessage, TextBlock, ToolPermissionContext,
+                              ToolResultBlock, UserMessage)
 from claude_agent_sdk.types import StreamEvent
 
 from backend import agent, config
@@ -26,7 +27,8 @@ class FakeEvents:
 
 
 class FakeClient:
-    """정해 둔 메시지를 흘려보낸다. gate가 있으면 그 Event가 켜질 때까지 마지막 메시지를 붙잡는다."""
+    """정해 둔 메시지를 흘려보낸다. gate가 있으면 그 Event가 켜질 때까지 마지막 메시지를 붙잡는다.
+    메시지 자리에 Event를 두면 그 Event가 켜질 때까지 다음 메시지를 보내지 않는다 (끊으면 끝난다)."""
 
     def __init__(self, messages, gate=None):
         self.messages = messages
@@ -56,14 +58,17 @@ class FakeClient:
 
     async def receive_messages(self):
         for i, m in enumerate(self.messages):
-            if self.gate is not None and i == len(self.messages) - 1:
-                gate = asyncio.ensure_future(self.gate.wait())
+            wait = m if isinstance(m, asyncio.Event) else (
+                self.gate if self.gate is not None and i == len(self.messages) - 1 else None)
+            if wait is not None:
+                gate = asyncio.ensure_future(wait.wait())
                 closed = asyncio.ensure_future(self.closed.wait())
                 await asyncio.wait([gate, closed], return_when=asyncio.FIRST_COMPLETED)
                 gate.cancel(), closed.cancel()
                 if self.closed.is_set():
                     return
-            yield m
+            if not isinstance(m, asyncio.Event):
+                yield m
 
 
 def text(t):
@@ -77,6 +82,16 @@ def result(t="다 했어요", is_error=False):
 
 def init():
     return SystemMessage(subtype="init", data={"session_id": "s1"})
+
+
+def replay(t):
+    """replay-user-messages로 Claude Code가 다시 보내는 사용자 말 (그 말을 처리하기 시작했다는 뜻)."""
+    return UserMessage(content=t, uuid="u-" + t)
+
+
+def tool_result():
+    return UserMessage(content=[ToolResultBlock(tool_use_id="t1", content="ok")], uuid="u-tool",
+                       tool_use_result={"stdout": "ok"})
 
 
 async def until(cond):
@@ -234,7 +249,8 @@ def test_build_options_values(tmp_path, monkeypatch):
     assert o.system_prompt == {"type": "preset", "preset": "claude_code", "append": HARNESS}
     assert o.setting_sources == []
     assert o.cwd == config.work_dir()
-    assert o.extra_args == {"chrome": None}
+    # 덧붙인 말이 처리됐는지 알려고 사용자 말을 다시 받는다 (스펙 5.1)
+    assert o.extra_args == {"chrome": None, "replay-user-messages": None}
     assert o.disallowed_tools == []  # Claude Code 기본 도구를 끄지 않는다 (0036)
     assert o.allowed_tools == ["mcp__backend__*", "mcp__screenpipe__*"]
     assert o.permission_mode == "default"
@@ -502,3 +518,84 @@ async def test_fetch_mcp_status_does_not_hang_on_disconnect(monkeypatch):
 
 def test_probe_poll_and_disconnect_limits():
     assert agent.PROBE_POLL == 1 and agent.DISCONNECT_TIMEOUT == 5
+
+
+# --- 연속 메시지 (보수 계획 Task 2, 2026-10-23 실측) ---
+
+async def test_queued_followup_gets_its_own_result():
+    """글로만 답하는 중에 덧붙이면 첫 차례가 끝난 뒤 다음 차례가 따로 온다. 다음 차례 결과까지 받는다 (Review Focus 2)."""
+    step = asyncio.Event()
+    client = FakeClient([init(), replay("처음"), text("고양이 이야기"), step, tool_result(), result("고양이 이야기"),
+                         init(), replay("개도"), text("개도 넣었어요"), result("고양이와 개"), asyncio.Event()])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("개도")
+    step.set()
+    await asyncio.wait_for(task, 1)
+    assert events.of("turn_result") == [("고양이 이야기", False)]
+    assert events.of("progress") == [("개도 넣었어요",)]
+    assert events.of("finished") == [("고양이와 개", False)]
+    assert client.disconnected == 1
+
+
+async def test_merged_followup_finishes_at_its_result(monkeypatch):
+    """도구를 쓰는 중에 덧붙이면 같은 차례에 합쳐져 결과가 하나다. 다음 차례를 기다리지 않는다 (Review Focus 1)."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 100)
+    step = asyncio.Event()
+    client = FakeClient([init(), replay("처음"), step, tool_result(), replay("이것도"), result("둘 다 했어요"),
+                         asyncio.Event()])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("이것도")
+    step.set()
+    await asyncio.wait_for(task, 1)
+    assert events.of("turn_result") == []
+    assert events.of("finished") == [("둘 다 했어요", False)]
+
+
+async def test_followup_without_next_turn_finishes_after_grace(monkeypatch):
+    """처리됐다는 신호도 다음 차례도 오지 않으면 기다리는 시간 뒤 그 결과로 끝낸다 (Review Focus 1)."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 0.05)
+    step = asyncio.Event()
+    client = FakeClient([init(), replay("처음"), step, result("했어요"), asyncio.Event()])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("이것도")
+    step.set()
+    await asyncio.wait_for(task, 1)
+    assert events.of("turn_result") == []
+    assert events.of("finished") == [("했어요", False)]
+    assert client.disconnected == 1
+
+
+async def test_no_followup_finishes_at_result(monkeypatch):
+    """덧붙인 말이 없으면 지금처럼 결과에서 바로 끝낸다."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 100)
+    client = FakeClient([init(), replay("처음"), result("했어요"), asyncio.Event()])
+    events = FakeEvents()
+    await asyncio.wait_for(AgentRun(1, events, make_client=client).run("처음", None), 1)
+    assert events.of("finished") == [("했어요", False)]
+
+
+async def test_stop_while_waiting_next_turn_does_not_wait(monkeypatch):
+    """다음 차례를 기다리는 중에 멈추면 기다리지 않고 끝난다. 멈춘 세션에는 결과를 쓰지 않는다."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 100)
+    step = asyncio.Event()
+    client = FakeClient([init(), replay("처음"), step, result("했어요"), asyncio.Event()])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("이것도")
+    step.set()
+    for _ in range(20):
+        await asyncio.sleep(0)
+    await run.stop()
+    await asyncio.wait_for(task, 1)
+    assert events.of("finished") == [] and events.of("turn_result") == []
