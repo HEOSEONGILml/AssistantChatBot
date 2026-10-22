@@ -26,6 +26,8 @@ describe("parseBackendMessage", () => {
       { type: "schedule", schedule },
       { type: "settings", permission_mode: "acceptEdits", recording: false },
       { type: "usage", limits: [{ type: "five_hour", utilization: 0.4, resets_at: 1761100000, received_at: "2026-10-22T09:00:00" }] },
+      { type: "session_deleted", session_id: 2 },
+      { type: "activity", session_id: 2, kind: "tool", text: "파일 읽는 중" },
     ];
     for (const c of cases) expect(parseBackendMessage(msg(c))).toEqual(c);
   });
@@ -58,12 +60,18 @@ describe("parseBackendMessage", () => {
     expect(parseBackendMessage(msg({ type: "schedules", page: 1, pages: 1, items: [{ session_id: 3, name: "x", label: "y", next_run: null, state: "on" }] }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "settings", permission_mode: "yolo", recording: true }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "usage", limits: [{ utilization: 1 }] }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "session_deleted", session_id: "2" }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "session_deleted" }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "activity", session_id: 2, kind: "dance", text: "x" }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "activity", session_id: 2, kind: "tool" }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "activity", kind: "tool", text: "x" }))).toBeNull();
   });
 });
 
 describe("outgoing", () => {
   it("adds v:7", () => {
     expect(JSON.parse(outgoing({ type: "say", session_id: 1, text: "안녕" }))).toEqual({ v: 7, type: "say", session_id: 1, text: "안녕" });
+    expect(JSON.parse(outgoing({ type: "delete_session", session_id: 4 }))).toEqual({ v: 7, type: "delete_session", session_id: 4 });
     expect(JSON.parse(outgoing({ type: "get_settings" }))).toEqual({ v: 7, type: "get_settings" });
   });
 });

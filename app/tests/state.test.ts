@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackendMessage, Entry, Schedule, Session } from "../src/shared/protocol";
-import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, pose, refreshRequests, rowNote, tooltip, type State } from "../src/shared/state";
+import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, pose, refreshRequests, rowNote, elapsedText, tooltip, type State } from "../src/shared/state";
 
 const session = (id: number, o: Partial<Session> = {}): Session => ({
   id, source: "user", title: `작업 ${id}`, state: "done", seen: true, claude_session_id: null, created_at: "2026-10-22T09:00:00", ...o,
@@ -10,7 +10,7 @@ const schedule: Schedule = {
   session_id: 3, name: "주간 보고", rule: { repeat: "daily", time: "09:00" }, instruction: "정리", label: "매일 09:00",
   enabled: false, next_run: null, last_run_at: null, last_result: null,
 };
-const run = (s: State, ...ms: BackendMessage[]) => ms.reduce(apply, s);
+const run = (s: State, ...ms: BackendMessage[]) => ms.reduce((a, m) => apply(a, m), s);
 const online = () => run(initialState(), { type: "status", logged_in: true });
 
 describe("apply", () => {
@@ -336,5 +336,137 @@ describe("스케줄 목록 다시 받기", () => {
     const m: BackendMessage = { type: "schedule", schedule: { ...schedule, session_id: 9 } };
     const s = run({ ...online(), view: { tab: "tasks", screen: "list", page: 1 } }, m);
     expect(followUps(s, m)).toEqual([]);
+  });
+});
+
+describe("session_deleted", () => {
+  const page = (items: any[], p = 1, pages = 1) => ({ page: p, pages, items });
+  const rows = (id: number) => ({ session_id: id, name: "n", label: "l", next_run: null, state: "off" as const });
+  const withAll = (view: State["view"]): State => ({
+    ...online(), view,
+    sessions: new Map([[2, session(2)], [5, session(5)]]),
+    entries: new Map([[2, [entry(1)]], [5, [entry(2, 5)]]]),
+    schedules: new Map([[3, schedule]]),
+    lists: { user: page([session(2), session(5)]), alerts: page([session(2)]), schedules: page([rows(3), rows(6)]) },
+  });
+  const gone = (id: number): BackendMessage => ({ type: "session_deleted", session_id: id });
+
+  it("세션·대화 줄·스케줄·세 목록의 행을 모두 뺀다", () => {
+    const s = run(withAll({ tab: "tasks", screen: "list", page: 1 }), gone(2), gone(3));
+    expect([...s.sessions.keys()]).toEqual([5]);
+    expect([...s.entries.keys()]).toEqual([5]);
+    expect(s.schedules.size).toBe(0);
+    expect(s.lists.user?.items.map((t) => t.id)).toEqual([5]);
+    expect(s.lists.alerts?.items).toEqual([]);
+    expect(s.lists.schedules?.items.map((r) => r.session_id)).toEqual([6]);
+  });
+
+  it("배지에서도 빠진다", () => {
+    const s0 = run(online(), { type: "session", session: session(2, { state: "waiting" }) });
+    expect(badges(s0).red).toBe(1);
+    expect(badges(run(s0, gone(2))).red).toBe(0);
+  });
+
+  it("대화 세션이면 chatSessionId가 null, 다음 session으로 새 대화가 들어온다", () => {
+    let s = run(online(), { type: "session", session: session(1, { source: "chat" }) });
+    const other = run(s, gone(2));
+    s = run(s, gone(1));
+    expect(s.chatSessionId).toBeNull();
+    expect(run(s, { type: "session", session: session(8, { source: "chat" }) }).chatSessionId).toBe(8);
+    expect(other.chatSessionId).toBe(1);
+  });
+
+  it("보던 세션이 지워지면 그 탭 목록으로, 다른 세션이면 그대로", () => {
+    const task = withAll({ tab: "tasks", screen: "task", sessionId: 2, page: 2 });
+    expect(run(task, gone(2)).view).toEqual({ tab: "tasks", screen: "list", page: 2 });
+    expect(run(task, gone(5)).view).toEqual(task.view);
+    const sch = withAll({ tab: "schedules", screen: "editSchedule", sessionId: 3, page: 1, proposal: { a: 1 } });
+    expect(run(sch, gone(3)).view).toEqual({ tab: "schedules", screen: "list", page: 1 });
+    const alerts = withAll({ tab: "alerts", screen: "task", sessionId: 2, page: 1 });
+    expect(run(alerts, gone(2)).view).toEqual({ tab: "alerts", screen: "list", page: 1 });
+  });
+
+  it("보는 목록이 비면 followUps가 그 쪽을 다시 받는다", () => {
+    const tasks = withAll({ tab: "tasks", screen: "list", page: 2 });
+    tasks.lists = { ...tasks.lists, user: page([session(2)], 2, 2) };
+    expect(followUps(run(tasks, gone(2)), gone(2))).toEqual([{ type: "list_sessions", page: 2, view: "user" }]);
+    const rest = withAll({ tab: "tasks", screen: "list", page: 1 });
+    expect(followUps(run(rest, gone(2)), gone(2))).toEqual([]);
+    const sch = withAll({ tab: "schedules", screen: "list", page: 3 });
+    sch.lists = { ...sch.lists, schedules: page([rows(3)], 3, 3) };
+    expect(followUps(run(sch, gone(3)), gone(3))).toEqual([{ type: "list_schedules", page: 3 }]);
+    const alerts = withAll({ tab: "alerts", screen: "list", page: 2 });
+    alerts.lists = { ...alerts.lists, alerts: page([session(2)], 2, 2) };
+    expect(followUps(run(alerts, gone(2)), gone(2))).toEqual([{ type: "list_sessions", page: 2, view: "alerts" }]);
+  });
+});
+
+describe("activity", () => {
+  const act = (session_id: number, text: string, kind: "thinking" | "tool" | "writing" = "tool"): BackendMessage => ({ type: "activity", session_id, kind, text });
+  const withActivity = () => apply(apply(online(), act(2, "생각하는 중", "thinking"), 1000), act(2, "파일 읽는 중"), 5000);
+
+  it("받은 시각을 첫 activity에서 잡고, 하는 일이 바뀌어도 지킨다", () => {
+    expect(withActivity().activity.get(2)).toEqual({ kind: "tool", text: "파일 읽는 중", since: 1000 });
+    expect(initialState().activity.size).toBe(0);
+  });
+
+  it("세션마다 따로 센다", () => {
+    const s = apply(withActivity(), act(3, "답 쓰는 중", "writing"), 9000);
+    expect(s.activity.get(2)?.since).toBe(1000);
+    expect(s.activity.get(3)?.since).toBe(9000);
+  });
+
+  it("result·failure·question·proposal 줄이 오면 그 세션의 줄만 지운다", () => {
+    for (const kind of ["result", "failure", "question", "proposal"] as const) {
+      const base = apply(withActivity(), act(3, "x"), 2000);
+      const s = run(base, { type: "entry", session_id: 2, entry: { ...entry(9), kind } });
+      expect(s.activity.has(2)).toBe(false);
+      expect(s.activity.has(3)).toBe(true);
+    }
+  });
+
+  it("progress·user·chip 줄은 지우지 않는다", () => {
+    for (const kind of ["progress", "user", "chip"] as const) {
+      expect(run(withActivity(), { type: "entry", session_id: 2, entry: { ...entry(9), kind } }).activity.has(2)).toBe(true);
+    }
+  });
+
+  it("답한 뒤 다시 시작하면 새 시각으로 센다", () => {
+    let s = run(withActivity(), { type: "entry", session_id: 2, entry: { ...entry(9), kind: "question" } });
+    s = apply(s, act(2, "파일 읽는 중"), 20000);
+    expect(s.activity.get(2)?.since).toBe(20000);
+  });
+
+  it("세션이 working이 아니게 되면 지우고, working이면 둔다", () => {
+    expect(run(withActivity(), { type: "session", session: session(2, { state: "working" }) }).activity.has(2)).toBe(true);
+    for (const state of ["waiting", "done", "failed", "stopped"] as const) {
+      expect(run(withActivity(), { type: "session", session: session(2, { state }) }).activity.has(2)).toBe(false);
+    }
+  });
+
+  it("session_deleted와 끊김이 지운다", () => {
+    expect(run(withActivity(), { type: "session_deleted", session_id: 2 }).activity.has(2)).toBe(false);
+    expect(disconnected(withActivity()).activity.size).toBe(0);
+  });
+
+  it("now를 안 주면 현재 시각을 쓴다", () => {
+    const before = Date.now();
+    const since = run(online(), act(2, "x")).activity.get(2)!.since;
+    expect(since).toBeGreaterThanOrEqual(before);
+    expect(since).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+describe("elapsedText", () => {
+  it("60초까지는 N초, 넘으면 M분 N초", () => {
+    expect(elapsedText(0)).toBe("0초");
+    expect(elapsedText(999)).toBe("0초");
+    expect(elapsedText(1000)).toBe("1초");
+    expect(elapsedText(59999)).toBe("59초");
+    expect(elapsedText(60000)).toBe("60초");
+    expect(elapsedText(61000)).toBe("1분 1초");
+    expect(elapsedText(125000)).toBe("2분 5초");
+    expect(elapsedText(180000)).toBe("3분 0초");
+    expect(elapsedText(-500)).toBe("0초");
   });
 });

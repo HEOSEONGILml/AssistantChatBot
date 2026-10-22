@@ -1,11 +1,14 @@
 // 화면 상태: 백엔드 메시지를 쌓아 두고, 강아지 자세·배지·툴팁·다시 붙을 때 보낼 요청을 계산한다.
-import type { BackendMessage, Entry, Limit, Outgoing, Page, PermissionMode, Schedule, ScheduleRow, Session } from "./protocol";
+import type { ActivityKind, BackendMessage, Entry, Limit, Outgoing, Page, PermissionMode, Schedule, ScheduleRow, Session } from "./protocol";
 
 export type Tab = "alerts" | "chat" | "tasks" | "schedules" | "usage" | "settings";
 export type Screen = "list" | "task" | "newTask" | "newSchedule" | "schedule" | "editSchedule";
 // proposal: [고치기]로 지시서 수정 화면을 열 때 채울 등록 확인의 `data`
 export type View = { tab: Tab; screen: Screen; sessionId?: number; page: number; proposal?: Record<string, unknown> };
 export type Pose = "sleep" | "beg" | "walk" | "lay" | "stand" | "sit";
+
+// 돌고 있는 세션이 지금 하는 일. since: 이번 대답의 첫 activity를 받은 시각(ms), 하는 일이 바뀌어도 그대로
+export type Activity = { kind: ActivityKind; text: string; since: number };
 
 export type State = {
   connected: boolean;
@@ -15,6 +18,7 @@ export type State = {
   sessions: Map<number, Session>; // 배지 계산의 재료: `session`·`sessions`·`session_detail`로 알게 된 세션 전부
   entries: Map<number, Entry[]>; // 세션 ID → 대화 줄 (id 순)
   schedules: Map<number, Schedule>;
+  activity: Map<number, Activity>; // 세션 ID → 지금 하는 일 (준비 중 줄)
   lists: { user?: Page<Session>; alerts?: Page<Session>; schedules?: Page<ScheduleRow> };
   settings: { permissionMode: PermissionMode; recording: boolean } | null;
   limits: Limit[];
@@ -25,7 +29,7 @@ export type State = {
 export function initialState(): State {
   return {
     connected: false, loggedIn: null, loggingIn: false, chatSessionId: null,
-    sessions: new Map(), entries: new Map(), schedules: new Map(), lists: {},
+    sessions: new Map(), entries: new Map(), schedules: new Map(), activity: new Map(), lists: {},
     settings: null, limits: [], panelOpen: false,
     view: { tab: "alerts", screen: "list", page: 1 },
   };
@@ -77,6 +81,16 @@ export function followUps(s: State, m: BackendMessage): Outgoing[] {
       : m.type === "schedule" && list.page === 1; // 목록에 없는 행은 `schedule` 소식일 때만 다시 받는다
     return stale ? [{ type: "list_schedules", page: list.page }] : [];
   }
+  if (m.type === "session_deleted") {
+    // 지운 뒤 보는 목록이 비었으면 그 쪽을 다시 받는다 (쪽 수가 줄었으면 sessions·schedules 처리가 마지막 쪽으로 당긴다)
+    const v = s.view;
+    if (v.screen !== "list") return [];
+    const { user, alerts, schedules } = s.lists;
+    if (v.tab === "tasks" && user && user.items.length === 0) return [{ type: "list_sessions", page: user.page, view: "user" }];
+    if (v.tab === "alerts" && alerts && alerts.items.length === 0) return [{ type: "list_sessions", page: alerts.page, view: "alerts" }];
+    if (v.tab === "schedules" && schedules && schedules.items.length === 0) return [{ type: "list_schedules", page: schedules.page }];
+    return [];
+  }
   if (m.type !== "sessions") return [];
   if (m.view === "alerts" && m.pages > m.page) return [{ type: "list_sessions", page: m.page + 1, view: "alerts" }];
   const last = Math.max(m.pages, 1);
@@ -84,14 +98,53 @@ export function followUps(s: State, m: BackendMessage): Outgoing[] {
   return [];
 }
 
-export function apply(s: State, m: BackendMessage): State {
+function without<K, V>(map: Map<K, V>, key: K): Map<K, V> {
+  if (!map.has(key)) return map;
+  const next = new Map(map);
+  next.delete(key);
+  return next;
+}
+
+// 준비 중 줄이 사라지는 줄: 결과·실패·질문·등록 확인
+const ENDS_ACTIVITY = new Set<Entry["kind"]>(["result", "failure", "question", "proposal"]);
+
+// 지운 세션을 모든 곳에서 뺀다. 보던 화면이 그 세션이면 그 탭 목록으로 보낸다
+function deleteSession(s: State, id: number): State {
+  const page = <T>(p: Page<T> | undefined, keep: (x: T) => boolean) => p && { ...p, items: p.items.filter(keep) };
+  const v = s.view;
+  const view: View = v.sessionId === id ? { tab: v.tab, screen: "list", page: v.page } : v;
+  return {
+    ...s, view,
+    sessions: without(s.sessions, id), entries: without(s.entries, id), schedules: without(s.schedules, id),
+    activity: without(s.activity, id),
+    chatSessionId: s.chatSessionId === id ? null : s.chatSessionId,
+    lists: {
+      user: page(s.lists.user, (t) => t.id !== id), alerts: page(s.lists.alerts, (t) => t.id !== id),
+      schedules: page(s.lists.schedules, (r) => r.session_id !== id),
+    },
+  };
+}
+
+// now: activity의 since로 잡을 현재 시각(ms). 테스트에서 시계를 넣는다
+export function apply(s: State, m: BackendMessage, now: number = Date.now()): State {
   switch (m.type) {
     case "status":
       return { ...s, connected: true, loggedIn: m.logged_in, loggingIn: false };
-    case "session":
-      return { ...s, ...withSessions(s, [m.session]) };
+    case "session": {
+      const activity = m.session.state === "working" ? s.activity : without(s.activity, m.session.id);
+      return { ...s, ...withSessions(s, [m.session]), activity };
+    }
     case "entry":
-      return { ...s, entries: new Map(s.entries).set(m.session_id, mergeEntries(s.entries.get(m.session_id), [m.entry])) };
+      return {
+        ...s, entries: new Map(s.entries).set(m.session_id, mergeEntries(s.entries.get(m.session_id), [m.entry])),
+        activity: ENDS_ACTIVITY.has(m.entry.kind) ? without(s.activity, m.session_id) : s.activity,
+      };
+    case "session_deleted":
+      return deleteSession(s, m.session_id);
+    case "activity": {
+      const since = s.activity.get(m.session_id)?.since ?? now;
+      return { ...s, activity: new Map(s.activity).set(m.session_id, { kind: m.kind, text: m.text, since }) };
+    }
     case "sessions": {
       // 배지 훑기: 알림 1쪽이 오면 알림 대상 세션을 지우고 1쪽부터 다시 채운다(뒤쪽은 followUps로 이어 받는다).
       // 그래야 끊긴 사이 알림에서 빠진 세션이 배지에 남지 않는다
@@ -132,6 +185,12 @@ export function apply(s: State, m: BackendMessage): State {
     case "usage":
       return { ...s, limits: m.limits };
   }
+}
+
+// 걸린 시간 글: 60초까지는 `<N>초`, 넘으면 `<M>분 <N>초`
+export function elapsedText(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  return sec > 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
 }
 
 // 대화 세션(source: "chat")은 목록·알림·배지에 넣지 않는다 (프로토콜 문서)

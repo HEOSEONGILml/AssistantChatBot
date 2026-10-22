@@ -534,6 +534,7 @@ erDiagram
 | `sessions` | 세션 ID → `Session` | 받은 세션 전부. 배지 계산에 쓴다 |
 | `entries` | 세션 ID → `Entry[]` | 받은 대화 줄 |
 | `schedules` | 세션 ID → `Schedule` | 받은 스케줄 |
+| `activity` | 세션 ID → `{kind, text, since}` | 돌고 있는 세션이 지금 하는 일(준비 중 줄). `since`는 이번 대답의 첫 `activity`를 받은 시각. 결과·실패·질문·등록 확인 줄, 일하는 중이 아니게 된 `session`, `session_deleted`, 끊김에 지운다 |
 | `lists` | `user`·`alerts`·`schedules` → `Page` | 목록 한 쪽 |
 | `settings` | `{permissionMode, recording}` 또는 `null` | 설정 |
 | `limits` | `Limit[]` | 사용량 |

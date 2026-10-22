@@ -8,10 +8,12 @@ const REPEATS = ["daily", "weekdays", "weekly", "monthly"] as const;
 const RESULTS = ["done", "failed", "stopped"] as const;
 const ROW_STATES = ["running", "next", "off"] as const;
 const VIEWS = ["user", "alerts"] as const;
+const ACTIVITY_KINDS = ["thinking", "tool", "writing"] as const;
 const MODES = ["default", "acceptEdits", "plan", "auto", "bypassPermissions"] as const;
 
 export type SessionState = (typeof SESSION_STATES)[number];
 export type PermissionMode = (typeof MODES)[number];
+export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 export type ListView = (typeof VIEWS)[number];
 
 export type Session = {
@@ -41,7 +43,9 @@ export type BackendMessage =
   | ({ type: "schedules" } & Page<ScheduleRow>)
   | { type: "schedule"; schedule: Schedule }
   | { type: "settings"; permission_mode: PermissionMode; recording: boolean }
-  | { type: "usage"; limits: Limit[] };
+  | { type: "usage"; limits: Limit[] }
+  | { type: "session_deleted"; session_id: number }
+  | { type: "activity"; session_id: number; kind: ActivityKind; text: string };
 
 type ScheduleFields = { name: string; rule: Rule; instruction: string };
 export type Outgoing =
@@ -55,6 +59,7 @@ export type Outgoing =
   | { type: "seen"; session_id: number }
   | { type: "list_sessions"; page: number; view: ListView }
   | { type: "get_session"; session_id: number }
+  | { type: "delete_session"; session_id: number }
   | { type: "list_schedules"; page: number }
   | ({ type: "set_schedule"; session_id: number } & ScheduleFields)
   | { type: "set_schedule_enabled"; session_id: number; enabled: boolean }
@@ -100,6 +105,8 @@ function valid(o: O): boolean {
     case "schedule": return isSchedule(o.schedule);
     case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording);
     case "usage": return listOf(isLimit)(o.limits);
+    case "session_deleted": return isInt(o.session_id);
+    case "activity": return isInt(o.session_id) && oneOf(ACTIVITY_KINDS)(o.kind) && isStr(o.text);
     default: return false;
   }
 }
