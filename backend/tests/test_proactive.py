@@ -32,6 +32,7 @@ def test_history_reads_recent_and_skips_own_app(tmp_path):
         (6 * m, "chrome.exe", "old", "너무 오래됨", None),
         (4 * m, "chrome.exe", "검색", "OCR 글", "접근성 글"),
         (3 * m, "app.exe", "강아지", "내 창", None),
+        (2 * m, None, None, "다른 모니터 OCR", None),  # 포커스 없는 모니터는 앱 이름이 없다 (2026-10-22 확인)
         (1 * m, "EXCEL.EXE", "매출.xlsx", None, "접근성만"),
     ])
     frames = ScreenHistory(path).recent(NOW - 5 * m)

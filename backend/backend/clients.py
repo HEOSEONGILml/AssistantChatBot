@@ -165,7 +165,8 @@ class ScreenHistory:
         self._path = path
 
     def recent(self, since: datetime) -> list[dict]:
-        """since 이후의 프레임을 오래된 것부터. Frame = {at, app, window, text}. 글은 full_text, 없으면 accessibility_text."""
+        """since 이후의 프레임을 오래된 것부터. Frame = {at, app, window, text}. 글은 full_text, 없으면 accessibility_text.
+        앱 이름이 없는 프레임은 뺀다: 포커스 없는 다른 모니터를 찍은 것이라 같은 화면이 반복된다 (2026-10-22 확인)."""
         floor = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # timestamp는 UTC ISO. 앞부분 문자열 비교
         marks = ",".join("?" * len(OWN_APPS))
         try:
@@ -173,7 +174,7 @@ class ScreenHistory:
             try:
                 rows = con.execute(
                     "select timestamp, app_name, window_name, coalesce(nullif(full_text, ''), accessibility_text, '') "
-                    f"from frames where timestamp >= ? and lower(coalesce(app_name, '')) not in ({marks}) order by timestamp",
+                    f"from frames where timestamp >= ? and coalesce(app_name, '') != '' and lower(app_name) not in ({marks}) order by timestamp",
                     (floor, *OWN_APPS)).fetchall()
             finally:
                 con.close()
