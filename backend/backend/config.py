@@ -31,5 +31,5 @@ def claude_env() -> dict[str, str]:
 
 
 def screenpipe_cmd() -> list[str]:
-    """screenpipe 녹화 명령. 기록은 이틀만 두고 모두 지운다(사용자 결정). 소리 설정은 기본값 그대로."""
-    return ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all"]
+    """screenpipe 녹화 명령. 기록은 이틀만 두고 모두 지운다(사용자 결정). OCR 언어는 한국어·영어(빠지면 한글을 한자 등으로 잘못 읽었다, 2026-10-22 확인). 소리 설정은 기본값 그대로."""
+    return ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all", "--language", "korean", "--language", "english"]

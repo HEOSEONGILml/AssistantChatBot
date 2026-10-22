@@ -255,7 +255,7 @@ flowchart TB
 |---|---|---|
 | Claude Code | Agent SDK로 띄운다. 사용자 구독 로그인 | 2.1.305. SDK에서 크롬·질문·권한 콜백 동작 ([스파이크](../../spikes/2026-10-21-agent-sdk-claude-code.md)) |
 | Claude in Chrome 확장 | 크롬에 설치되어 있어야 한다 | 스파이크에서 도구 22개가 실렸다 |
-| screenpipe | 소스 빌드 CLI(`npx screenpipe record --retention-days 2 --retention-mode all`)로 기록하고 MCP(`screenpipe-mcp`)로 붙인다. 기록은 이틀만 두고 모두 지운다 (사용자) | 공개 코드에서 기록·검색 API·MCP 확인 ([사례 조사](../../references/similar-products.md)) |
+| screenpipe | 소스 빌드 CLI(`npx screenpipe record --retention-days 2 --retention-mode all --language korean --language english`)로 기록하고 MCP(`screenpipe-mcp`)로 붙인다. 기록은 이틀만 두고 모두 지운다 (사용자) | 공개 코드에서 기록·검색 API·MCP 확인 ([사례 조사](../../references/similar-products.md)) |
 
 ## 7. 제약과 위험
 

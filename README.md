@@ -25,7 +25,7 @@
 | [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude` CLI) | 2.1.305 | 에이전트. PATH에서 `claude`를 찾을 수 있어야 한다 |
 | Claude 구독 로그인 | | `claude auth login`으로 claude.ai 계정 로그인. API 키 로그인은 로그인 안 된 것으로 본다(과금되고 크롬 조작이 꺼진다) |
 | Claude in Chrome 확장 | | 크롬에 설치하고 같은 계정으로 로그인. 에이전트가 크롬을 조작한다 |
-| Node.js의 `npx` | 위 Node.js | screenpipe(`npx -y screenpipe record --retention-days 2 --retention-mode all`)와 screenpipe MCP(`npx -y screenpipe-mcp@latest`)를 받아 띄운다. 처음 실행 때 내려받는다 |
+| Node.js의 `npx` | 위 Node.js | screenpipe(`npx -y screenpipe record --retention-days 2 --retention-mode all --language korean --language english`)와 screenpipe MCP(`npx -y screenpipe-mcp@latest`)를 받아 띄운다. 처음 실행 때 내려받는다 |
 
 ## 설치
 
@@ -58,7 +58,7 @@ npm run tauri dev
 
 백엔드만 따로 띄우기: `cd backend && uv run python -m backend`
 
-- 띄우면 screenpipe가 떠 있지 않을 때 `npx -y screenpipe record`로 화면 기록을 시작한다. 기록은 이틀만 두고 모두 지운다(`--retention-days 2 --retention-mode all`). 백엔드가 끝나면 함께 끈다. 강제로 죽이면(작업 관리자 등) screenpipe가 남을 수 있으니 `taskkill /IM screenpipe.exe /F`로 끈다.
+- 띄우면 screenpipe가 떠 있지 않을 때 `npx -y screenpipe record`로 화면 기록을 시작한다. 기록은 이틀만 두고 모두 지운다(`--retention-days 2 --retention-mode all`). OCR은 한국어·영어로 읽는다(`--language korean --language english`). 백엔드가 끝나면 함께 끈다. 강제로 죽이면(작업 관리자 등) screenpipe가 남을 수 있으니 `taskkill /IM screenpipe.exe /F`로 끈다.
 - 스케줄러가 1분마다 돈다. 로그는 `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log`.
 - 실제 Claude Code로만 확인할 수 있는 것은 [수동 확인 목록](docs/manual-checks/backend.md)에 있다.
 

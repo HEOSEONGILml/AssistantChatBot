@@ -93,7 +93,7 @@ async def test_recorder_starts_and_stops_only_its_own(monkeypatch):
     await rec.start()
     await rec.start()  # 살아 있으면 또 띄우지 않는다
     assert len(procs) == 1
-    assert procs[0][0] == ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all"]
+    assert procs[0][0] == ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all", "--language", "korean", "--language", "english"]
     rec.stop()
     assert killed == [procs[0][1]]
     rec.stop()  # 두 번 불러도 안전
@@ -135,7 +135,7 @@ async def test_recorder_resolves_npx_to_full_path(monkeypatch):
     async def down():
         return False
     await Recorder(spawn=lambda argv, env: spawned.append(argv), health=down).start()
-    assert spawned == [["C:/nodejs/npx.CMD", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all"]]
+    assert spawned == [["C:/nodejs/npx.CMD", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all", "--language", "korean", "--language", "english"]]
 
 
 def test_resolve_falls_back_to_original_name(monkeypatch):

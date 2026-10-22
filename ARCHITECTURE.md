@@ -603,7 +603,7 @@ flowchart TB
   JUST -->|"예"| WAIT["내려갈 때까지 대기<br>0.5초 × 최대 10번"] --> H
   JUST -->|"아니오"| H{"localhost:3030/health<br>응답?"}
   H -->|"예"| OTHER["남이 띄운 것.<br>건드리지 않음"]
-  H -->|"아니오"| SPAWN["npx -y screenpipe record<br>--retention-days 2 --retention-mode all"]
+  H -->|"아니오"| SPAWN["npx -y screenpipe record<br>--retention-days 2 --retention-mode all<br>--language korean --language english"]
 ```
 
 | 시점 | 동작 | 코드 |
@@ -653,6 +653,7 @@ flowchart LR
 | OCR이 필요한 곳 | 그림 위주 앱, 캔버스로 그리는 PDF, 영상 속 글자, 접근성 정보가 없는 앱 |
 | 소리 | CLI 기본값은 늘 녹음·받아쓰기(`audioCaptureMode: always`). 우리는 소리 설정을 바꾸지 않으므로(`config.screenpipe_cmd`) 소리도 기록된다. 받아쓰기 엔진의 기본값은 확인하지 않았다 |
 | 보관 | `--retention-days 2 --retention-mode all`: 2일 지난 행과 파일을 모두 지운다. screenpipe 기본값은 꺼짐·14일·`media`(파일만 지움) |
+| OCR 언어 | `--language korean --language english`. 언어를 주지 않았을 때 한글을 한자·엉뚱한 글자로 읽었다(예: "대화 탭" → "다화 턭", 숫자 자리에 한자). 붙인 뒤 같은 노션 화면에서 한글 메뉴 대부분을 바로 읽었다. 남은 틀림 예: "챗봇" → "잿봇" (2026-10-22 확인) |
 
 - 출처: screenpipe 저장소 [`docs/EVENT_DRIVEN_CAPTURE_SPEC.md`](https://github.com/screenpipe/screenpipe/blob/main/docs/EVENT_DRIVEN_CAPTURE_SPEC.md)(계기·간격·글자 추출), `crates/screenpipe-engine/src/retention.rs`(보관), `crates/screenpipe-config/src/recording.rs`(소리). 2026-10-22 Context7로 확인.
 - 수치는 설계 스펙의 값이다. 우리는 `npx -y screenpipe`로 그때그때 최신 버전을 받으므로 실제 값은 버전마다 다를 수 있다. 실제 동작은 확인하지 않았다.
