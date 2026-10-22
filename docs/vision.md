@@ -127,6 +127,7 @@
 - 작업마다 **사용자와 주고받은 대화 기록**이 보여야 한다 (사용자). 예: "결제할까요?"에 바로 답하지 않고 되물으면, 그 물음과 답이 작업 안에 쌓인다.
 - 화면 디자인 결과: [design/2026-10-21-output-ui](design/2026-10-21-output-ui/README.md)
 - 키 입력 요청 대신 **Claude 로그인 요청**을 보인다 (사용자). 설정 창의 키 입력칸은 뺀다 (Claude 제안, 사용자 수용).
+- 대신 할 수 없는 일(로그인, 권한 허용, 커넥터 연결 등)은 "직접 하셔야 해요"로 끝내지 않고, 바로 이어서 할 수 있게 링크·화면·누를 곳을 준다 (사용자, 2026-10-22: "일머리가 없어"). → `backend/backend/harness.md`
 - 기본 Claude Code의 기능을 제약하지 않는다. 브라우저로 국한하지 않는다 (사용자, 2026-10-22). → [0036](decisions/0036-no-claude-code-tool-restrictions.md)
 - 입출력 인터페이스는 세션 하나를 대화 하나로 본다 (Claude 제안, 사용자 수용). → [0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)
 
