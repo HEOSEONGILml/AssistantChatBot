@@ -759,3 +759,49 @@ async def test_activity_is_sent_not_stored():
     await settle()
     assert of(out, "activity") == [{"type": "activity", "session_id": 1, "kind": "tool", "text": "웹에서 검색하는 중"}]
     assert [e["kind"] for e in store.entries(1)] == ["user"]
+
+
+class GatedAuth(FakeAuth):
+    """logged_in이 gate가 켜질 때까지 걸린다 (그 사이 다른 메시지가 처리된다)."""
+
+    def __init__(self):
+        super().__init__()
+        self.gate = asyncio.Event()
+
+    async def logged_in(self):
+        await self.gate.wait()
+        return self.ok
+
+
+async def test_schedule_deleted_during_login_check_does_not_start():
+    from datetime import datetime
+    auth = GatedAuth()
+    app, store, out, runs = make(auth)
+    t = store.create_session("schedule", "메일")
+    store.update_session(t["id"], state="done", seen=True)
+    store.create_schedule(t["id"], "메일", RULE, "요약")
+    job = asyncio.create_task(app.run_schedule(1, datetime(2026, 10, 22, 18, 0).astimezone()))
+    await settle()
+    await app.delete_session(1)
+    auth.gate.set()
+    await asyncio.wait_for(job, 1)
+    await settle()
+    assert runs == [] and app._runs == {}
+    assert store.get_session(1) is None and store.entries(1) == []
+
+
+async def test_say_to_session_deleted_during_login_check_does_not_start():
+    auth = GatedAuth()
+    auth.gate.set()
+    app, store, out, runs = make(auth)
+    await app.startup()
+    chat_id = store.chat_session()["id"]
+    auth.gate.clear()
+    job = asyncio.create_task(app.say(chat_id, "안녕"))
+    await settle()
+    await app.delete_session(chat_id)
+    auth.gate.set()
+    await asyncio.wait_for(job, 1)
+    await settle()
+    assert runs == [] and app._runs == {}
+    assert store.get_session(chat_id) is None and store.entries(chat_id) == []

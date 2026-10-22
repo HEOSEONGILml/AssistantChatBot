@@ -364,7 +364,11 @@ class App:
         return False
 
     def _start(self, session_id: int, prompt: str, resume: str | None) -> bool:
-        """Claude Code 세션을 띄운다. 준비하다 실패하면 세션을 실패로 끝내고 False."""
+        """Claude Code 세션을 띄운다. 준비하다 실패하면 세션을 실패로 끝내고 False.
+        로그인 확인을 기다리는 사이 세션이 지워졌으면 띄우지 않고 False."""
+        if self._store.get_session(session_id) is None:
+            log.info("세션 %d: 지워져서 Claude Code 세션을 띄우지 않음", session_id)
+            return False
         events = _Events(self, session_id)
         try:
             run = self._new_run(session_id, events)
