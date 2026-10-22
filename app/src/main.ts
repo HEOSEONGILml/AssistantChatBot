@@ -71,6 +71,15 @@ function togglePanel() {
   render();
 }
 
+// 강아지 누르기. 먼저 말 걸기 배지(23번)가 떠 있으면 패널을 대화 탭으로 열고 nudge_open(큰 창이 떠 있어도 같다)
+function dogClick() {
+  if (!state.nudge || state.loggedIn === false) { togglePanel(); return; }
+  state = { ...state, panelOpen: true, view: { tab: "chat", screen: "list", page: 1 } };
+  for (const out of refreshRequests(state)) send(out);
+  send({ type: "nudge_open" });
+  render();
+}
+
 // 알림 탭의 질문 카드: 그 세션의 질문 줄이 캐시에 없으면 한 번 받아 온다. 패널과 큰 창(알림 탭이면 왼쪽에 늘 목록)
 function fetchCardQuestion() {
   for (const id of asked) if (state.sessions.get(id)?.state !== "waiting") asked.delete(id);
@@ -168,7 +177,7 @@ bindDogDrag(dogRoot, {
 });
 
 function render() {
-  renderDog(dogRoot, state, togglePanel);
+  renderDog(dogRoot, state, dogClick);
   panelRoot.hidden = !state.panelOpen;
   if (state.panelOpen) renderPanel(panelRoot, state, send, go, openBig);
   else { panelRoot.replaceChildren(); panelRoot.dataset.key = ""; }

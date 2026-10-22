@@ -1,6 +1,6 @@
 // 패널 틀: 연결 띠, 탭 바, 탭별 본문, 새 작업 화면, 대화 화면, 지우기 확인, 꼬리. 값은 다이제스트 2절, 3절 6·7·8·11·16·18·19번.
 import type { Entry, Outgoing, Session } from "../shared/protocol";
-import { STATE_TEXT, type State, type Tab, type View } from "../shared/state";
+import { badges, STATE_TEXT, type State, type Tab, type View } from "../shared/state";
 import { isSendKey } from "../shared/forms";
 import { BACK_ICON, deleteButton, expandButton, h, header, svg, trashIcon } from "./dom";
 import { renderConversation } from "./conversation";
@@ -160,11 +160,15 @@ export function openConfirm(root: HTMLElement, t: Session, name: string, send: S
   cancel.focus();
 }
 
-// 양식 화면(새 작업·새 스케줄·지시서 수정)을 다시 그릴지 정하는 열쇠. 양식이 아니면 ""
+// 양식 화면(새 작업·새 스케줄·지시서 수정·설정 탭의 Jev 키)을 다시 그릴지 정하는 열쇠. 양식이 아니면 ""
+// 설정 탭은 그 화면에 보이는 값(연결·로그인·설정·탭 바 작은 배지)이 바뀔 때만 다시 그린다
 export function formKey(s: State): string {
   const v = s.view;
+  const b = badges(s);
   return v.screen === "newTask" ? `newTask|${s.connected}`
     : v.screen === "newSchedule" || v.screen === "editSchedule" ? `form|${v.screen}|${v.sessionId ?? ""}|${s.connected}|${formReady(s)}`
+    : v.screen === "list" && v.tab === "settings"
+      ? `settings|${s.connected}|${s.loggedIn}|${s.loggingIn}|${JSON.stringify(s.settings)}|${b.red},${b.yellow},${b.green}`
     : "";
 }
 

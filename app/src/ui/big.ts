@@ -93,7 +93,10 @@ export function renderBig(root: HTMLElement, s: State, send: Send, go: Go): void
   }
   headSlot.replaceChildren();
   const fk = formKey(s);
-  if (fk) { setContent(content, fk, () => (v.screen === "newTask" ? newTask(s, send, go) : scheduleForm(s, send, go))); return; }
+  if (fk) {
+    setContent(content, fk, () => (v.screen === "newTask" ? newTask(s, send, go) : v.screen === "list" ? settingsBody(s, send) : scheduleForm(s, send, go)));
+    return;
+  }
   // 대화 화면인데 세션을 아직 모르면 "불러오는 중", 두 칸 목록이면 고르라는 글, 한 칸 탭이면 그 본문
   const loading = v.screen !== "list" || v.tab === "chat";
   setContent(content, "", () => loading ? [h("p", { class: "empty" }, "불러오는 중…")]

@@ -1,4 +1,4 @@
-// 강아지: 자세 스프라이트, 왼쪽 위 배지 알약, 툴팁, 끌기. 값은 다이제스트 2·3(20번)·7절.
+// 강아지: 자세 스프라이트, 왼쪽 위 배지 알약, 툴팁, 끌기. 값은 다이제스트 2·3(20·23번)·7절.
 import { isDrag } from "../shared/placement";
 import { badges, pose, tooltip, type Pose, type State } from "../shared/state";
 import { h } from "./dom";
@@ -16,9 +16,13 @@ const SPRITE: Record<Pose, string> = {
 export function renderDog(root: HTMLElement, state: State, onClick: () => void): void {
   const tip = tooltip(state);
   const b = badges(state);
-  const pills = state.loggedIn === false ? [] : ([["red", b.red], ["yellow", b.yellow], ["green", b.green]] as const)
-    .filter(([, n]) => n > 0)
-    .map(([color, n]) => h("span", { class: `badge badge-${color}` }, String(n)));
+  // 먼저 말 걸기 "!" 배지(23번)는 개수 배지 줄의 맨 앞
+  const pills = state.loggedIn === false ? [] : [
+    ...(state.nudge ? [h("span", { class: "badge badge-nudge" }, "!")] : []),
+    ...([["red", b.red], ["yellow", b.yellow], ["green", b.green]] as const)
+      .filter(([, n]) => n > 0)
+      .map(([color, n]) => h("span", { class: `badge badge-${color}` }, String(n))),
+  ];
   root.replaceChildren(h("button", {
     class: "dog", type: "button", title: tip, "aria-label": `강아지 — ${tip}`,
     "aria-expanded": String(state.panelOpen), onClick,

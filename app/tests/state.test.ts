@@ -135,6 +135,10 @@ describe("tooltip", () => {
     expect(tooltip(run(working, { type: "status", logged_in: false }))).toBe("눌러서 로그인하기");
     expect(tooltip(online())).toBe("눌러서 일 맡기기");
   });
+  it("먼저 말 걸기 배지가 떠 있으면 일하는 중보다 앞선다", () => {
+    const working = run(online(), { type: "session", session: session(1, { state: "working" }) }, { type: "nudge", active: true });
+    expect(tooltip(working)).toBe("할 말이 있어요");
+  });
 });
 
 describe("refreshRequests", () => {

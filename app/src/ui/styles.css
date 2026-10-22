@@ -72,6 +72,7 @@ html, body {
 .badge-red { background: #C81E1E; }
 .badge-yellow { background: #B45309; }
 .badge-green { background: #15803D; }
+.badge-nudge { width: 22px; padding: 0; background: #1D4ED8; font-size: 13px; } /* 먼저 말 걸기 "!"(23번) */
 
 /* 끄는 중(20번): grabbing 커서, 떠 있는 그림자, 아래 타원 그림자.
    아트보드는 타원이 강아지 아래 10px 밖이다. 창이 강아지 크기라 그림을 20px 올리고 타원을 창 안 맨 아래에 둔다
@@ -414,6 +415,22 @@ button { font: inherit; color: inherit; }
 .choice-primary { border: 0; background: #1D4ED8; color: #FFFFFF; font-weight: 700; }
 .choice:disabled { opacity: 0.5; cursor: default; }
 .run-line { align-self: center; font-size: 12px; color: #5B6472; }
+/* 먼저 말 걸기(24번): 파란 테두리 말풍선과 빠른 답 칩 */
+.msg-nudge { border: 2px solid #1D4ED8; }
+.nudge-chips { align-self: flex-start; display: flex; gap: 6px; }
+.nudge-chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #C4CAD3;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #1B1F27;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.nudge-chip:disabled { opacity: 0.5; cursor: default; }
 .prog-chip, .prog-head {
   min-height: 32px;
   padding: 0 8px;
@@ -745,6 +762,10 @@ html:has(.big-body), .big-body { height: 100%; background: #FFFFFF; }
 .mode-desc { font-size: 12px; color: #3D4552; }
 .mode-warn { color: #B45309; }
 .set-foot { margin: 6px 8px 0; font-size: 12px; color: #5B6472; }
+.set-jev { padding: 12px 12px 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.set-jev-form { display: flex; gap: 6px; }
+.set-jev-input { flex: 1; min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 8px; font: inherit; font-size: 13px; color: #1B1F27; }
+.btn-save { flex: none; min-height: 36px; padding: 0 12px; }
 
 /* --- 사용량 탭 (14) --- */
 .usage { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 14px; }

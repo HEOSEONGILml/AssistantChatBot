@@ -129,7 +129,7 @@ function drawLog(c: Ctl): void {
 
 const bubble = (cls: string, ...children: (Node | string)[]) => h("li", { class: `msg ${cls}` }, ...children);
 
-function itemEl(c: Ctl, it: Item, key: string): HTMLElement {
+function itemEl(c: Ctl, it: Item, key: string): Node {
   switch (it.kind) {
     case "user": return bubble("msg-user", it.text);
     case "agent": return bubble("msg-agent msg-md", markdown(it.text));
@@ -142,8 +142,32 @@ function itemEl(c: Ctl, it: Item, key: string): HTMLElement {
         choiceRow(it.choices, key, (choice) => say(c, choice)));
     case "proposal": return proposal(c, it, key);
     case "chip": return chip(c, it);
-    case "nudge": return bubble("msg-agent", it.text); // 선택지는 다음 작업(UI)에서 그린다
+    case "nudge": return nudge(c, it, key);
   }
+}
+
+// 먼저 말 걸기(24번): 가운데 구분 글 + 파란 테두리 말풍선 + 빠른 답 칩(답할 수 있을 때만).
+// 칩은 say가 아니라 nudge_answer로 보낸다([도와줘]가 help: true). 보내기에 성공하면 기존 선택지처럼 막는다
+function nudge(c: Ctl, it: Item, key: string): DocumentFragment {
+  const out = document.createDocumentFragment();
+  out.append(
+    h("li", { class: "run-line" }, `강아지가 먼저 말을 걸었어요 · ${clockText(it.entries[0].at)}`),
+    bubble("msg-agent msg-nudge", it.text));
+  if (!it.answerable || !it.choices?.length) return out;
+  const done = answered.has(key);
+  const row = h("li", { class: "nudge-chips" });
+  for (const choice of it.choices) {
+    row.append(h("button", {
+      type: "button", class: "nudge-chip", disabled: done,
+      onClick: () => {
+        if (c.send({ type: "nudge_answer", help: choice === "도와줘" }) === false) return;
+        answered.add(key);
+        for (const b of row.querySelectorAll("button")) b.disabled = true;
+      },
+    }, choice));
+  }
+  out.append(row);
+  return out;
 }
 
 const say = (c: Ctl, text: string) => c.send({ type: "say", session_id: c.opts.session.id, text });

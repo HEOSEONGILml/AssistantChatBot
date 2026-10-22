@@ -222,6 +222,7 @@ export function pose(s: State): Pose {
 
 export function tooltip(s: State): string {
   if (s.loggedIn === false) return "눌러서 로그인하기";
+  if (s.nudge) return "할 말이 있어요"; // 먼저 말 걸기 배지(23번)
   const n = workingCount(s);
   return n > 0 ? `일하는 중 · 작업 ${n}개` : "눌러서 일 맡기기";
 }
