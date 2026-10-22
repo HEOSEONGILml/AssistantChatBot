@@ -188,8 +188,7 @@ class App:
             log.warning("돌고 있지 않은 세션을 멈추려 함: %d", session_id)
             return
         run = self._runs[session_id][0]
-        if self._help_later is not None and self._help_later[0] == session_id:
-            self._help_later = None  # 사용자가 대화를 멈췄으니 미뤄 둔 [도와줘]도 버린다
+        self._drop_help_later(session_id)  # 사용자가 대화를 멈췄으니 미뤄 둔 [도와줘]도 버린다
         self._set(session_id, state="stopped")
         await run.stop()
         await self._flush()
@@ -221,6 +220,8 @@ class App:
         """돌거나 답을 기다리면 먼저 멈추고 지운다. 대화 세션을 지우면 새 대화 세션을 만든다 (대화 세션은 늘 하나)."""
         session = self._store.get_session(session_id)
         if session is not None:
+            # 멈추기를 기다리는 사이 실행이 끝나도 미뤄 둔 [도와줘]가 지울 세션에서 돌지 않게 먼저 버린다
+            self._drop_help_later(session_id)
             held = self._runs.get(session_id)
             if held is not None:
                 await held[0].stop()  # 기다리던 답은 "거부"로 풀고 Claude Code 세션을 끊는다
@@ -488,6 +489,10 @@ class App:
             if self._runs.get(session_id, (None,))[0] is run:
                 del self._runs[session_id]
                 self._start_help_later(session_id)
+
+    def _drop_help_later(self, session_id: int) -> None:
+        if self._help_later is not None and self._help_later[0] == session_id:
+            self._help_later = None
 
     def _start_help_later(self, session_id: int) -> None:
         """미뤄 둔 [도와줘]를 끝난 세션에 이어 묻는다 (끝난 세션에 say처럼). 세션을 지웠으면 버린다."""

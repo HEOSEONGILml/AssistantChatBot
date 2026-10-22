@@ -985,6 +985,12 @@ async def test_pending_help_dropped_when_chat_deleted():
     runs[0].events.question("계속할까요?", ["예", "아니오"])
     await app.nudge_open()
     await app.nudge_answer(True)
+    fake_stop = runs[0].stop
+
+    async def slow_stop():  # 진짜 AgentRun.stop처럼 기다리는 사이 실행이 끝나 _drive의 finally까지 간다
+        await fake_stop()
+        await settle()
+    runs[0].stop = slow_stop
     await app.delete_session(chat_id)
     await settle()
     assert runs[0].stopped and len(runs) == 1 and app._runs == {}
