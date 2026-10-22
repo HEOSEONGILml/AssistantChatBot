@@ -3,18 +3,15 @@
   "identifier": "default",
   "windows": [
     "main",
-    "input",
-    "settings"
+    "detail"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-show",
     "core:window:allow-hide",
     "core:window:allow-set-focus",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-unregister",
-    "global-shortcut:allow-is-registered",
-    "store:default",
-    "core:window:allow-is-visible"
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-title"
   ]
 }

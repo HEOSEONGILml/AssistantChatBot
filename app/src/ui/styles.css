@@ -1,0 +1,73 @@
+/* 화면 공통 모양. 값은 docs/design/2026-10-21-output-ui/digest.md */
+html, body {
+  margin: 0;
+  background: transparent; /* 투명 창: 강아지·패널만 보인다 */
+  overflow: hidden;
+  font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  font-size: 13px;
+  color: #1B1F27;
+}
+
+/* 창 오른쪽 아래에 패널(위)과 강아지(아래)를 쌓는다 */
+#app {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.panel {
+  width: 340px;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  background: #FFFFFF;
+  border: 1px solid #D5DAE1;
+  border-radius: 14px;
+}
+.panel[hidden] { display: none; }
+.placeholder { padding: 16px; color: #5B6472; }
+
+.dog {
+  position: relative;
+  display: block;
+  width: 128px;
+  height: 96px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.sprite {
+  display: block;
+  width: 128px;
+  height: 96px;
+  background-image: url(/sprites/dog/dog-02.png);
+  background-size: 1024px 864px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.badges {
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  display: flex;
+  gap: 2px;
+}
+.badge {
+  min-width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 2px solid #FFFFFF;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.badge-red { background: #C81E1E; }
+.badge-yellow { background: #B45309; }
+.badge-green { background: #15803D; }

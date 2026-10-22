@@ -16,31 +16,24 @@
         "label": "main",
         "url": "index.html",
         "title": "main",
-        "visible": false,
-        "skipTaskbar": true
-      },
-      {
-        "label": "input",
-        "url": "input.html",
-        "title": "talk",
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false,
-        "visible": false,
-        "center": true,
-        "width": 380,
-        "height": 56
+        "focus": false,
+        "width": 128,
+        "height": 96,
+        "visible": true
       },
       {
-        "label": "settings",
-        "url": "settings.html",
-        "title": "설정",
-        "visible": false,
-        "width": 560,
-        "height": 720
+        "label": "detail",
+        "url": "detail.html",
+        "title": "작업",
+        "width": 880,
+        "height": 544,
+        "visible": false
       }
     ],
     "security": {

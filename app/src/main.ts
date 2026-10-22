@@ -1,46 +1,52 @@
-// 보이지 않는 주 창: 백엔드 연결을 들고 입력창·설정 창과 백엔드 사이를 잇는다. 단축키도 여기서 등록한다.
-// 조수 설계 전의 빈 껍데기다 (0022).
-import { emit, listen } from "@tauri-apps/api/event";
-import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-import { loadSettings, saveSettings, DEFAULT_SETTINGS, type Settings } from "./shared/settings";
+// 주 창: 강아지와 패널. 백엔드 메시지를 상태에 쌓고 다시 그린다.
+import "./ui/styles.css";
 import { connectBackend } from "./backend-link";
+import { apply, disconnected, followUps, initialState, refreshRequests, type State } from "./shared/state";
+import { renderDog } from "./ui/dog";
+import { h } from "./ui/dom";
+import { placeWindow } from "./window";
 
-// v6 임시 연결: 접속 여부만 설정 창에 알린다. 이 파일은 화면 계획 Task 3에서 다시 쓴다
-let aiStatus: "ok" | null = null; // null: 백엔드에 연결되지 않음
-const setStatus = (s: "ok" | null) => { aiStatus = s; emit("backend-status", s); };
+const DOG = { width: 128, height: 96 };
+const PANEL_WIDTH = 340;
+const PANEL_GAP = 12; // 패널은 강아지 위 12px
+
+const dogRoot = document.getElementById("dog")!;
+const panelRoot = document.getElementById("panel")!;
+
+let state: State = initialState();
+let size = "";
+
 const backend = connectBackend({
-  onMessage: (m) => { if (m.type === "status") setStatus("ok"); },
-  onOpen: () => {},
-  onClose: () => setStatus(null),
+  onMessage: (m) => {
+    state = apply(state, m);
+    for (const out of followUps(state, m)) backend.send(out);
+    render();
+  },
+  onOpen: () => { for (const out of refreshRequests(state)) backend.send(out); },
+  onClose: () => { state = disconnected(state); render(); },
 });
 
-listen<{ text: string }>("input-sent", (e) => { backend.send({ type: "request", text: e.payload.text }); });
-listen("backend-status-request", () => { emit("backend-status", aiStatus); });
+function togglePanel() {
+  const panelOpen = !state.panelOpen;
+  // 로그아웃이면 패널을 열 때 설정 탭부터 보인다
+  const view = panelOpen && state.loggedIn === false ? { tab: "settings" as const, screen: "list" as const, page: 1 } : state.view;
+  state = { ...state, panelOpen, view };
+  if (panelOpen) for (const out of refreshRequests(state)) backend.send(out);
+  render();
+}
 
-// 전역 단축키. 등록은 한 번에 하나씩(직렬) 처리한다: 저장을 빠르게 두 번 하면 등록이 엉키기 때문이다.
-let active: Settings | null = null;
-let queue: Promise<void> = Promise.resolve();
-
-async function tryRegister(s: Settings): Promise<boolean> {
-  try {
-    await register(s.inputShortcut, (e) => { if (e.state === "Pressed") emit("toggle-input"); });
-    return true;
-  } catch {
-    return false;
+function render() {
+  renderDog(dogRoot, state, togglePanel);
+  panelRoot.hidden = !state.panelOpen;
+  // 패널 내용은 다음 Task에서 채운다
+  panelRoot.replaceChildren(...(state.panelOpen ? [h("div", { class: "placeholder" }, "준비 중")] : []));
+  const [w, ht] = state.panelOpen
+    ? [PANEL_WIDTH, panelRoot.offsetHeight + PANEL_GAP + DOG.height]
+    : [DOG.width, DOG.height];
+  if (`${w}x${ht}` !== size) {
+    size = `${w}x${ht}`;
+    placeWindow(w, ht).catch((e) => console.warn("창 배치 실패", e));
   }
 }
 
-async function applyShortcut(s: Settings) {
-  const prev = active;
-  if (prev) await unregister(prev.inputShortcut).catch(() => {});
-  if (await tryRegister(s)) { active = s; return; }
-  // 실패한 단축키는 저장하지 않는다: 이전 값(앱 시작 때는 기본값)으로 되돌려 다시 등록하고 저장한다
-  const fallback = prev ?? DEFAULT_SETTINGS;
-  if (await tryRegister(fallback)) active = fallback;
-  await saveSettings(fallback);
-  emit("shortcut-error", `단축키 등록 실패 (${s.inputShortcut}). ${prev ? "이전" : "기본"} 단축키로 되돌렸어요.`);
-}
-const enqueue = (s: Settings) => (queue = queue.then(() => applyShortcut(s)).catch(() => {}));
-
-loadSettings().then(enqueue);
-listen<Settings>("settings-changed", (e) => { enqueue(e.payload); });
+render();

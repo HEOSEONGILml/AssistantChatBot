@@ -43,12 +43,29 @@ pub fn ensure_running(state: &BackendProcess) -> Result<(), String> {
     Ok(())
 }
 
+/// taskkill 인자: 프로세스 트리째(/T) 강제로(/F) 끈다
+pub fn kill_tree_args(pid: u32) -> Vec<String> {
+    vec!["/PID".into(), pid.to_string(), "/T".into(), "/F".into()]
+}
+
+/// 백엔드가 띄운 screenpipe·Claude Code까지 남지 않게 프로세스 트리째 끈다 (백엔드 계획 Ruling 13)
 pub fn stop(state: &BackendProcess) {
-    if let Ok(mut slot) = state.0.lock() {
-        if let Some(mut child) = slot.take() {
+    let Ok(mut slot) = state.0.lock() else { return };
+    let Some(mut child) = slot.take() else { return };
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let killed = Command::new("taskkill")
+            .args(kill_tree_args(child.id()))
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .status();
+        if !matches!(killed, Ok(s) if s.success()) {
             let _ = child.kill();
         }
     }
+    #[cfg(not(windows))]
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[cfg(test)]
@@ -59,6 +76,11 @@ mod tests {
     fn parses_endpoint_and_ignores_extra_fields() {
         let e = parse_endpoint(r#"{"port": 50123, "token": "abc", "pid": 42}"#).unwrap();
         assert_eq!(e, Endpoint { port: 50123, token: "abc".into() });
+    }
+
+    #[test]
+    fn kill_tree_args_kills_whole_tree_by_force() {
+        assert_eq!(kill_tree_args(1234), ["/PID", "1234", "/T", "/F"]);
     }
 
     #[test]
