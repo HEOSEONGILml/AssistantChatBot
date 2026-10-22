@@ -40,7 +40,7 @@ class Recorder(Protocol):
     def stop(self) -> None: ...
     def owns(self) -> bool: ...
     async def is_up(self) -> bool: ...
-    async def stop_and_wait(self) -> None: ...
+    async def stop_and_wait(self) -> bool: ...
 
 
 class Proactive(Protocol):
@@ -341,9 +341,10 @@ class App:
         if not owned and await self._recorder.is_up():
             log.info("남이 띄운 screenpipe가 떠 있어 기록을 지우지 않음")
         else:
-            if owned:
-                await self._recorder.stop_and_wait()
-            await asyncio.to_thread(clear_recording_files, config.screenpipe_dir())
+            if owned and not await self._recorder.stop_and_wait():
+                log.warning("screenpipe가 시간 안에 내려가지 않아 기록을 지우지 않음")
+            else:
+                await asyncio.to_thread(clear_recording_files, config.screenpipe_dir())
             if self.recording_enabled():
                 await self._recorder.start()
         await self.get_settings()

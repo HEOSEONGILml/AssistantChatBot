@@ -239,3 +239,31 @@ async def test_recorder_owns_and_stop_and_wait(monkeypatch):
     await rec.stop_and_wait()
     assert killed and rec.owns() is False and up[0] is False
     assert await rec.is_up() is False
+
+
+async def test_stop_and_wait_returns_false_when_still_up(monkeypatch):
+    monkeypatch.setattr(clients.shutil, "which", lambda name: None)
+
+    async def down():
+        return False
+
+    async def up():
+        return True
+
+    async def sleep(s):
+        pass
+    rec = Recorder(spawn=lambda argv, env: FakeProc(), health=down, kill=lambda p: None, sleep=sleep)
+    await rec.start()
+    assert await rec.stop_and_wait() is True
+    await rec.start()
+    rec._health = up
+    assert await rec.stop_and_wait() is False
+
+
+def test_clear_skips_linked_data_dir(tmp_path, monkeypatch):
+    """data/가 링크(정션)면 따라가지 않는다. 링크를 못 만드는 환경이라 판정만 바꿔서 본다."""
+    _make_recording_dir(tmp_path)
+    monkeypatch.setattr(clients, "_is_link", lambda p: p.name == "data")
+    clients.clear_recording_files(tmp_path)
+    assert (tmp_path / "data" / "a" / "b.jpg").exists() and not (tmp_path / "db.sqlite").exists()
+    assert clients.recording_bytes(tmp_path) == 0

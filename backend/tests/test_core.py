@@ -9,20 +9,20 @@ from backend.core import App
 from backend.store import Store
 from backend.tools import build_tools
 
-@pytest.fixture(autouse=True)
-def rec_dir(tmp_path, monkeypatch):
-    """실제 ~/.screenpipe를 건드리지 않는다."""
-    d = tmp_path / "screenpipe"
-    monkeypatch.setattr(config, "screenpipe_dir", lambda: d)
-    return d
-
-
 RULE = {"repeat": "daily", "time": "09:00"}
 
 
 @pytest.fixture(autouse=True)
 def appdata(tmp_path, monkeypatch):
     monkeypatch.setenv("APPDATA", str(tmp_path))
+
+
+@pytest.fixture(autouse=True)
+def rec_dir(tmp_path, monkeypatch):
+    """실제 ~/.screenpipe를 건드리지 않는다."""
+    d = tmp_path / "screenpipe"
+    monkeypatch.setattr(config, "screenpipe_dir", lambda: d)
+    return d
 
 
 class FakeAuth:
@@ -45,9 +45,9 @@ class FakeAuth:
 
 
 class FakeRecorder:
-    def __init__(self, owned=True, up=False):
+    def __init__(self, owned=True, up=False, goes_down=True):
         self.calls = []
-        self._owned, self._up = owned, up
+        self._owned, self._up, self._goes_down = owned, up, goes_down
 
     def owns(self):
         return self._owned
@@ -57,6 +57,7 @@ class FakeRecorder:
 
     async def stop_and_wait(self):
         self.calls.append("stop_and_wait")
+        return self._goes_down
 
     async def start(self):
         self.calls.append("start")
@@ -1112,3 +1113,11 @@ async def test_clear_with_missing_dir_just_finishes(rec_dir):
     app, store, out, runs = make(recorder=FakeRecorder(owned=False))
     await app.clear_recording()
     assert out[-1]["recording_bytes"] == 0
+
+
+async def test_clear_skips_when_screenpipe_does_not_go_down(monkeypatch):
+    rec = FakeRecorder(owned=True, goes_down=False)
+    app, store, out, runs = make(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
+    await app.clear_recording()
+    assert rec.calls == ["stop_and_wait", "start"] and out[-1]["type"] == "settings"

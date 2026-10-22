@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import os
 import shutil
 import re
 import sqlite3
@@ -151,11 +152,12 @@ class Recorder:
     async def is_up(self) -> bool:
         return await self._health()
 
-    async def stop_and_wait(self) -> None:
-        """내가 띄운 것을 끄고 health가 내려갈 때까지 기다린다 (파일 잠금이 풀리게)."""
+    async def stop_and_wait(self) -> bool:
+        """내가 띄운 것을 끄고 health가 내려갈 때까지 기다린다 (파일 잠금이 풀리게). 내려갔으면 True, 시간 안에 못 내려갔으면 False."""
         self.stop()
         await self._wait_down()
         self._just_stopped = False
+        return not await self._health()
 
     def stop(self) -> None:
         proc, self._proc = self._proc, None
@@ -177,8 +179,14 @@ RECORDING_DB_FILES = ("db.sqlite", "db.sqlite-shm", "db.sqlite-wal")
 def _recording_files(root: Path) -> list[Path]:
     """지울 기록 파일: DB 파일들과 data/ 아래 모든 파일. screenpipe 설정·로그는 넣지 않는다."""
     files = [root / n for n in RECORDING_DB_FILES if (root / n).is_file()]
-    files += [p for p in (root / "data").rglob("*") if p.is_file()]
+    if not _is_link(root / "data"):
+        files += [p for p in (root / "data").rglob("*") if p.is_file()]
     return files
+
+
+def _is_link(p: Path) -> bool:
+    """심볼릭 링크나 정션이면 따라가서 밖의 파일을 지우지 않는다."""
+    return p.is_symlink() or getattr(os.path, "isjunction", lambda _: False)(p)
 
 
 def recording_bytes(root: Path) -> int:
@@ -200,6 +208,8 @@ def clear_recording_files(root: Path, remove=Path.unlink) -> None:
         except OSError as e:
             log.warning("기록 파일 삭제 실패: %s", type(e).__name__)
     data = root / "data"
+    if _is_link(data):
+        return
     for d in sorted((p for p in data.rglob("*") if p.is_dir()), reverse=True) + [data]:
         try:
             d.rmdir()  # 비어 있을 때만 지워진다
