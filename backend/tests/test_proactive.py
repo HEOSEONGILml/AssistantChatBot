@@ -68,9 +68,9 @@ def test_summarize_declines():
     assert old.endswith("최근 [괜찮아]: 없음")
 
 
-@pytest.mark.parametrize("need,declined,expected", [(0.89, 0.23, True), (0.88, 0.80, False), (0.95, 0.80, True), (0.19, 0.27, False)])
+@pytest.mark.parametrize("need,declined,expected", [(0.96, 0.12, True), (0.96, 0.65, False), (0.93, 0.19, True), (0.07, 0.11, False), (0.69, 0.0, False)])
 def test_should_nudge(need, declined, expected):
-    assert proactive.should_nudge({"need_help": need, "declined_same": declined}) is expected
+    assert proactive.should_nudge({"working": need, "declined_same": declined}) is expected
 
 
 def _jev(response):
@@ -86,12 +86,12 @@ async def test_jev_failure_returns_none():
     assert await _jev(OSError("x")).ask("k", "s", q) is None
     assert await _jev((401, {})).ask("k", "s", q) is None
     assert await _jev((200, {"detail": "x"})).ask("k", "s", q) is None
-    assert await _jev((200, {"answers": {"need_help": {"type": "noul"}}})).ask("k", "s", q) is None
+    assert await _jev((200, {"answers": {"working": {"type": "noul"}}})).ask("k", "s", q) is None
 
 
 async def test_jev_parses_noul():
-    resp = (200, {"answers": {"need_help": {"type": "noul", "noul": 0.87}, "declined_same": {"type": "noul", "noul": 0.1}}})
-    assert await _jev(resp).ask("k", "s", proactive.QUESTIONS) == {"need_help": 0.87, "declined_same": 0.1}
+    resp = (200, {"answers": {"working": {"type": "noul", "noul": 0.87}, "declined_same": {"type": "noul", "noul": 0.1}}})
+    assert await _jev(resp).ask("k", "s", proactive.QUESTIONS) == {"working": 0.87, "declined_same": 0.1}
 
 
 def _env_key():
@@ -107,9 +107,9 @@ def _env_key():
 
 @pytest.mark.skipif(not _env_key(), reason="루트 .env에 TYPESAFE_API_KEY 없음")
 async def test_jev_live():
-    state = "10:00:00 EXCEL.EXE · 매출.xlsx 글: #REF! 오류 수식을 고치려 여러 번 다시 입력함. 같은 셀을 계속 고치고 있다. 오류가 안 없어진다.\n최근 [괜찮아]: 없음"
+    state = "10:00:00 Code.exe · main.py def add(a, b): return a + b\n10:02:00 Code.exe · test_main.py 2 passed\n최근 [괜찮아]: 없음"
     answers = await Jev().ask(_env_key(), state, proactive.QUESTIONS)
-    assert answers is not None and answers["need_help"] >= 0.7
+    assert answers is not None and answers["working"] >= 0.7 and answers["declined_same"] < 0.5
 
 
 # --- 판단 고리 ---
@@ -145,7 +145,7 @@ class Clock:
         return self.now
 
 
-HELPS = {"need_help": 0.89, "declined_same": 0.23}
+HELPS = {"working": 0.89, "declined_same": 0.23}
 
 
 async def loop(answers=HELPS, key="k", logged_in=True, frames=None):
@@ -177,7 +177,7 @@ async def test_tick_nudges_when_jev_says_so(appdata):
 
 
 async def test_tick_no_nudge_below_threshold(appdata):
-    p, app, store, out, jev, clock = await loop(answers={"need_help": 0.19, "declined_same": 0.27})
+    p, app, store, out, jev, clock = await loop(answers={"working": 0.19, "declined_same": 0.27})
     await p.tick()
     assert len(jev.calls) == 1 and nudges(out) == []
 
@@ -252,7 +252,7 @@ async def test_nudge_answer_decline_records(appdata):
     await app.nudge_open()
     await app.nudge_answer(False)
     clock.now += timedelta(seconds=30)  # 다음 판단
-    jev.answers = {"need_help": 0.88, "declined_same": 0.80}  # 같은 작업을 거절했다고 본다 → 배지 없음
+    jev.answers = {"working": 0.97, "declined_same": 0.65}  # 같은 창에서 거절했다고 본다 → 그 창에서는 배지 없음
     await p.tick()
     assert app.nudge_active is False
     assert re.fullmatch(r"최근 \[괜찮아\]: \d\d:\d\d EXCEL\.EXE · 매출\.xlsx", jev.calls[-1][1].split("\n")[-1])

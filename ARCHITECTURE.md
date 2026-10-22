@@ -337,7 +337,7 @@ sequenceDiagram
 
 ### 3.6 먼저 말 걸기 (`proactive.py` `Proactive`)
 
-사용자가 헤매는 것 같으면 강아지에 "!" 배지를 띄우고, 누르면 대화 세션에서 도울지 묻는다. 판단은 Jev가 한다 ([설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md), [0037](docs/decisions/0037-jev-for-proactive-judgment.md)). `Proactive`는 스케줄러와 함께 백엔드 안에서 도는 판단 고리다(`__main__.py`에서 `asyncio.gather`). 만들 때 `App.proactive`에 자기를 붙인다. `App`은 거절 내역(`decline`)과 지금 작업(`current_task`)만 부른다.
+사용자가 작업 화면에서 일하고 있으면(같은 창에서 [괜찮아]라고 한 경우는 빼고) 강아지에 "!" 배지를 띄우고, 누르면 대화 세션에서 도울지 묻는다. 판단은 Jev가 한다 ([설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md), [0037](docs/decisions/0037-jev-for-proactive-judgment.md)). `Proactive`는 스케줄러와 함께 백엔드 안에서 도는 판단 고리다(`__main__.py`에서 `asyncio.gather`). 만들 때 `App.proactive`에 자기를 붙인다. `App`은 거절 내역(`decline`)과 지금 작업(`current_task`)만 부른다.
 
 ```mermaid
 flowchart LR
@@ -345,7 +345,7 @@ flowchart LR
   REST -->|"아니오"| H["ScreenHistory.recent<br>최근 5분 frames"]
   H -->|"없음"| SKIP["건너뜀"]
   H --> SUM["summarize<br>2,000자 + 최근 [괜찮아]"]
-  SUM --> J["Jev.ask<br>need_help · declined_same"]
+  SUM --> J["Jev.ask<br>working · declined_same"]
   J -->|"실패(None)"| SKIP
   J --> C{"should_nudge"}
   C -->|"예"| ON["App.set_nudge(True)<br>로그인 확인 뒤 nudge 켬"]

@@ -13,28 +13,25 @@ HISTORY_WINDOW = timedelta(minutes=5)  # 판단에 넣는 화면 기록
 BADGE_TIME = timedelta(minutes=5)      # 배지가 떠 있는 시간
 NONE_DECLINED = "최근 [괜찮아]: 없음"
 
+# 작업 화면이면 뜬다. 같은 창에서 [괜찮아]라고 했으면 그 창에서는 띄우지 않는다 (사용자, 2026-10-22).
 # 한 문장에 둘을 섞으면 판단이 흐려져 둘로 나눴다 (2026-10-22 실측, docs/superpowers/specs/2026-10-22-proactive-help-design.md 4절)
 QUESTIONS = {
-    "need_help": {
+    "working": {
         "type": "noul",
-        "instructions": "화면 기록을 보면 사용자가 지금 하는 일에서 막혀 있거나 헤매고 있다",
+        "instructions": "화면 기록을 보면 사용자가 지금 작업 화면(문서·코드·표·기획·업무 도구 등)에서 일하고 있다. 영상·음악·쇼핑·SNS·게임 화면이면 아니다",
     },
     "declined_same": {
         "type": "noul",
-        "instructions": "'최근 [괜찮아]'에 지금 하는 작업과 같은 앱·창이 있다. 즉 사용자는 지금 이 작업에 대한 도움 제안을 최근에 이미 거절했다",
+        "instructions": "마지막 줄 '최근 [괜찮아]' 목록에, 화면 기록의 가장 최근 줄과 앱 이름과 창 제목이 같은 항목이 있다. 목록이 '없음'이면 아니다",
     },
 }
 
-NEED_HELP_MIN = 0.7          # 잠정값
-NEED_HELP_MIN_DECLINED = 0.9  # 같은 작업을 거절했으면 더 확실할 때만 (잠정값)
-DECLINED_SAME_MIN = 0.5
+WORKING_MIN = 0.7        # 잠정값. 실측은 작업 화면 0.89~0.97, 영상·쇼핑 0.07~0.11
+DECLINED_SAME_MIN = 0.5  # 잠정값. 실측은 거절 없음 0.06~0.12, 같은 창 거절 0.65~0.83, 다른 창 거절 0.19
 
 
 def should_nudge(answers: dict[str, float]) -> bool:
-    need = answers["need_help"]
-    if answers["declined_same"] >= DECLINED_SAME_MIN:
-        return need >= NEED_HELP_MIN_DECLINED
-    return need >= NEED_HELP_MIN
+    return answers["working"] >= WORKING_MIN and answers["declined_same"] < DECLINED_SAME_MIN
 
 
 def _local(dt: datetime) -> datetime:
@@ -100,7 +97,7 @@ class Proactive:
         answers = await self._jev.ask(key, summarize(frames, self._declines, now), QUESTIONS)
         if answers is None or not should_nudge(answers):
             return
-        log.info("배지 조건 맞음 (need_help %.2f, declined_same %.2f)", answers["need_help"], answers["declined_same"])
+        log.info("배지 조건 맞음 (working %.2f, declined_same %.2f)", answers["working"], answers["declined_same"])
         self._badge_at = now
         await self._app.set_nudge(True)
 
