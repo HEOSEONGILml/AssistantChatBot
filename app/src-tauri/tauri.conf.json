@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TamagotchiChatBot",
+  "productName": "AssistantChatBot",
   "version": "0.1.0",
-  "identifier": "com.tamagotchi.app",
+  "identifier": "com.assistantchatbot.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

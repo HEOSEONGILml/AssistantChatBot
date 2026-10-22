@@ -19,7 +19,7 @@ pub fn parse_endpoint(s: &str) -> Result<Endpoint, String> {
 /// 백엔드가 시작할 때 쓰는 접속 정보 파일. 경로는 백엔드의 config.data_dir()와 같다
 pub fn endpoint() -> Result<Endpoint, String> {
     let appdata = std::env::var_os("APPDATA").ok_or("APPDATA 환경 변수가 없습니다")?;
-    let path = PathBuf::from(appdata).join("TamagotchiChatBot").join("backend").join("backend.json");
+    let path = PathBuf::from(appdata).join("AssistantChatBot").join("backend").join("backend.json");
     parse_endpoint(&std::fs::read_to_string(path).map_err(|e| e.to_string())?)
 }
 

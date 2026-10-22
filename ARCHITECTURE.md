@@ -1,6 +1,6 @@
 # ARCHITECTURE
 
-TamagotchiChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
+AssistantChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
 
 > 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 다음 보수 작업 때 처리할 것은 [보수 작업 목록](docs/maintenance.md)에 모은다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)대로 백엔드(판단 고리·배지·[도와줘]·[괜찮아]·Jev 키 저장)와 화면("!" 배지·대화의 nudge 칩·설정의 Jev 키)을 구현했다.
 
@@ -441,7 +441,7 @@ flowchart LR
 
 | 데이터 | 관리(쓰기) 주체 | 읽는 쪽 | 저장 위치 | 수명 |
 |---|---|---|---|---|
-| 세션 기록 (세션, 대화 줄, 스케줄 규칙) | 백엔드 | 화면, 에이전트 | `%APPDATA%\TamagotchiChatBot\backend\assistant.db` | 영구. 지우는 기능 없음 |
+| 세션 기록 (세션, 대화 줄, 스케줄 규칙) | 백엔드 | 화면, 에이전트 | `%APPDATA%\AssistantChatBot\backend\assistant.db` | 영구. 지우는 기능 없음 |
 | 설정 (권한 모드, 화면 기록 켬·끔, Jev 키) | 백엔드 | 화면(Jev 키는 있는지만), 백엔드 | 같은 DB | 영구 |
 | 화면 기록 | screenpipe | 에이전트, 백엔드(먼저 말 걸기, `frames`만 읽기 전용) | `%USERPROFILE%\.screenpipe\` | 2일 |
 | [괜찮아] 내역 | 백엔드 (`Proactive`) | 백엔드 (다음 판단) | 메모리 | 1시간. 재시작하면 비움 |
@@ -649,9 +649,9 @@ sequenceDiagram
 
 | 파일 | 위치 | 쓰는 쪽 | 형태 | 수명 |
 |---|---|---|---|---|
-| 접속 정보 | `%APPDATA%\TamagotchiChatBot\backend\backend.json` | 백엔드 | `{"port", "token", "pid"}`. 토큰은 시작마다 새로 (`secrets.token_urlsafe(32)`) | 백엔드가 끝날 때 지움 |
-| 로그 | `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log` | 백엔드 | `시각 수준 모듈: 글`. 사용자 글·대화 내용은 쓰지 않음 | 1MB, 백업 3개 돌려 씀 |
-| Claude Code 작업 폴더 | `%APPDATA%\TamagotchiChatBot\backend\work\` | Claude Code (`cwd`) | — | 지우지 않음 |
+| 접속 정보 | `%APPDATA%\AssistantChatBot\backend\backend.json` | 백엔드 | `{"port", "token", "pid"}`. 토큰은 시작마다 새로 (`secrets.token_urlsafe(32)`) | 백엔드가 끝날 때 지움 |
+| 로그 | `%APPDATA%\AssistantChatBot\backend\logs\backend.log` | 백엔드 | `시각 수준 모듈: 글`. 사용자 글·대화 내용은 쓰지 않음 | 1MB, 백업 3개 돌려 씀 |
+| Claude Code 작업 폴더 | `%APPDATA%\AssistantChatBot\backend\work\` | Claude Code (`cwd`) | — | 지우지 않음 |
 
 #### 4.3.6 외부 도구가 관리하는 데이터
 

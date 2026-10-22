@@ -4,7 +4,7 @@
 
 ## 연결
 
-- 백엔드는 `127.0.0.1`의 빈 포트에서 WebSocket을 연다. 포트와 토큰을 `%APPDATA%\TamagotchiChatBot\backend\backend.json`에 쓴다 (`{"port", "token", "pid"}`). 끝날 때 지운다.
+- 백엔드는 `127.0.0.1`의 빈 포트에서 WebSocket을 연다. 포트와 토큰을 `%APPDATA%\AssistantChatBot\backend\backend.json`에 쓴다 (`{"port", "token", "pid"}`). 끝날 때 지운다.
 - 화면은 그 파일을 읽어 접속하고, 첫 메시지로 `hello`를 보낸다. 5초 안에 오지 않거나 토큰이 틀리면 백엔드가 끊는다.
 - 새 화면이 `hello`에 성공하면 이전 화면은 끊긴다. 화면은 하나다.
 - 모든 메시지는 JSON이고 `v`(프로토콜 버전, 지금 `7`)와 `type`을 갖는다. `hello`의 버전이 다르면 백엔드가 끊는다.

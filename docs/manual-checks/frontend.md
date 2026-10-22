@@ -7,7 +7,7 @@
 - [README](../../README.md)의 "필요한 것"을 갖춘다. 실제 작업을 돌리려면 Claude Code 구독 로그인과 Claude in Chrome 확장이 있어야 한다.
 - `cd app && npm run tauri dev`. 앱이 백엔드를 띄운다(백엔드는 screenpipe도 띄운다).
 - **확인이 끝나면 바로 트레이 → 종료로 닫는다** (CLAUDE.md 3절). 닫은 뒤 14번으로 남은 프로세스를 본다.
-- 백엔드 로그: `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log`.
+- 백엔드 로그: `%APPDATA%\AssistantChatBot\backend\logs\backend.log`.
 
 ```mermaid
 flowchart LR

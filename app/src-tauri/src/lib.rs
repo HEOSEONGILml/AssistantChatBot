@@ -14,7 +14,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&quit_i])?;
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("TamagotchiChatBot")
+                .tooltip("AssistantChatBot")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| if event.id.as_ref() == "quit" { app.exit(0) })

@@ -6,7 +6,7 @@ from pathlib import Path
 def data_dir() -> Path:
     """백엔드 데이터 폴더. 화면(Tauri)도 이 경로의 backend.json을 읽는다 (docs/backend-protocol.md)."""
     base = os.environ.get("APPDATA") or str(Path.home())
-    d = Path(base) / "TamagotchiChatBot" / "backend"
+    d = Path(base) / "AssistantChatBot" / "backend"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

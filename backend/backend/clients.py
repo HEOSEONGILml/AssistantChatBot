@@ -22,7 +22,7 @@ LOGOUT_TIMEOUT = 20  # 초. 로그아웃은 브라우저를 거치지 않아 상
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
 JEV_TIMEOUT = 10  # 초. 실측 응답은 0.2~0.3초라 넉넉히 둔다 (잠정)
 # 강아지 앱 자신의 창은 판단 기록에서 뺀다 (스펙 5.1)
-OWN_APPS = ("app.exe", "tamagotchichatbot.exe")
+OWN_APPS = ("app.exe", "assistantchatbot.exe")
 HEALTH_URL = "http://localhost:3030/health"
 # 끈 직후 다시 켤 때 죽어 가는 screenpipe가 내려가길 기다린다: 0.5초씩 10번 = 5초 (잠정)
 DOWN_WAIT_S, DOWN_WAIT_TRIES = 0.5, 10

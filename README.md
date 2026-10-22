@@ -1,8 +1,14 @@
-# TamagotchiChatBot
+# AssistantChatBot
 
 사용자의 화면 히스토리를 파악해서, 작업 맥락을 일일이 설명하지 않아도 하고자 하는 일을 알아듣고 처리하는 computer-use 에이전트다. 화면 한 자리에 강아지 모습으로 있다 ([vision](docs/vision.md)).
 
-- 상태: 다마고치에서 조수로 바꾸는 중이다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로 만들었다(작업·대화·스케줄, Claude Code 세션, 프로토콜 v6). 화면(`app/`)은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md)대로 v6으로 다시 만들었다: 오른쪽 아래의 강아지와 패널, 큰 창.
+- 상태: 조수 1단계를 만들었다. 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md), 화면은 [디자인](docs/design/2026-10-21-output-ui/README.md)대로다(프로토콜 v7).
+  - 강아지와 패널(알림·대화·작업·스케줄·사용량·설정), 큰 창, 강아지 끌어 옮기기
+  - 작업·대화·스케줄 세션(Claude Code 세션 하나씩), 세션 지우기, 대답 준비 중 표시
+  - 먼저 말 걸기: 작업 화면에서 일하고 있으면 강아지 머리 위에 "!" 배지가 뜬다 ([설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md))
+  - 설정: 로그인, 화면 기록 켜기·비우기, 권한 모드, Jev 키, 연결된 MCP 목록
+  - 다음 보수 작업은 [보수 작업 목록](docs/maintenance.md)에 모은다
+- 이름: 2026-10-23에 TamagotchiChatBot에서 AssistantChatBot으로 바꿨다. 데이터 폴더도 `%APPDATA%\AssistantChatBot`으로 새로 쓴다. 옛 기록은 `%APPDATA%\TamagotchiChatBot`에 남아 있고 옮기지 않는다 (사용자).
 - 구조: [`ARCHITECTURE.md`](ARCHITECTURE.md), 작업 규칙: [`CLAUDE.md`](CLAUDE.md)
 
 ## 구성
@@ -25,13 +31,14 @@
 | [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude` CLI) | 2.1.305 | 에이전트. PATH에서 `claude`를 찾을 수 있어야 한다 |
 | Claude 구독 로그인 | | `claude auth login`으로 claude.ai 계정 로그인. API 키 로그인은 로그인 안 된 것으로 본다(과금되고 크롬 조작이 꺼진다) |
 | Claude in Chrome 확장 | | 크롬에 설치하고 같은 계정으로 로그인. 에이전트가 크롬을 조작한다 |
+| TypeSafe Jev API 키 (선택) | | 먼저 말 걸기 판단에 쓴다. 앱의 설정 탭에서 넣는다. 없으면 먼저 말 걸기만 쉰다 |
 | Node.js의 `npx` | 위 Node.js | screenpipe(`npx -y screenpipe record --retention-days 2 --retention-mode all --language korean --language english`)와 screenpipe MCP(`npx -y screenpipe-mcp@latest`)를 받아 띄운다. 처음 실행 때 내려받는다 |
 
 ## 설치
 
 ```bash
 git clone <이 저장소>
-cd TamagotchiChatBot
+cd AssistantChatBot
 cd backend && uv sync && cd ..      # 백엔드 의존성 (backend/.venv)
 cd app && npm install && cd ..    # 화면 의존성
 ```
@@ -59,7 +66,7 @@ npm run tauri dev
 백엔드만 따로 띄우기: `cd backend && uv run python -m backend`
 
 - 띄우면 screenpipe가 떠 있지 않을 때 `npx -y screenpipe record`로 화면 기록을 시작한다. 기록은 이틀만 두고 모두 지운다(`--retention-days 2 --retention-mode all`). OCR은 한국어·영어로 읽는다(`--language korean --language english`). 백엔드가 끝나면 함께 끈다. 강제로 죽이면(작업 관리자 등) screenpipe가 남을 수 있으니 `taskkill /IM screenpipe.exe /F`로 끈다.
-- 스케줄러가 1분마다 돈다. 로그는 `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log`.
+- 스케줄러가 1분마다 돈다. 로그는 `%APPDATA%\AssistantChatBot\backend\logs\backend.log`.
 - 실제 Claude Code로만 확인할 수 있는 것은 [수동 확인 목록](docs/manual-checks/backend.md)에 있다.
 
 ## 테스트

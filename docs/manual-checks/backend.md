@@ -6,7 +6,7 @@
 
 - [README](../../README.md)의 "필요한 것"을 갖춘다: Claude Code, 구독 로그인, Claude in Chrome 확장, Node.js(`npx`).
 - 화면 앱으로 확인해도 되지만([화면 수동 확인](frontend.md)), 메시지를 직접 보고 싶으면 백엔드만 띄우고(`cd backend && uv run python -m backend`), `backend.json`의 포트·토큰으로 WebSocket 클라이언트를 붙여 v7 메시지를 직접 보낸다 ([프로토콜](../backend-protocol.md)).
-- 로그: `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log`. 작업 기록: 같은 폴더의 `assistant.db`.
+- 로그: `%APPDATA%\AssistantChatBot\backend\logs\backend.log`. 작업 기록: 같은 폴더의 `assistant.db`.
 
 ```mermaid
 flowchart LR
