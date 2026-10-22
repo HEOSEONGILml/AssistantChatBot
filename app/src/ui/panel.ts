@@ -216,5 +216,9 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
   const key = formKey(state);
   if (key && root.dataset.key === key) return;
   root.dataset.key = key;
+  // 다시 그려도 설정 탭 스크롤 자리를 지킨다(MCP 상태가 늦게 와도 맨 위로 튀지 않게). 새로 만든 뒤에 되돌린다
+  const scrolled = root.querySelector(".set-body")?.scrollTop ?? 0;
   root.replaceChildren(...conn, ...body(state, send, go, openBig), tail());
+  const fresh = root.querySelector(".set-body");
+  if (fresh && scrolled) fresh.scrollTop = scrolled;
 }
