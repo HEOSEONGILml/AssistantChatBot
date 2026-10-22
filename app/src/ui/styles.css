@@ -490,3 +490,12 @@ html:has(.detail-body), .detail-body { height: 100%; background: #FFFFFF; }
 .conv-big .conv-input { height: 44px; padding: 11px 14px; font-size: 14px; }
 .conv-big .conv-send { width: 44px; height: 44px; }
 .conv-big .conv-send svg { width: 18px; height: 18px; }
+
+/* 에이전트 글 마크다운 */
+.msg-md { white-space: normal; }
+.md { display: flex; flex-direction: column; gap: 6px; min-width: 0; white-space: normal; }
+.md p { margin: 0; }
+.md ul, .md ol { margin: 0; padding-left: 20px; }
+.md code { padding: 0 4px; border-radius: 4px; background: #F3F4F6; font-family: Consolas, 'Courier New', monospace; font-size: 12px; }
+.msg-agent .md code { background: #FFFFFF; } /* 회색 말풍선 안에서는 흰 바탕 */
+.md b { font-weight: 700; }

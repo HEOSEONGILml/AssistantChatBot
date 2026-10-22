@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerKey, toItems } from "../src/shared/entries";
+import { answerKey, pruneAnswered, toItems } from "../src/shared/entries";
 import type { Entry } from "../src/shared/protocol";
 
 let n = 0;
@@ -58,5 +58,13 @@ describe("answerKey", () => {
     expect(answerKey(t("working"), [a])).not.toBe(k);
     expect(answerKey(t("waiting"), [a, e("user")])).not.toBe(k);
     expect(answerKey(t("waiting"), [])).not.toBe(k);
+  });
+});
+
+describe("pruneAnswered", () => {
+  it("답을 기다리지 않는 작업의 열쇠를 지운다", () => {
+    const keys = new Set(["7:waiting:3", "8:waiting:5", "12:waiting:1"]);
+    pruneAnswered(keys, (id) => id === 8);
+    expect([...keys]).toEqual(["8:waiting:5"]);
   });
 });

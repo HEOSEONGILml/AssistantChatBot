@@ -2,18 +2,15 @@
 // 같은 작업을 다시 그릴 때는 입력줄을 그대로 두고(글·커서 보호) 줄 목록만 바꾼다.
 import type { Entry, Outgoing, Task } from "../shared/protocol";
 import type { Tab, View } from "../shared/state";
-import { answerKey, toItems, type Item } from "../shared/entries";
+import { answered, answerKey, toItems, type Item } from "../shared/entries";
 import { clockText, dateTimeText, isSendKey } from "../shared/forms";
-import { h, svg } from "./dom";
+import { h, markdown, svg } from "./dom";
 
 type Send = (m: Outgoing) => unknown; // false를 돌려주면 못 보낸 것(입력 글을 지우지 않는다)
 type Go = (v: View) => void;
 // compact: 패널(13px, 진행 줄 접기). 아니면 상세 창(14px, 진행 줄 펼침, 날짜 줄)
 // height: 줄 목록 높이(px). 0이면 대화 화면이 부모 높이를 채운다
 export type ConversationOpts = { task: Task; entries: Entry[]; height: number; compact: boolean };
-
-// 선택지 버튼을 이미 누른 작업 상태(answerKey). 작업·줄이 바뀌기 전에는 버튼을 막아 두 번 답하지 않게 한다
-export const answered = new Set<string>();
 
 const TAB_OF: Record<Task["source"], Tab> = { user: "tasks", schedule: "schedules", chat: "chat" };
 
@@ -98,36 +95,32 @@ const bubble = (cls: string, ...children: (Node | string)[]) => h("li", { class:
 function itemEl(c: Ctl, it: Item, key: string): HTMLElement {
   switch (it.kind) {
     case "user": return bubble("msg-user", it.text);
-    case "agent": return bubble("msg-agent", it.text);
-    case "failure": return bubble("msg-agent msg-failure", svg(ICON.warn), h("span", {}, it.text));
+    case "agent": return bubble("msg-agent msg-md", markdown(it.text));
+    case "failure": return bubble("msg-agent msg-failure msg-md", svg(ICON.warn), markdown(it.text));
     case "run": return h("li", { class: "run-line" }, it.text);
     case "progress": return progress(c, it);
     case "question":
-      if (!it.answerable || !it.choices?.length) return bubble("msg-agent", it.text);
-      return h("li", { class: "msg msg-card" }, h("span", {}, it.text),
+      if (!it.answerable || !it.choices?.length) return bubble("msg-agent msg-md", markdown(it.text));
+      return h("li", { class: "msg msg-card msg-md" }, markdown(it.text),
         choiceRow(it.choices, key, (choice) => say(c, choice)));
     case "proposal": return proposal(c, it, key);
     case "chip": return chip(c, it);
   }
 }
 
-function say(c: Ctl, text: string) {
-  c.send({ type: "say", task_id: c.opts.task.id, text });
-}
+const say = (c: Ctl, text: string) => c.send({ type: "say", task_id: c.opts.task.id, text });
 
-// 선택지 버튼 줄. 첫 버튼이 주 버튼. 답을 보내는 버튼은 누르면 막는다
-function choiceRow(choices: string[], key: string, pick: (choice: string) => void, answers = (_: string) => true): HTMLElement {
+// 선택지 버튼 줄. 첫 버튼이 주 버튼. 답을 보내는 버튼은 보내기에 성공하면 막는다(pick이 false면 못 보낸 것)
+function choiceRow(choices: string[], key: string, pick: (choice: string) => unknown, answers = (_: string) => true): HTMLElement {
   const done = answered.has(key);
   const row = h("div", { class: "choices" });
   for (const [i, choice] of choices.entries()) {
     row.append(h("button", {
       type: "button", class: i === 0 ? "choice choice-primary" : "choice", disabled: done,
       onClick: () => {
-        if (answers(choice)) {
-          answered.add(key);
-          for (const b of row.querySelectorAll("button")) b.disabled = true;
-        }
-        pick(choice);
+        if (pick(choice) === false || !answers(choice)) return;
+        answered.add(key);
+        for (const b of row.querySelectorAll("button")) b.disabled = true;
       },
     }, choice));
   }

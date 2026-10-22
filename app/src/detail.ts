@@ -18,12 +18,14 @@ root.replaceChildren(headSlot, convHost);
 
 let taskId: number | null = null;
 let title = "";
+let connected = false; // 주 창이 백엔드에 붙어 있는지 (detail-data에 함께 온다)
 
 const toMain = (event: string, payload: unknown) =>
   emitTo("main", event, payload).catch((e) => console.warn("주 창에 보내기 실패", e));
 
-// 대화 화면은 say만 보낸다
+// 대화 화면은 say만 보낸다. 끊겼으면 false: 입력 글을 지우지 않고 선택지도 막지 않는다
 const send = (m: Outgoing) => {
+  if (!connected) return false;
   if (m.type === "say") toMain("detail-say", { taskId: m.task_id, text: m.text });
   return true;
 };
@@ -69,8 +71,9 @@ Promise.all([
     headSlot.replaceChildren();
     convHost.replaceChildren(h("p", { class: "empty" }, "불러오는 중…"));
   }),
-  listen<{ task: Task; entries: Entry[] }>("detail-data", (e) => {
+  listen<{ task: Task; entries: Entry[]; connected: boolean }>("detail-data", (e) => {
     const { task, entries } = e.payload;
+    connected = e.payload.connected;
     if (taskId !== null && task.id !== taskId) return;
     taskId = task.id;
     draw(task, entries);

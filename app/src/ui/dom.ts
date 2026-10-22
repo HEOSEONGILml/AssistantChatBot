@@ -1,4 +1,5 @@
 // 작은 DOM 도우미: 요소를 만들고 속성·이벤트·자식을 붙인다.
+import { parseMarkdown, type Inline } from "../shared/markdown";
 type Attr = string | number | boolean | null | undefined | ((e: Event) => void);
 type Child = Node | string | null | undefined | false;
 
@@ -18,4 +19,12 @@ export function svg(markup: string): Element {
   const t = document.createElement("template");
   t.innerHTML = markup.trim();
   return t.content.firstElementChild!;
+}
+
+// 에이전트 글(마크다운)을 요소로 만든다. 글은 텍스트 노드로만 넣는다
+export function markdown(text: string): HTMLElement {
+  const inline = (xs: Inline[]) => xs.map((x) => (x.t === "text" ? x.v : h(x.t === "b" ? "b" : "code", {}, x.v)));
+  return h("div", { class: "md" }, ...parseMarkdown(text).map((b) => b.type === "p"
+    ? h("p", {}, ...b.lines.flatMap((l, i) => [...(i ? [h("br")] : []), ...inline(l)]))
+    : h(b.type, {}, ...b.items.map((it) => h("li", {}, ...inline(it))))));
 }

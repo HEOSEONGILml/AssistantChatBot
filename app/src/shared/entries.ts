@@ -44,3 +44,11 @@ export function toItems(entries: Entry[], taskState: Task["state"]): Item[] {
 // 선택지 버튼을 한 번 누른 뒤 막아 둘 때 쓰는 열쇠: 작업 상태나 마지막 줄이 바뀌면 달라진다
 export const answerKey = (t: Task, entries: Entry[]): string =>
   `${t.id}:${t.state}:${entries[entries.length - 1]?.id ?? 0}`;
+
+// 선택지를 눌러 답을 보낸 작업 상태(answerKey). 작업·줄이 바뀌기 전에는 버튼을 막아 두 번 답하지 않게 한다.
+// 창마다 하나(주 창·상세 창). 끊기면 비우고, 답을 기다리지 않는 작업의 열쇠는 지운다
+export const answered = new Set<string>();
+
+export function pruneAnswered(keys: Set<string>, isWaiting: (taskId: number) => boolean): void {
+  for (const k of keys) if (!isWaiting(Number(k.split(":")[0]))) keys.delete(k);
+}

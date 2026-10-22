@@ -2,11 +2,10 @@
 import type { Outgoing, Task } from "../shared/protocol";
 import { alertRows, badges, firstWaiting, pendingQuestion, rowNote, type State, type View } from "../shared/state";
 import { timeText } from "../shared/forms";
-import { answerKey } from "../shared/entries";
-import { answered } from "./conversation";
-import { h, svg } from "./dom";
+import { answered, answerKey } from "../shared/entries";
+import { h, markdown, svg } from "./dom";
 
-type Send = (m: Outgoing) => void;
+type Send = (m: Outgoing) => unknown; // false면 못 보냄
 type Go = (v: View) => void;
 
 const ICON = {
@@ -55,9 +54,9 @@ function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
   // 한 번 누르면 작업·줄이 바뀔 때까지 막는다 (두 번 답하지 않게)
   const key = answerKey(t, s.entries.get(t.id) ?? []);
   const pick = (c: string) => () => {
+    if (send({ type: "say", task_id: t.id, text: c }) === false) return;
     answered.add(key);
     for (const b of choices) (b as HTMLButtonElement).disabled = true;
-    send({ type: "say", task_id: t.id, text: c });
   };
   const choices = (q?.choices ?? []).map((c, i) =>
     h("button", { type: "button", class: i === 0 ? "btn-primary btn-sm" : "btn-secondary btn-sm", disabled: answered.has(key), onClick: pick(c) }, c));
@@ -67,7 +66,7 @@ function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
         h("span", { class: "card-title" }, h("b", {}, t.title), " ",
           ...(t.source === "schedule" ? [h("span", { class: "tag-schedule" }, "스케줄")] : [h("span", { class: "note" }, "· 내 요청")])),
         h("span", { class: "card-time" }, timeText(q?.at ?? t.created_at, now()))),
-      h("span", { class: "card-text" }, q?.text ?? rowNote(s, t)),
+      q ? h("div", { class: "card-text" }, markdown(q.text)) : h("span", { class: "card-text" }, rowNote(s, t)),
       h("div", { class: "card-actions" }, ...choices,
         h("button", { type: "button", class: "link", onClick: openTask(s, t, go) }, "대화 보기 ›"))));
 }

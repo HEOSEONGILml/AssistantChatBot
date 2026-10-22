@@ -2,7 +2,8 @@
 import "./ui/styles.css";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { connectBackend } from "./backend-link";
-import type { Outgoing } from "./shared/protocol";
+import { answered, pruneAnswered } from "./shared/entries";
+import type { Entry, Outgoing, Task } from "./shared/protocol";
 import {
   apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type State, type View,
 } from "./shared/state";
@@ -25,6 +26,7 @@ let detailTaskId: number | null = null; // 상세 창이 그리는 작업
 const backend = connectBackend({
   onMessage: (m) => {
     state = apply(state, m);
+    pruneAnswered(answered, (id) => state.tasks.get(id)?.state === "waiting");
     for (const out of followUps(state, m)) backend.send(out);
     // 대화 탭을 연 채 붙으면 대화 작업을 나중에 알게 된다: 그때 대화를 받아 온다
     const v = state.view;
@@ -36,7 +38,7 @@ const backend = connectBackend({
     for (const out of refreshRequests(state)) backend.send(out);
     if (detailTaskId !== null) backend.send({ type: "get_task", task_id: detailTaskId });
   },
-  onClose: () => { state = disconnected(state); asked.clear(); seenSent.clear(); render(); },
+  onClose: () => { state = disconnected(state); asked.clear(); seenSent.clear(); answered.clear(); render(); },
 });
 const send = (m: Outgoing): boolean => backend.send(m);
 
@@ -79,21 +81,24 @@ function markShownSeen() {
 }
 
 // --- 상세 창 ---
-let detailSent: unknown[] = []; // 마지막으로 보낸 [작업, 줄]. 같으면 다시 보내지 않는다
+// 마지막으로 보낸 작업·줄·연결. 같으면 다시 보내지 않는다. 끊겨 상태에서 작업이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
+let detailSent: { task?: Task; entries?: Entry[]; connected?: boolean } = {};
 
 function pushDetail(force = false) {
   if (detailTaskId === null) return;
-  const task = state.tasks.get(detailTaskId);
+  const task = state.tasks.get(detailTaskId) ?? (detailSent.task?.id === detailTaskId ? detailSent.task : undefined);
   if (!task) return;
-  const entries = state.entries.get(detailTaskId) ?? [];
-  if (!force && detailSent[0] === task && detailSent[1] === entries) return;
-  detailSent = [task, entries];
-  emitTo("detail", "detail-data", { task, entries }).catch((e) => console.warn("상세 창 보내기 실패", e));
+  const entries = state.entries.get(detailTaskId) ?? detailSent.entries ?? [];
+  const connected = state.connected;
+  const d = detailSent;
+  if (!force && d.task === task && d.entries === entries && d.connected === connected) return;
+  detailSent = { task, entries, connected };
+  emitTo("detail", "detail-data", { task, entries, connected }).catch((e) => console.warn("상세 창 보내기 실패", e));
 }
 
 function openDetail(taskId: number) {
   detailTaskId = taskId;
-  detailSent = [];
+  detailSent = {};
   send({ type: "get_task", task_id: taskId });
   showDetail(taskId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 열기 실패", e));
 }
