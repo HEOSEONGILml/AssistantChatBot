@@ -125,6 +125,9 @@ class App:
         self._logging_in = False  # 로그인 창이 떠 있는 동안 또 띄우지 않는다
         self.proactive: Proactive | None = None
         self.nudge_active = False  # 먼저 말 걸기 배지가 떠 있다
+        self.logged_in: bool | None = None  # 마지막으로 보낸 status의 로그인 상태 (보낸 적 없으면 None)
+        # 질문·제안을 기다리는 대화 세션에 누른 [도와줘]: (세션 ID, 숨은 지시). 그 실행이 끝나면 이어 묻는다. 하나만 둔다
+        self._help_later: tuple[int, str] | None = None
 
     # --- 화면 메시지 ---
     async def connected(self, on: bool) -> None:
@@ -338,6 +341,8 @@ class App:
             log.info("로그아웃 상태라 배지를 켜지 않음")
             return
         self.nudge_active = active
+        if active:
+            log.info("배지 켬")
         await self._send({"type": "nudge", "active": active})
 
     async def nudge_open(self) -> None:
@@ -354,7 +359,8 @@ class App:
         await self.set_nudge(False)
 
     async def nudge_answer(self, help: bool) -> None:
-        """[도와줘]·[괜찮아]. 대화 세션의 마지막 nudge 줄 뒤에 user 줄이 없을 때만 받는다 (한 번만)."""
+        """[도와줘]·[괜찮아]. 대화 세션의 마지막 nudge 줄 뒤에 user 줄이 없을 때만 받는다 (한 번만).
+        [도와줘]는 대화 세션이 질문·제안의 답을 기다리는 중이면 그 답으로 쓰지 않고, 그 실행이 끝난 뒤 이어 묻는다."""
         chat = self._store.chat_session()
         entries = self._store.entries(chat["id"]) if chat else []
         last = next((i for i in range(len(entries) - 1, -1, -1) if entries[i]["kind"] == "nudge"), None)
@@ -363,7 +369,15 @@ class App:
             return
         data = entries[last]["data"]
         if help:
-            await self.say(chat["id"], NUDGE_CHOICES[0], prompt=HELP_PROMPT.format(**data))
+            prompt = HELP_PROMPT.format(**data)
+            if chat["state"] == "waiting" and chat["id"] in self._runs:
+                if not await self._logged_in():
+                    return
+                self._entry(chat["id"], "user", NUDGE_CHOICES[0])
+                self._help_later = (chat["id"], prompt)
+                await self._flush()
+                return
+            await self.say(chat["id"], NUDGE_CHOICES[0], prompt=prompt)
             return
         self._entry(chat["id"], "user", NUDGE_CHOICES[1])
         if self.proactive:
@@ -457,6 +471,19 @@ class App:
         finally:
             if self._runs.get(session_id, (None,))[0] is run:
                 del self._runs[session_id]
+                self._start_help_later(session_id)
+
+    def _start_help_later(self, session_id: int) -> None:
+        """미뤄 둔 [도와줘]를 끝난 세션에 이어 묻는다 (끝난 세션에 say처럼). 세션을 지웠으면 버린다."""
+        if self._help_later is None or self._help_later[0] != session_id:
+            return
+        prompt = self._help_later[1]
+        self._help_later = None
+        session = self._store.get_session(session_id)
+        if session is None:
+            return
+        self._set(session_id, state="working")
+        self._start(session_id, prompt, resume=session["claude_session_id"])
 
     def _finish(self, session_id: int, text: str, is_error: bool) -> None:
         session = self._store.get_session(session_id)
@@ -501,6 +528,8 @@ class App:
 
     # --- 보내기: 한 줄로 순서대로 ---
     def _post(self, msg: dict) -> None:
+        if msg["type"] == "status":
+            self.logged_in = msg["logged_in"]
         self._outbox.append(msg)
         if self._sender is None or self._sender.done():
             self._sender = asyncio.create_task(self._drain())

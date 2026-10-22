@@ -107,6 +107,13 @@ describe("toItems nudge", () => {
     expect(answerable([nudge(), e("user", "도와줘")])).toEqual([false, false]);
   });
 
+  it("[도와줘]·[괜찮아] 답은 그 앞의 기다리는 질문을 답한 것으로 치지 않는다", () => {
+    expect(answerable([e("question", "어느 파일?", ["a", "b"]), nudge(), e("user", "도와줘")], "waiting"))
+      .toEqual([true, false, false]);
+    expect(answerable([e("question", "어느 파일?", ["a", "b"]), nudge(), e("user", "도와줘"), e("user", "a")], "waiting"))
+      .toEqual([false, false, false, false]);
+  });
+
   it("앞쪽 nudge는 답할 수 없다", () => {
     expect(answerable([nudge(), e("result"), nudge()])).toEqual([false, false, true]);
   });

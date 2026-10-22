@@ -29,4 +29,4 @@
 | **세션 대화** | 세션 하나에서 사용자와 에이전트가 주고받은 말(대화 줄, `entries`). 되물음과 답도 쌓인다. 작업 세션이면 "작업 대화", 스케줄 세션이면 "스케줄 대화"라고도 한다 |
 | **배지** | 강아지에 붙는 소식 개수. 빨강은 답 필요, 노랑은 못 함, 초록은 새 소식. 그 줄 맨 앞의 파란 `!`는 먼저 말 걸기 배지로, 강아지가 할 말이 있다는 뜻이다(개수가 아니다) |
 | **세션 상태** | 일하는 중, 답 기다림, 다 함, 못 함, 멈춤 ([0030](decisions/0030-io-interface-task-as-conversation.md)) |
-| **Jev** | TypeSafe AI의 System One 모델. 텍스트를 생성하지 않고 구조화된 결정(선택·점수·예/아니오)의 분포만 준다. 지금은 쓰지 않는다. [상세](references/typesafe-jev.md) |
+| **Jev** | TypeSafe AI의 System One 모델. 텍스트를 생성하지 않고 구조화된 결정(선택·점수·예/아니오)의 분포만 준다. 먼저 말 걸기 판단에 쓴다 ([0037](decisions/0037-jev-for-proactive-judgment.md)). [상세](references/typesafe-jev.md) |

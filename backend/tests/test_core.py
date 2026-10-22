@@ -929,3 +929,109 @@ async def test_connected_sends_nudge_state():
     out.clear()
     await app.connected(True)
     assert out[-1] == {"type": "nudge", "active": True}
+
+
+async def test_nudge_answer_help_while_chat_is_waiting_runs_after_answer():
+    """질문·제안을 기다리는 대화 세션에는 숨은 지시를 답으로 넣지 않는다. 그 실행이 끝나면 새로 이어 묻는다."""
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "엑셀 파일 정리해 줘")
+    runs[0].events.claude_session("s1")
+    runs[0].events.question("어느 파일로 할까요?", ["매출.xlsx", "비용.xlsx"])
+    await settle()
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    await settle()
+    assert runs[0].answers == [] and runs[0].said == [] and len(runs) == 1
+    assert store.get_session(chat_id)["state"] == "waiting"
+    assert [e["text"] for e in store.entries(chat_id) if e["kind"] == "user"] == ["엑셀 파일 정리해 줘", "도와줘"]
+
+    await app.say(chat_id, "매출.xlsx")  # 질문은 그대로 답할 수 있다
+    assert runs[0].said == ["매출.xlsx"]
+    runs[0].events.answered()
+    runs[0].events.finished("정리했어요", False)
+    runs[0].end()
+    await settle()
+    assert len(runs) == 2 and runs[1].prompt == HELP_PROMPT and runs[1].options.resume == "s1"
+    assert store.get_session(chat_id)["state"] == "working"
+    assert app._runs[chat_id][0] is runs[1]
+
+
+async def test_pending_help_newer_replaces_older():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "일")
+    runs[0].events.question("계속할까요?", ["예", "아니오"])
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    app.proactive.current_task = lambda: ("WINWORD.EXE", "보고서.docx")
+    await app.set_nudge(True)
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    runs[0].events.finished("끝", False)
+    runs[0].end()
+    await settle()
+    assert len(runs) == 2 and "WINWORD.EXE · 보고서.docx" in runs[1].prompt
+    runs[1].events.finished("도왔어요", False)
+    runs[1].end()
+    await settle()
+    assert len(runs) == 2
+
+
+async def test_pending_help_dropped_when_chat_deleted():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "일")
+    runs[0].events.question("계속할까요?", ["예", "아니오"])
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    await app.delete_session(chat_id)
+    await settle()
+    assert runs[0].stopped and len(runs) == 1 and app._runs == {}
+
+
+async def test_help_prompt_never_leaks():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    runs[0].events.finished("이렇게 해 보세요", False)
+    runs[0].end()
+    await settle()
+    # 기다리는 중의 [도와줘]도 본다
+    runs_before = len(runs)
+    await app.say(chat_id, "또 질문")
+    runs[-1].events.question("계속할까요?", ["예", "아니오"])
+    await app.set_nudge(True)
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    runs[-1].events.finished("끝", False)
+    runs[-1].end()
+    await settle()
+    assert len(runs) == runs_before + 2 and runs[-1].prompt == HELP_PROMPT
+    for secret in ("막힌 것 같아", "두세 문장", "[먼저 말 걸기]"):
+        assert secret not in json.dumps(store.entries(chat_id), ensure_ascii=False)
+        assert secret not in json.dumps(out, ensure_ascii=False)
+    assert store.search_sessions("먼저 말 걸기", None, None, 10) == []
+    assert store.search_sessions("막힌", None, None, 10) == []
+
+
+async def test_badge_on_is_logged_only_when_really_on(caplog):
+    caplog.set_level("INFO")
+    app, store, out, runs = make(FakeAuth(ok=False))
+    await app.set_nudge(True)
+    assert "배지 켬" not in caplog.text
+    app._auth.ok = True
+    await app.set_nudge(True)
+    assert "배지 켬" in caplog.text
+
+
+async def test_remembers_last_login_status_sent():
+    app, store, out, runs = make(FakeAuth(ok=False))
+    assert app.logged_in is None  # 아직 보낸 적 없음
+    await app.connected(True)
+    assert app.logged_in is False
+    await app.login()
+    assert app.logged_in is True
+    await app.logout()
+    assert app.logged_in is False

@@ -38,6 +38,8 @@ export function toItems(entries: Entry[], sessionState: Session["state"], source
   if (sessionState === "waiting") {
     for (let i = items.length - 1; i >= 0; i--) {
       const k = items[i].kind;
+      // [도와줘]·[괜찮아]는 nudge의 답이지 질문의 답이 아니다 (백엔드는 기다리는 질문에 넣지 않는다)
+      if (k === "user" && items[i - 1]?.kind === "nudge") { i--; continue; }
       if (k === "user") break;
       if (k === "question" || k === "proposal") { items[i].answerable = true; break; }
     }

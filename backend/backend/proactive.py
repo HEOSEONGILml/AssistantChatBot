@@ -8,6 +8,7 @@ log = logging.getLogger(__name__)
 BUDGET = 2000       # 글자. 2천 토큰을 한글 기준 약 2,000자로 근사 (잠정)
 TEXT_LIMIT = 300    # 프레임마다 글 앞 300자
 DECLINE_WINDOW = timedelta(hours=1)
+DECLINE_MAX = 10    # 거절 줄에 넣는 최근 [괜찮아] 수. 거절이 많아도 화면 기록 줄이 밀려나지 않게 (잠정)
 HISTORY_WINDOW = timedelta(minutes=5)  # 판단에 넣는 화면 기록
 BADGE_TIME = timedelta(minutes=5)      # 배지가 떠 있는 시간
 NONE_DECLINED = "최근 [괜찮아]: 없음"
@@ -41,8 +42,8 @@ def _local(dt: datetime) -> datetime:
 
 
 def summarize(frames: list[dict], declines: list[tuple[datetime, str, str]], now: datetime) -> str:
-    """화면 기록을 Jev에 줄 글로 줄인다. 오래된 것부터 한 줄씩, 예산이 모자라면 오래된 줄을 버린다. 끝 줄은 거절 내역."""
-    shown = [d for d in declines if _local(now) - DECLINE_WINDOW <= _local(d[0]) <= _local(now)]
+    """화면 기록을 Jev에 줄 글로 줄인다. 오래된 것부터 한 줄씩, 예산이 모자라면 오래된 줄을 버린다. 끝 줄은 거절 내역(새 것 10개까지)."""
+    shown = [d for d in declines if _local(now) - DECLINE_WINDOW <= _local(d[0]) <= _local(now)][-DECLINE_MAX:]
     tail = ("최근 [괜찮아]: " + ", ".join(f"{_local(at):%H:%M} {app} · {win}" for at, app, win in shown)) if shown else NONE_DECLINED
     room = BUDGET - len(tail)
     lines: list[str] = []
@@ -57,7 +58,7 @@ def summarize(frames: list[dict], declines: list[tuple[datetime, str, str]], now
 
 
 class Proactive:
-    """판단 고리. 쉬는 때(화면 기록 꺼짐, Jev 키 없음, 배지가 떠 있음)가 아니면 화면 기록을 Jev에 묻고 배지를 켠다.
+    """판단 고리. 쉬는 때(로그아웃, 화면 기록 꺼짐, Jev 키 없음, 배지가 떠 있음)가 아니면 화면 기록을 Jev에 묻고 배지를 켠다.
     만들 때 app.proactive에 자기를 붙인다 ([괜찮아]·배지 누름이 거절 내역과 지금 작업을 쓴다)."""
 
     def __init__(self, store, app, history, jev, clock=lambda: datetime.now().astimezone()):
@@ -85,6 +86,8 @@ class Proactive:
             if self._badge_at is not None and now - self._badge_at > BADGE_TIME:
                 await self._app.set_nudge(False)
             return
+        if self._app.logged_in is False:
+            return  # 화면에 보낸 마지막 로그인 상태로 본다. CLI는 배지를 켜기 직전에만 부른다
         key = self._app.jev_key()
         if not key or not self._app.recording_enabled():
             return
@@ -95,7 +98,7 @@ class Proactive:
         answers = await self._jev.ask(key, summarize(frames, self._declines, now), QUESTIONS)
         if answers is None or not should_nudge(answers):
             return
-        log.info("배지 켬 (need_help %.2f, declined_same %.2f)", answers["need_help"], answers["declined_same"])
+        log.info("배지 조건 맞음 (need_help %.2f, declined_same %.2f)", answers["need_help"], answers["declined_same"])
         self._badge_at = now
         await self._app.set_nudge(True)
 

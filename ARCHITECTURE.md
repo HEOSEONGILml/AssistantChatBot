@@ -2,7 +2,7 @@
 
 TamagotchiChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
 
-> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)대로 백엔드(판단 고리·배지·[도와줘]·[괜찮아]·Jev 키 저장)만 구현했고, 화면은 아직이다.
+> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)대로 백엔드(판단 고리·배지·[도와줘]·[괜찮아]·Jev 키 저장)와 화면("!" 배지·대화의 nudge 칩·설정의 Jev 키)을 구현했다.
 
 ## 1. 한눈에 보기
 
@@ -99,6 +99,9 @@ flowchart LR
 | 설정 탭 | [로그인]·[로그아웃] | `login` / `logout` | `claude auth login/logout` | `ui/settings.ts` |
 | 설정 탭 | 화면 기록 스위치 | `set_recording` | screenpipe 띄우기·끄기 | `ui/settings.ts` |
 | 설정 탭 | 권한 모드 고르기 | `set_permission_mode` | 다음 세션부터 쓸 권한 모드 저장 | `ui/settings.ts` |
+| 설정 탭 → 먼저 말 걸기 | Jev 키를 넣고 [저장] (빈 값이면 지움) | `set_jev_key` | 키 저장. 화면에는 `jev_key_set`만 돌려준다 | `ui/settings.ts` |
+| 강아지 ("!" 배지가 떠 있을 때) | 강아지 누름 | `nudge_open` | 대화 세션에 `nudge` 줄을 남기고 배지를 끈다. 화면은 패널을 대화 탭으로 연다 | `main.ts` `dogClick` |
+| 대화 탭의 `nudge` 줄 | [도와줘]·[괜찮아] 칩 | `nudge_answer` (`help`: 첫 칩이면 참) | [도와줘]는 숨은 지시로 대화 세션을 돌리고, [괜찮아]는 거절 내역에 넣는다 | `ui/conversation.ts` |
 
 ## 3. 백엔드
 
@@ -338,7 +341,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 기록 꺼짐 · 키 없음"}
+  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 로그아웃 · 기록 꺼짐 · 키 없음"}
   REST -->|"아니오"| H["ScreenHistory.recent<br>최근 5분 frames"]
   H -->|"없음"| SKIP["건너뜀"]
   H --> SUM["summarize<br>2,000자 + 최근 [괜찮아]"]
@@ -357,12 +360,18 @@ sequenceDiagram
   participant CC as 대화 세션
   P->>A: set_nudge(True)
   A-->>FE: nudge {active: true}
+  Note over FE: 강아지 머리 위 "!"
+  FE->>FE: 강아지 누름 → 패널을 대화 탭으로
   FE->>A: nudge_open
   A->>P: current_task()
   A-->>FE: entry {kind: nudge, data: {app, window}}, nudge {active: false}
   alt 도와줘
     FE->>A: nudge_answer {help: true}
-    A->>CC: say(도와줘, prompt=숨은 지시)
+    alt 대화 세션이 답 기다림
+      A->>A: 지시를 미뤄 둠
+      CC-->>A: 그 실행이 끝남
+    end
+    A->>CC: 숨은 지시 (돌고 있으면 덧붙임, 아니면 이어 쓰기)
   else 괜찮아
     FE->>A: nudge_answer {help: false}
     A->>P: decline(시각, app, window)
@@ -371,11 +380,11 @@ sequenceDiagram
 
 | 단계 | 하는 일 | 코드 |
 |---|---|---|
-| 쉬는 때 | 배지가 떠 있음, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 로그아웃은 배지를 켜기 직전에만 본다(CLI라 느려서) | `Proactive.tick`, `App.set_nudge` |
+| 쉬는 때 | 배지가 떠 있음, 로그아웃, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 로그아웃은 화면에 마지막으로 보낸 `status`(`App.logged_in`)로 본다. 로그인 CLI는 느려서 배지를 켜기 직전에만 부른다 | `Proactive.tick`, `App.set_nudge` |
 | 배지 끄기 | 켠 뒤 5분이 지나면 다음 `tick`에서 끈다 | `Proactive.tick` |
-| 판단 | 화면 기록이 없으면 건너뛴다. 가장 최근 프레임의 (앱, 창)을 지금 작업으로 둔다. Jev 답이 `should_nudge`를 넘으면 배지를 켜고 확률을 로그에 남긴다(글은 남기지 않는다) | `Proactive.tick` |
+| 판단 | 화면 기록이 없으면 건너뛴다. 가장 최근 프레임의 (앱, 창)을 지금 작업으로 둔다. Jev 답이 `should_nudge`를 넘으면 확률을 로그에 남기고(글은 남기지 않는다) 배지를 켠다. 정말 켰을 때만 `배지 켬`을 남긴다 | `Proactive.tick`, `App.set_nudge` |
 | 배지 누름 | 지금 대화 세션(지웠으면 새로 만든 것)에 `nudge` 줄을 남기고 배지를 끈다. 배지가 이미 꺼졌으면 무시 | `App.nudge_open` |
-| [도와줘] | `say(대화 세션, "도와줘", prompt=숨은 지시)`. 줄에는 `도와줘`, Claude에는 지시가 간다. 돌고 있으면 이어서 받는다 | `App.nudge_answer`, `App.say` |
+| [도와줘] | `say(대화 세션, "도와줘", prompt=숨은 지시)`. 줄에는 `도와줘`, Claude에는 지시가 간다. 답을 쓰는 중이면 이어서 받는다. 질문·제안의 답을 기다리는 중이면 지시를 그 답으로 쓰지 않고 미뤄 둔다(`_help_later`, 하나만). 그 실행이 끝나면(`_drive`) 이어 쓰기로 새로 돌린다. 그사이 세션을 지우면 버린다 | `App.nudge_answer`, `App.say`, `App._drive` |
 | [괜찮아] | `user` 줄 `괜찮아` + `Proactive.decline`. 1시간이 지난 거절은 버린다 | `App.nudge_answer`, `Proactive.decline` |
 | 한 번만 | 마지막 `nudge` 줄 뒤에 `user` 줄이 있으면 답을 무시한다 | `App.nudge_answer` |
 
@@ -581,6 +590,8 @@ erDiagram
 | `_outbox` | 메시지 큐 | 화면으로 보낼 메시지 (순서 보장) | 사라짐 |
 | `_logging_in` | bool | 로그인 창이 떠 있음 | 사라짐 |
 | `nudge_active` | bool | 먼저 말 걸기 배지가 떠 있음 | 사라짐. 다시 켜면 꺼진 채로 시작 |
+| `logged_in` | bool 또는 `None` | 화면에 마지막으로 보낸 `status`의 로그인 상태. 보낸 적 없으면 `None`. 판단 고리가 로그아웃이면 쉰다 | 사라짐 |
+| `_help_later` | (세션 ID, 숨은 지시) 또는 `None` | 답을 기다리는 대화 세션에 누른 [도와줘]. 그 실행이 끝나면 이어 묻는다 | 사라짐 (미뤄 둔 [도와줘]는 버려진다) |
 | `proactive` | `Proactive` 또는 `None` | 판단 고리 (거절 내역·지금 작업을 묻는 곳) | — |
 
 `Proactive`의 메모리:
@@ -854,5 +865,5 @@ flowchart LR
 | screenpipe DB가 없음·잠김·깨짐 | 빈 기록으로 보고 그 판단을 건너뛴다. 로그에 오류 종류만 | `ScreenHistory.recent` |
 | Jev 오류 응답·시간 초과(10초)·이상한 응답 | `None`. 배지를 켜지 않고 그 판단을 건너뛴다. 로그에 상태 코드나 오류 종류만(키·글은 쓰지 않는다) | `Jev.ask` |
 | `tick` 안의 그 밖의 예외 | 로그에 종류만 남기고 고리는 계속 돈다 | `Proactive.run_forever` |
-| 배지를 켤 때 로그아웃 | 켜지 않는다 | `App.set_nudge` |
+| 배지를 켤 때 로그아웃 | 켜지 않는다. `배지 켬` 로그도 남기지 않는다 | `App.set_nudge` |
 | 답할 `nudge` 줄이 없음(이미 답함·대화 세션을 지움) | 무시한다 | `App.nudge_answer` |

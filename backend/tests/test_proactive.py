@@ -259,3 +259,27 @@ async def test_nudge_answer_decline_records(appdata):
     clock.now += timedelta(hours=1, minutes=1)  # 1시간이 지나면 넣지 않는다
     await p.tick()
     assert jev.calls[-1][1].endswith("최근 [괜찮아]: 없음")
+
+
+async def test_tick_rests_when_logged_out(appdata):
+    p, app, store, out, jev, clock = await loop(logged_in=False)
+    await app.connected(True)  # status {logged_in: false}를 보냈다
+    await p.tick()
+    assert jev.calls == []
+    await app.login()
+    await p.tick()
+    assert len(jev.calls) == 1
+    await app.set_nudge(False)
+    await app.logout()
+    await p.tick()
+    assert len(jev.calls) == 1
+
+
+def test_summarize_keeps_newest_declines():
+    now = datetime(2026, 10, 22, 16, 0)
+    declines = [(now - timedelta(minutes=50 - i), f"앱{i}.exe", "창" * 100) for i in range(30)]
+    frame = {"at": now - timedelta(seconds=10), "app": "EXCEL.EXE", "window": "매출.xlsx", "text": "#REF!"}
+    out = proactive.summarize([frame], declines, now)
+    tail = out.split("\n")[-1]
+    assert tail.count("앱") == 10 and "앱29.exe" in tail and "앱19.exe" not in tail
+    assert "EXCEL.EXE · 매출.xlsx #REF!" in out
