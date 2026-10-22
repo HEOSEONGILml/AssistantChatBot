@@ -172,6 +172,8 @@
 2. 화면 기록: `화면 기록 screenpipe`(13px/500, "screenpipe" 400 #5B6472) + 설명 "끄면 “아까 본 그거”를 찾지 못해요"(12px #5B6472), 오른쪽 스위치 켜짐(§5, aria-label "화면 기록 켜짐").
    - 바로 아래 **기록 폴더 줄**(padding 8px 8px 8px 16px, 아래 1px 선): 1행 12px #5B6472 `기록 폴더 · **1.8 GB**(500 #1B1F27) · 이틀 지난 기록은 저절로 지워져요`, 2행 12px #3D4552 고정폭 글꼴 폴더 경로 `C:\Users\[사용자]\.screenpipe`(한 줄 말줄임, `title`에 전체 경로), 오른쪽 [비우기] 보조 버튼(min-height 36, border 1px #C4CAD3, radius 10, 13px/500) → 25번 확인. 용량·경로는 예시 값.
    - 패널이 넘치지 않게 권한 모드 행은 min-height 40, padding 2px 8px로 줄였다.
+   - 그 아래 **연결된 MCP** 칸(padding 10px 12px 8px 16px, 아래 1px 선): 제목 12px/700 #5B6472 "연결된 MCP 2", 행마다 min-height 36(행 사이 1px #F0F2F5): 고정폭 글꼴 12px/500 서버 이름 + 12px #5B6472 설명(말줄임) + 오른쪽 초록 점 7px과 "연결됨"(12px #166534). 예시 두 줄: `screenpipe` 화면 기록 검색 / `claude-in-chrome` 크롬 브라우저 조작. 이 앱의 백엔드 MCP(`assistant`)는 프로그램 내부라 목록에서 뺀다 (사용자). 보기만 하고 추가·삭제는 없다.
+   - 설정 탭은 길어져서 탭 줄 아래 본문이 `max-height: 436px; overflow-y: auto`로 패널 안에서 스크롤한다(10·13·25번).
 3. 권한 모드 fieldset, 라디오 5개 (각 label min-height 44, padding 4px 8px, radius 10, 선택 bg #E3ECFF + 제목 700; 라디오 16px accent #1D4ED8; 제목 13px + 영문 400 #5B6472; 설명 12px #3D4552):
    - 매번 묻기 Manual (value `default`, 기본 선택) — 파일 수정·명령 실행 전에 매번 물어요
    - 수정은 바로 Accept edits (`acceptEdits`) — 파일 수정은 바로, 그 밖의 명령은 물어요
