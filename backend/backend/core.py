@@ -188,6 +188,8 @@ class App:
             log.warning("돌고 있지 않은 세션을 멈추려 함: %d", session_id)
             return
         run = self._runs[session_id][0]
+        if self._help_later is not None and self._help_later[0] == session_id:
+            self._help_later = None  # 사용자가 대화를 멈췄으니 미뤄 둔 [도와줘]도 버린다
         self._set(session_id, state="stopped")
         await run.stop()
         await self._flush()
@@ -362,12 +364,11 @@ class App:
         """[도와줘]·[괜찮아]. 대화 세션의 마지막 nudge 줄 뒤에 user 줄이 없을 때만 받는다 (한 번만).
         [도와줘]는 대화 세션이 질문·제안의 답을 기다리는 중이면 그 답으로 쓰지 않고, 그 실행이 끝난 뒤 이어 묻는다."""
         chat = self._store.chat_session()
-        entries = self._store.entries(chat["id"]) if chat else []
-        last = next((i for i in range(len(entries) - 1, -1, -1) if entries[i]["kind"] == "nudge"), None)
-        if last is None or any(e["kind"] == "user" for e in entries[last + 1:]):
+        nudge = self._unanswered_nudge(chat)
+        if nudge is None:
             log.info("답할 nudge가 없어 무시함")
             return
-        data = entries[last]["data"]
+        data = nudge["data"]
         if help:
             prompt = HELP_PROMPT.format(**data)
             if chat["state"] == "waiting" and chat["id"] in self._runs:
@@ -383,6 +384,21 @@ class App:
         if self.proactive:
             self.proactive.decline(_now(), data["app"], data["window"])
         await self._flush()
+
+    def _unanswered_nudge(self, chat: dict | None) -> dict | None:
+        """대화 세션의 마지막 nudge 줄. 그 뒤에 user 줄이 있으면(이미 답함) None."""
+        entries = self._store.entries(chat["id"]) if chat else []
+        last = next((i for i in range(len(entries) - 1, -1, -1) if entries[i]["kind"] == "nudge"), None)
+        if last is None or any(e["kind"] == "user" for e in entries[last + 1:]):
+            return None
+        return entries[last]
+
+    def chatting(self) -> bool:
+        """대화 중: 답하지 않은 "도움이 필요해?"가 있거나 대화 세션이 답을 쓰거나 기다린다 (판단 고리가 쉰다)."""
+        chat = self._store.chat_session()
+        if chat is None:
+            return False
+        return chat["state"] in ("working", "waiting") or self._unanswered_nudge(chat) is not None
 
     async def get_usage(self) -> None:
         await self._send(self._usage())

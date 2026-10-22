@@ -341,7 +341,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 로그아웃 · 기록 꺼짐 · 키 없음"}
+  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 로그아웃 · 대화 중 · 기록 꺼짐 · 키 없음"}
   REST -->|"아니오"| H["ScreenHistory.recent<br>최근 5분 frames"]
   H -->|"없음"| SKIP["건너뜀"]
   H --> SUM["summarize<br>2,000자 + 최근 [괜찮아]"]
@@ -380,11 +380,11 @@ sequenceDiagram
 
 | 단계 | 하는 일 | 코드 |
 |---|---|---|
-| 쉬는 때 | 배지가 떠 있음, 로그아웃, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 로그아웃은 화면에 마지막으로 보낸 `status`(`App.logged_in`)로 본다. 로그인 CLI는 느려서 배지를 켜기 직전에만 부른다 | `Proactive.tick`, `App.set_nudge` |
+| 쉬는 때 | 배지가 떠 있음, 로그아웃, 대화 중, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 대화 중은 대화 세션에 답하지 않은 `nudge` 줄이 있거나(`nudge_answer`와 같은 `_unanswered_nudge`) 대화 세션이 `working`·`waiting`인 때다(`App.chatting`, 사용자 결정). 로그아웃은 화면에 마지막으로 보낸 `status`(`App.logged_in`)로 본다. 로그인 CLI는 느려서 배지를 켜기 직전에만 부른다 | `Proactive.tick`, `App.chatting`, `App.set_nudge` |
 | 배지 끄기 | 켠 뒤 5분이 지나면 다음 `tick`에서 끈다 | `Proactive.tick` |
 | 판단 | 화면 기록이 없으면 건너뛴다. 가장 최근 프레임의 (앱, 창)을 지금 작업으로 둔다. Jev 답이 `should_nudge`를 넘으면 확률을 로그에 남기고(글은 남기지 않는다) 배지를 켠다. 정말 켰을 때만 `배지 켬`을 남긴다 | `Proactive.tick`, `App.set_nudge` |
 | 배지 누름 | 지금 대화 세션(지웠으면 새로 만든 것)에 `nudge` 줄을 남기고 배지를 끈다. 배지가 이미 꺼졌으면 무시 | `App.nudge_open` |
-| [도와줘] | `say(대화 세션, "도와줘", prompt=숨은 지시)`. 줄에는 `도와줘`, Claude에는 지시가 간다. 답을 쓰는 중이면 이어서 받는다. 질문·제안의 답을 기다리는 중이면 지시를 그 답으로 쓰지 않고 미뤄 둔다(`_help_later`, 하나만). 그 실행이 끝나면(`_drive`) 이어 쓰기로 새로 돌린다. 그사이 세션을 지우면 버린다 | `App.nudge_answer`, `App.say`, `App._drive` |
+| [도와줘] | `say(대화 세션, "도와줘", prompt=숨은 지시)`. 줄에는 `도와줘`, Claude에는 지시가 간다. 답을 쓰는 중이면 이어서 받는다. 질문·제안의 답을 기다리는 중이면 지시를 그 답으로 쓰지 않고 미뤄 둔다(`_help_later`, 하나만). 그 실행이 끝나면(`_drive`) 이어 쓰기로 새로 돌린다. 그사이 세션을 멈추거나(`stop`) 지우면 버린다 | `App.nudge_answer`, `App.say`, `App._drive` |
 | [괜찮아] | `user` 줄 `괜찮아` + `Proactive.decline`. 1시간이 지난 거절은 버린다 | `App.nudge_answer`, `Proactive.decline` |
 | 한 번만 | 마지막 `nudge` 줄 뒤에 `user` 줄이 있으면 답을 무시한다 | `App.nudge_answer` |
 
@@ -591,7 +591,7 @@ erDiagram
 | `_logging_in` | bool | 로그인 창이 떠 있음 | 사라짐 |
 | `nudge_active` | bool | 먼저 말 걸기 배지가 떠 있음 | 사라짐. 다시 켜면 꺼진 채로 시작 |
 | `logged_in` | bool 또는 `None` | 화면에 마지막으로 보낸 `status`의 로그인 상태. 보낸 적 없으면 `None`. 판단 고리가 로그아웃이면 쉰다 | 사라짐 |
-| `_help_later` | (세션 ID, 숨은 지시) 또는 `None` | 답을 기다리는 대화 세션에 누른 [도와줘]. 그 실행이 끝나면 이어 묻는다 | 사라짐 (미뤄 둔 [도와줘]는 버려진다) |
+| `_help_later` | (세션 ID, 숨은 지시) 또는 `None` | 답을 기다리는 대화 세션에 누른 [도와줘]. 그 실행이 끝나면 이어 묻는다. 대화 세션을 멈추거나 지우면 버린다 | 사라짐 (미뤄 둔 [도와줘]는 버려진다) |
 | `proactive` | `Proactive` 또는 `None` | 판단 고리 (거절 내역·지금 작업을 묻는 곳) | — |
 
 `Proactive`의 메모리:

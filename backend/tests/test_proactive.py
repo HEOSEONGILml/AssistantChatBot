@@ -283,3 +283,34 @@ def test_summarize_keeps_newest_declines():
     tail = out.split("\n")[-1]
     assert tail.count("앱") == 10 and "앱29.exe" in tail and "앱19.exe" not in tail
     assert "EXCEL.EXE · 매출.xlsx #REF!" in out
+
+
+async def test_tick_rests_while_nudge_unanswered(appdata):
+    p, app, store, out, jev, clock = await loop()
+    app.proactive = p
+    await p.tick()
+    await app.nudge_open()  # 배지는 꺼지고 "도움이 필요해?"가 답을 기다린다
+    await p.tick()
+    assert len(jev.calls) == 1
+    await app.nudge_answer(False)
+    await p.tick()
+    assert len(jev.calls) == 2
+
+
+async def test_tick_rests_while_chat_is_working_or_waiting(appdata):
+    p, app, store, out, jev, clock = await loop()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "안녕")  # working
+    await p.tick()
+    assert jev.calls == []
+    run = app._runs[chat_id][0]
+    run.events.question("어느 파일?", ["a", "b"])  # waiting
+    await p.tick()
+    assert jev.calls == []
+    run.events.answered()
+    run.events.finished("끝", False)
+    run.end()
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    await p.tick()
+    assert len(jev.calls) == 1

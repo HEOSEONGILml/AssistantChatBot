@@ -58,7 +58,7 @@ def summarize(frames: list[dict], declines: list[tuple[datetime, str, str]], now
 
 
 class Proactive:
-    """판단 고리. 쉬는 때(로그아웃, 화면 기록 꺼짐, Jev 키 없음, 배지가 떠 있음)가 아니면 화면 기록을 Jev에 묻고 배지를 켠다.
+    """판단 고리. 쉬는 때(로그아웃, 화면 기록 꺼짐, Jev 키 없음, 배지가 떠 있음, 대화 중)가 아니면 화면 기록을 Jev에 묻고 배지를 켠다.
     만들 때 app.proactive에 자기를 붙인다 ([괜찮아]·배지 누름이 거절 내역과 지금 작업을 쓴다)."""
 
     def __init__(self, store, app, history, jev, clock=lambda: datetime.now().astimezone()):
@@ -88,6 +88,8 @@ class Proactive:
             return
         if self._app.logged_in is False:
             return  # 화면에 보낸 마지막 로그인 상태로 본다. CLI는 배지를 켜기 직전에만 부른다
+        if self._app.chatting():
+            return  # 대화 중에는 판단하지 않는다 (사용자, 2026-10-22)
         key = self._app.jev_key()
         if not key or not self._app.recording_enabled():
             return

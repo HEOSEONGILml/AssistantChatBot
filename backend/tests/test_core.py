@@ -1035,3 +1035,15 @@ async def test_remembers_last_login_status_sent():
     assert app.logged_in is True
     await app.logout()
     assert app.logged_in is False
+
+
+async def test_pending_help_dropped_when_chat_stopped():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "일")
+    runs[0].events.question("계속할까요?", ["예", "아니오"])
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    await app.stop(chat_id)
+    await settle()
+    assert len(runs) == 1 and app._runs == {} and store.get_session(chat_id)["state"] == "stopped"
