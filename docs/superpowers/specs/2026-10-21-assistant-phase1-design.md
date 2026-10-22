@@ -108,6 +108,7 @@ flowchart TB
 | `login` | 없음 | 설정 탭 로그인 버튼 |
 | `logout` | 없음 | 설정 탭 로그아웃 버튼 |
 | `set_recording` | 켬/끔 | 설정 탭 화면 기록 스위치 |
+| `clear_recording` | 없음 | 설정 탭 [비우기] → 비우기 확인의 [비우기] |
 | `request` | 글 | 새 작업 화면의 [맡기기] |
 | `add_schedule` | 이름, 언제, 할 일 | 새 스케줄 양식의 [등록] |
 | `say` | 작업 ID, 글 | 대화 안에서 말하기. 질문의 답, 덧붙이기, 되물음, [등록] 모두 |
@@ -136,7 +137,7 @@ flowchart TB
 | `task_detail` | 작업 + 대화 전체 (+ 스케줄이면 지시서) | `get_task`의 답 |
 | `schedules` | 목록 한 쪽: 작업 ID, 이름, 언제, 상태(도는 중 / 다음 실행 / 꺼짐) | `list_schedules`의 답 |
 | `schedule` | 이름, 언제, 할 일, 켜짐, 다음 실행, 마지막 실행 | 바뀔 때 |
-| `settings` | 권한 모드, 화면 기록 켬/끔 | 답, 바뀔 때 |
+| `settings` | 권한 모드, 화면 기록 켬/끔, 기록 폴더 경로, 기록 용량(바이트) | 답, 바뀔 때 |
 | `usage` | 한도 종류별 쓴 비율, 초기화 시각, 받은 시각 | 답, 바뀔 때 |
 
 - **작업 상태**: 일하는 중, 답 기다림, 다 함, 못 함, 멈춤.
@@ -248,6 +249,8 @@ flowchart TB
 - 로그인: `login` 메시지를 받으면 `claude auth login`을 띄우고, 끝나면 상태를 다시 확인해 `status`를 보낸다.
 - 로그아웃: `logout` 메시지를 받으면 `claude auth logout`을 부르고 `status`를 보낸다 ([CLI 레퍼런스](https://code.claude.com/docs/en/cli-reference), 2026-10-21 확인).
 - 화면 기록: `set_recording`을 받으면 백엔드가 screenpipe를 띄우거나 끈다. 켬/끔은 설정 데이터로 저장하고 `settings`에 담아 보낸다.
+- 기록 폴더 (사용자: 설정 탭에 위치·용량을 보이고 비울 수 있어야 한다. 메시지 설계는 Claude 제안, 사용자 수용): `settings`에 기록 폴더 경로(`~/.screenpipe`, 설정 모듈이 정한 값)와 용량(바이트)을 담는다. 용량은 `get_settings`를 받을 때와 비운 뒤에 다시 잰다.
+- 비우기: `clear_recording`을 받으면 screenpipe를 멈추고 기록 폴더를 지운다. 화면 기록이 켜져 있으면 다시 띄운다. 끝나면 바뀐 용량을 담아 `settings`를 보낸다. 쓰는 중에 지우면 기록 DB가 깨질 수 있어서 반드시 멈춘 뒤 지운다. 프론트는 비우기 확인을 거친 뒤에만 보낸다.
 
 ## 6. 외부 도구
 

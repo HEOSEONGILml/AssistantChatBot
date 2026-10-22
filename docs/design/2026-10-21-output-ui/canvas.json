@@ -102,7 +102,7 @@
     },
     "Settings.dc.html": {
       "h": 640,
-      "title": "13 설정 탭 — 계정(로그아웃) · 권한 모드",
+      "title": "13 설정 탭 — 계정 · 화면 기록(폴더·용량·비우기) · 권한 모드",
       "w": 440,
       "x": 1560,
       "y": 2000
@@ -169,6 +169,13 @@
       "w": 440,
       "x": 3640,
       "y": 1000
+    },
+    "ClearRecording.dc.html": {
+      "h": 640,
+      "title": "25 화면 기록 비우기 확인",
+      "w": 440,
+      "x": 4680,
+      "y": 2000
     }
   },
   "createdOnFiles": {
@@ -198,7 +205,7 @@
     },
     "row3": {
       "kind": "title1",
-      "maxW": 4600,
+      "maxW": 5120,
       "text": "대화 · 스케줄 · 설정 · 사용량 · 지우기",
       "w": 240,
       "x": 0,
@@ -229,7 +236,8 @@
     "Moved.dc.html",
     "Thinking.dc.html",
     "ProactiveBadge.dc.html",
-    "Proactive.dc.html"
+    "Proactive.dc.html",
+    "ClearRecording.dc.html"
   ],
   "pages": [],
   "title": "비서 앱 화면 디자인"

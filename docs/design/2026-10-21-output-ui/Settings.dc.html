@@ -47,25 +47,32 @@ textarea::placeholder{color:#6B7280}
 </div>
 <button type="button" role="switch" aria-checked="true" aria-label="화면 기록 켜짐" style="flex: none; min-height: 44px; padding: 0 6px; border: 0; background: transparent; display: flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; color: #0F5F52; cursor: pointer"><span>켜짐</span><span aria-hidden="true" style="width: 34px; height: 20px; box-sizing: border-box; padding: 2px; border-radius: 999px; background: #0F766E; display: flex; justify-content: flex-end"><span style="width: 16px; height: 16px; border-radius: 999px; background: #FFFFFF"></span></span></button>
 </div>
+<div style="padding: 8px 8px 8px 16px; border-bottom: 1px solid #E6E9EE; display: flex; align-items: center; gap: 10px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6472">기록 폴더 · <b style="font-weight: 500; color: #1B1F27">1.8 GB</b> · 이틀 지난 기록은 저절로 지워져요</span>
+<span title="C:\Users\[사용자]\.screenpipe" style="font-size: 12px; color: #3D4552; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, 'D2Coding', monospace">C:\Users\[사용자]\.screenpipe</span>
+</div>
+<a href="ClearRecording.dc.html" style="flex: none; min-height: 36px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #C4CAD3; border-radius: 10px; color: #1B1F27; font-size: 13px; font-weight: 500; text-decoration: none">비우기</a>
+</div>
 <fieldset style="margin: 0; padding: 10px 12px 12px; border: 0; display: flex; flex-direction: column; gap: 2px">
 <legend style="padding: 0 0 6px; font-size: 12px; font-weight: 700; color: #5B6472">권한 모드</legend>
-<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; background: #E3ECFF; cursor: pointer">
+<label style="min-height: 40px; padding: 2px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; background: #E3ECFF; cursor: pointer">
 <input type="radio" name="mode" value="default" checked="" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
 <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700">매번 묻기 <span style="font-weight: 400; color: #5B6472">Manual</span></span><span style="font-size: 12px; color: #3D4552">파일 수정·명령 실행 전에 매번 물어요</span></span>
 </label>
-<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<label style="min-height: 40px; padding: 2px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
 <input type="radio" name="mode" value="acceptEdits" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
 <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">수정은 바로 <span style="font-weight: 400; color: #5B6472">Accept edits</span></span><span style="font-size: 12px; color: #3D4552">파일 수정은 바로, 그 밖의 명령은 물어요</span></span>
 </label>
-<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<label style="min-height: 40px; padding: 2px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
 <input type="radio" name="mode" value="plan" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
 <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">계획만 <span style="font-weight: 400; color: #5B6472">Plan</span></span><span style="font-size: 12px; color: #3D4552">살펴보고 계획만 세워요. 바꾸지 않아요</span></span>
 </label>
-<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<label style="min-height: 40px; padding: 2px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
 <input type="radio" name="mode" value="auto" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
 <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">자동 <span style="font-weight: 400; color: #5B6472">Auto</span></span><span style="font-size: 12px; color: #3D4552">묻지 않고 진행해요. 실행 전에 안전 검사를 해요</span></span>
 </label>
-<label style="min-height: 44px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
+<label style="min-height: 40px; padding: 2px 8px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer">
 <input type="radio" name="mode" value="bypassPermissions" style="margin: 0; width: 16px; height: 16px; accent-color: #1D4ED8">
 <span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 500">묻지 않음 <span style="font-weight: 400; color: #5B6472">Bypass permissions</span></span><span style="font-size: 12px; color: #B45309">아무것도 묻지 않아요. 격리된 환경에서만 쓰세요</span></span>
 </label>
