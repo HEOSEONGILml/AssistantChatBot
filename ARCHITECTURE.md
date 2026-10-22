@@ -215,7 +215,7 @@ sequenceDiagram
 | 사용자 답 | — | `working` |
 | 끝 | `result` / `failure` | `done` / `failed` |
 | Claude Code 세션 ID | — (`claude_session_id`에 저장. 이어 쓰기에 쓴다) | — |
-| 사용량 | — (메모리에만. `usage`로 보낸다) | — |
+| 사용량 | — (원본의 `unifiedWindows`를 창별로 읽어 `settings`의 `usage`에 저장. `usage`로 보낸다) | — |
 | `init`의 `mcp_servers` | — (메모리에만. 바뀌면 `settings`로 보낸다) | — |
 | 블록 시작 (생각·글·도구) | — (저장하지 않는다. 하는 일이 바뀔 때만 `activity`로 보낸다. `AskUserQuestion`은 보내지 않음) | — |
 
@@ -558,6 +558,7 @@ erDiagram
 | `permission_mode` | `default` · `acceptEdits` · `plan` · `auto` · `bypassPermissions` | `default` |
 | `recording` | `on` · `off` | `on` |
 | `jev_key` | Jev API 키 원문. 빈 값이면 없음 (`set_jev_key`) | 없음(빈 값) |
+| `usage` | 마지막 사용량 `limits` JSON (`[{type, utilization, resets_at, received_at}]`) | `[]` |
 
 **`session_text`**: 검색 색인 (FTS5 가상 테이블)
 
@@ -588,7 +589,7 @@ erDiagram
 |---|---|---|---|
 | `_runs` | 세션 ID → (`AgentRun`, `_Events`, `asyncio.Task`) | 돌고 있는 세션 | 사라짐. 다음 시작 때 `working`·`waiting` 세션을 `failed`로 닫음 (대화는 `done`) |
 | `_Events.confirming` | bool | 등록 확인을 기다리는 중 ([고치기] 값을 답으로 넘길 때) | 사라짐 |
-| `_limits` | 한도 종류 → `Limit` | 사용량. 종류별 마지막 값 | 사라짐 |
+| `_limits` | 창 이름 → `Limit` | 사용량. 창별 마지막 값. 받을 때마다 `settings`의 `usage`에 저장 | 사라짐. 다음 시작 때 `usage`에서 읽음 |
 | `_outbox` | 메시지 큐 | 화면으로 보낼 메시지 (순서 보장) | 사라짐 |
 | `_logging_in` | bool | 로그인 창이 떠 있음 | 사라짐 |
 | `nudge_active` | bool | 먼저 말 걸기 배지가 떠 있음 | 사라짐. 다시 켜면 꺼진 채로 시작 |

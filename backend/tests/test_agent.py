@@ -88,8 +88,9 @@ async def until(cond):
 
 
 async def test_text_becomes_progress_and_result_finishes():
+    raw = {"status": "allowed", "unifiedWindows": {"five_hour": {"utilization": 0.3, "resetsAt": 100}}}
     limit = RateLimitEvent(rate_limit_info=RateLimitInfo(status="allowed", resets_at=100,
-                                                         rate_limit_type="five_hour", utilization=0.3),
+                                                         rate_limit_type="five_hour", utilization=0.3, raw=raw),
                            uuid="u", session_id="s1")
     client = FakeClient([init(), text("검색 중"), limit, result("찾았어요")])
     events = FakeEvents()
@@ -99,7 +100,7 @@ async def test_text_becomes_progress_and_result_finishes():
     assert client.queries == ["이어폰 찾아 줘"]
     assert events.of("claude_session") == [("s1",)]
     assert events.of("progress") == [("검색 중",)]
-    assert events.of("rate_limit") == [({"type": "five_hour", "utilization": 0.3, "resets_at": 100},)]
+    assert events.of("rate_limit") == [({"type": "five_hour", "utilization": 0.3, "resets_at": 100, "raw": raw},)]
     assert events.of("finished") == [("찾았어요", False)]
     assert client.disconnected == 1
 

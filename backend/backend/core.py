@@ -1,6 +1,7 @@
 """세션 관리: 화면 메시지마다 메서드 하나. 세션 하나 = Claude Code 세션 하나를 백그라운드로 돌리고,
 Claude Code 세션에서 일어난 일을 대화 줄·상태로 저장해 화면에 보낸다. 전송 방식과 화면을 모른다."""
 import asyncio
+import json
 import logging
 from collections import deque
 from datetime import datetime
@@ -139,11 +140,20 @@ class _Events:
         self._app.mcp_status(servers)
 
     def rate_limit(self, info: dict) -> None:
-        kind = info.get("type")
-        if kind is None:
+        """창별 값은 원본의 unifiedWindows에서 읽는다. 없거나 모양이 다르면 풀린 칸(창 하나)을 쓴다."""
+        at = _iso(_now())
+        windows = (info.get("raw") or {}).get("unifiedWindows")
+        if isinstance(windows, dict):
+            limits = [{"type": name, "utilization": w.get("utilization"), "resets_at": w.get("resetsAt")}
+                      for name, w in windows.items() if isinstance(w, dict)]
+        elif info.get("type") is not None:
+            limits = [{k: info.get(k) for k in ("type", "utilization", "resets_at")}]
+        else:
             log.warning("세션 %d: 종류 없는 사용량 이벤트를 버림", self._id)
             return
-        self._app._limits[kind] = {**info, "received_at": _iso(_now())}
+        for limit in limits:
+            self._app._limits[limit["type"]] = {**limit, "received_at": at}
+        self._app._save_usage()
         self._app._post(self._app._usage())
 
 
@@ -155,7 +165,7 @@ class App:
         self._recorder = recorder
         self._new_run = new_run
         self._runs: dict[int, tuple[AgentRun, _Events, asyncio.Task]] = {}
-        self._limits: dict[str, dict] = {}  # 한도 종류별 마지막 값
+        self._limits: dict[str, dict] = {}  # 창(five_hour 등)별 마지막 사용량. startup에서 저장한 값을 읽는다
         # 세션 이벤트는 동기 콜백이라 보낼 메시지를 줄 세워 순서대로 보낸다
         self._outbox: deque[dict] = deque()
         self._sender: asyncio.Task | None = None
@@ -524,6 +534,7 @@ class App:
             self._store.update_session(session["id"], state="failed", seen=False)
         if self._store.chat_session() is None:
             self._new_chat()
+        self._load_usage()
         if self.recording_enabled():
             await self._recorder.start()
 
@@ -649,6 +660,17 @@ class App:
     def _usage(self) -> dict:
         return {"type": "usage", "limits": [
             {k: v.get(k) for k in ("type", "utilization", "resets_at", "received_at")} for v in self._limits.values()]}
+
+    def _save_usage(self) -> None:
+        """다시 켜도 보이게 마지막 값을 DB 설정에 둔다."""
+        self._store.set_setting("usage", json.dumps(self._usage()["limits"]))
+
+    def _load_usage(self) -> None:
+        try:
+            self._limits = {l["type"]: l for l in json.loads(self._store.get_setting("usage", "[]"))}
+        except (ValueError, TypeError, KeyError) as e:
+            log.warning("저장한 사용량을 읽지 못해 비운다 (%s)", type(e).__name__)
+            self._limits = {}
 
     def _schedule_view(self, s: dict) -> dict:
         return {**{k: s[k] for k in ("session_id", "name", "rule", "instruction", "enabled", "last_run_at",

@@ -427,6 +427,55 @@ async def test_usage_keeps_latest_per_type():
     assert len(of(out, "usage")[-1]["limits"]) == 2
 
 
+# 실제로 받은 원본 모양 (2026-10-23 실측, docs/backend-protocol.md usage)
+RAW = {"status": "allowed", "resetsAt": 1792728600, "rateLimitType": "five_hour",
+       "unifiedWindows": {"five_hour": {"utilization": 0.04, "resetsAt": 1792728600},
+                          "seven_day": {"utilization": 0.28, "resetsAt": 1792969200}}}
+
+
+async def test_usage_reads_unified_windows():
+    app, store, out, runs = make()
+    await app.request("일")
+    # 풀린 칸은 창 하나뿐이고 utilization이 비어 온다. 원본의 창 둘을 읽는다
+    runs[0].events.rate_limit({"type": "five_hour", "utilization": None, "resets_at": 1792728600, "raw": RAW})
+    await settle()
+    limits = of(out, "usage")[-1]["limits"]
+    assert [(l["type"], l["utilization"], l["resets_at"]) for l in limits] == [
+        ("five_hour", 0.04, 1792728600), ("seven_day", 0.28, 1792969200)]
+    assert all(l["received_at"] for l in limits)
+
+
+async def test_usage_falls_back_without_unified_windows():
+    app, store, out, runs = make()
+    await app.request("일")
+    ev = runs[0].events
+    ev.rate_limit({"type": "five_hour", "utilization": 0.1, "resets_at": 100, "raw": {"status": "allowed"}})
+    ev.rate_limit({"type": "seven_day", "utilization": 0.3, "resets_at": 200,
+                   "raw": {"unifiedWindows": "모양이 다름"}})
+    await settle()
+    limits = of(out, "usage")[-1]["limits"]
+    assert [(l["type"], l["utilization"], l["resets_at"]) for l in limits] == [
+        ("five_hour", 0.1, 100), ("seven_day", 0.3, 200)]
+
+
+async def test_usage_survives_restart():
+    store = Store(None)
+    app, _, out, runs = make(store=store)
+    await app.request("일")
+    runs[0].events.rate_limit({"type": "five_hour", "utilization": None, "resets_at": 1792728600, "raw": RAW})
+    await settle()
+    before = of(out, "usage")[-1]["limits"]
+    app2, _, out2, _ = make(store=store)
+    await app2.startup()
+    await app2.get_usage()
+    assert of(out2, "usage")[-1]["limits"] == before
+    store.set_setting("usage", "깨진 값")  # 저장한 값이 깨졌으면 빈 목록으로 시작한다
+    app3, _, out3, _ = make(store=store)
+    await app3.startup()
+    await app3.get_usage()
+    assert of(out3, "usage")[-1]["limits"] == []
+
+
 async def test_permission_mode_saved_and_used_for_new_runs():
     app, store, out, runs = make()
     await app.get_settings()

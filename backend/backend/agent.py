@@ -184,8 +184,9 @@ class AgentRun:
             self._events.mcp_status(m.data.get("mcp_servers"))  # 모양 검사는 앱이 한다
         elif isinstance(m, RateLimitEvent):
             i = m.rate_limit_info
+            # 풀린 칸은 창 하나뿐이고 utilization이 비어 올 수 있어, 창별 값이 다 든 원본(raw)도 넘긴다
             self._events.rate_limit({"type": i.rate_limit_type, "utilization": i.utilization,
-                                     "resets_at": i.resets_at})
+                                     "resets_at": i.resets_at, "raw": i.raw})
         elif isinstance(m, ResultMessage):
             if self._held is not None and self._held.strip() != (m.result or "").strip():
                 self._flush()

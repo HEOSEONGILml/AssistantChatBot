@@ -149,7 +149,21 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 
 ### 사용량 `usage`
 
-`limits`의 각 칸은 Claude Code의 사용량 이벤트(`RateLimitEvent`) 중 한도 종류(`type`)별 마지막 값이다. `utilization`은 쓴 비율, `resets_at`은 초기화 시각, `received_at`은 백엔드가 받은 시각이다. 세션이 돌지 않으면 갱신되지 않는다. 종류 이름과 오는 때는 아직 실제로 확인하지 않았다 ([수동 확인](manual-checks/backend.md)).
+`limits`의 각 칸은 Claude Code의 사용량 이벤트(`RateLimitEvent`)에서 읽은 창(`type`)별 마지막 값이다. `utilization`은 쓴 비율(0~1), `resets_at`은 초기화 시각(epoch 초), `received_at`은 백엔드가 받은 시각이다. 세션이 돌지 않으면 갱신되지 않는다.
+
+- **원천:** 이벤트 원본(`RateLimitInfo.raw`)의 `unifiedWindows`에서 창마다 한 칸을 만든다. `unifiedWindows`가 없거나 사전이 아니면 SDK가 풀어 준 칸(`rate_limit_type`, `utilization`, `resets_at`)으로 한 칸만 만든다. 풀린 칸은 창 하나뿐이고 `utilization`이 비어 온다(아래 실측). BusinessFactory와 같은 방식이다.
+- **저장:** 받을 때마다 `limits`를 백엔드 DB `settings`의 `usage` 키에 JSON으로 둔다. 켤 때(`startup`) 읽으므로 다시 켜도 `get_usage`에 마지막 값이 나간다. 저장한 값이 깨졌으면 빈 목록으로 시작한다.
+
+실측한 원본 모양 (2026-10-23, 이 PC, 짧은 세션 하나에 이벤트 1개):
+
+```json
+{"status": "allowed", "resetsAt": 1792728600, "rateLimitType": "five_hour",
+ "overageStatus": "rejected", "overageDisabledReason": "org_level_disabled", "isUsingOverage": false,
+ "unifiedWindows": {"five_hour": {"utilization": 0.04, "resetsAt": 1792728600},
+                    "seven_day": {"utilization": 0.28, "resetsAt": 1792969200}}}
+```
+
+이때 SDK가 풀어 준 `utilization`은 `None`이었다. 창 이름은 `five_hour`·`seven_day` 둘이 왔다. 모델별 창(`opus`·`sonnet`)은 아직 본 적이 없다.
 
 ### 연결된 MCP `settings.mcp_servers`
 
