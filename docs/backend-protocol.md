@@ -35,7 +35,7 @@
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새로 띄우는 세션부터 적용 |
 | `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
-| `delete_session` | `session_id`: 정수 | 지우기. 돌거나 답을 기다리면 먼저 멈춘다(`stop`과 같이 질문은 "거부"로 풀고 Claude Code 세션을 끊는다). 세션·대화 줄·검색 색인·스케줄을 지우고 `session_deleted`를 보낸다. 지운 뒤 늦게 온 진행·결과는 버린다. 대화 세션을 지우면 새 대화 세션(제목 `대화`)을 만들어 `session`으로 보낸다. 없는 세션이어도 `session_deleted`를 보낸다 |
+| `delete_session` | `session_id`: 정수 | 지우기. 돌거나 답을 기다리면 먼저 멈춘다(`stop`과 같이 질문은 "거부"로 풀고 Claude Code 세션을 끊는다). 세션·대화 줄·검색 색인·스케줄을 지우고 `session_deleted`를 보낸다. 지운 뒤 늦게 온 진행·결과는 버리고, 도구가 지운 세션에 대화 줄을 남기지도 않는다. 대화 세션을 지우면 새 대화 세션(제목 `대화`)을 만들어 `session`으로 보낸다. 없는 세션이어도 `session_deleted`를 보낸다 |
 
 - **규칙 `rule`**: `{"repeat": "daily"|"weekdays"|"weekly"|"monthly", "time": "HH:MM", "weekday": 0-6, "day": 1-31}`. `weekday`(월=0)는 `weekly`일 때, `day`는 `monthly`일 때만 필요하다 ([0032](decisions/0032-schedule-creation.md)). 틀린 규칙은 버린다.
 - **권한 모드 `mode`**: `"default"`(기본), `"acceptEdits"`, `"plan"`, `"auto"`, `"bypassPermissions"`. 다른 값은 버린다.

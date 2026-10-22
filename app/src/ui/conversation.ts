@@ -55,7 +55,7 @@ function syncStatus(c: Ctl): void {
   if (!a) { stopStatus(c); return; }
   if (!c.status) {
     const text = h("b", {});
-    const time = h("span", { class: "status-time" });
+    const time = h("span", { class: "status-time", "aria-hidden": "true" });
     const li = h("li", { class: "status-line", role: "status", "aria-live": "polite" },
       h("span", { class: "status-dots", "aria-hidden": "true" }, h("span"), h("span"), h("span")),
       h("span", {}, text, " ", time));

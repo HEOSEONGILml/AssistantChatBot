@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import pytest
@@ -231,3 +232,36 @@ async def test_set_session_title_refused_in_chat():
     res = await tools["set_session_title"].handler({"title": "회의 자료"})
     assert res["is_error"]
     assert store.get_session(chat["id"])["title"] == "대화" and ctx.notified == []
+
+
+async def test_create_session_deleted_during_start_leaves_no_chip(setup):
+    store, ctx, tools, tid = setup()
+    gate = asyncio.Event()
+    start = ctx.start_session
+
+    async def gated(source, fields):
+        await gate.wait()
+        return await start(source, fields)
+
+    ctx.start_session = gated
+    job = asyncio.create_task(tools["create_session"].handler({"source": "user", "text": "일"}))
+    await asyncio.sleep(0)
+    store.delete_session(tid)  # 기다리는 사이 이 세션이 지워진다
+    gate.set()
+    await job
+    assert store.entries(tid) == [] and ctx.added == []
+
+
+async def test_update_schedule_deleted_during_confirm_leaves_no_edit(setup):
+    store, ctx, tools, tid = setup()
+    store.create_schedule(tid, "저녁", RULE, "요약")
+    confirm = ctx.confirm
+
+    async def deleting(kind, text, data):
+        answer = await confirm(kind, text, data)
+        store.delete_session(tid)
+        return answer
+
+    ctx.confirm = deleting
+    await tools["update_schedule"].handler({"name": "아침"})
+    assert store.entries(tid) == [] and ctx.added == []

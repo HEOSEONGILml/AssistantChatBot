@@ -68,6 +68,12 @@ def edit_text(current: dict, values: dict) -> str | None:
 
 
 def build_tools(store: Store, ctx: SessionContext) -> list[SdkMcpTool]:
+    def leave_entry(kind, text, data=None):
+        """이 세션에 대화 줄을 남긴다. 기다리는 사이 세션이 지워졌으면 남기지 않는다."""
+        if store.get_session(ctx.session_id) is None:
+            return
+        ctx.entry_added(store.add_entry(ctx.session_id, kind, text, data=data))
+
     @tool("recent_sessions", "최근 세션 목록 (최신순).", {"type": "object", "properties": {
         "limit": {"type": "integer", "description": "개수 (기본 10)"}}})
     async def recent_sessions(args):
@@ -137,8 +143,7 @@ def build_tools(store: Store, ctx: SessionContext) -> list[SdkMcpTool]:
         session = await ctx.start_session(source, fields)
         if session is None:
             return _text("로그아웃 상태라 세션을 만들지 못했다", True)
-        ctx.entry_added(store.add_entry(ctx.session_id, "chip", session["title"],
-                                        data={"session_id": session["id"], "source": source}))
+        leave_entry("chip", session["title"], data={"session_id": session["id"], "source": source})
         return _ok({"session_id": session["id"], "source": source, "title": session["title"]})
 
     @tool("update_schedule", "이 세션의 스케줄을 고친다 (바뀐 칸만). 사용자 확인을 거친다.",
@@ -168,7 +173,7 @@ def build_tools(store: Store, ctx: SessionContext) -> list[SdkMcpTool]:
         if all(values[k] == current[k] for k in values):
             return _text("바뀐 내용이 없어 저장하지 않았다")
         store.update_schedule(ctx.session_id, **values)
-        ctx.entry_added(store.add_entry(ctx.session_id, "edit", edit_text(current, values)))
+        leave_entry("edit", edit_text(current, values))
         ctx.schedule_changed()
         return _ok({"ok": True, "saved": values})
 
