@@ -1,6 +1,6 @@
 // 백엔드와의 WebSocket 연결 하나. 끊기거나 접속하지 못하면 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
 import { invoke } from "@tauri-apps/api/core";
-import { outgoing, parseBackendMessage, type BackendMessage, type Outgoing } from "./shared/backend-protocol";
+import { outgoing, parseBackendMessage, type BackendMessage, type Outgoing } from "./shared/protocol";
 
 const RETRY_MS = 2000; // 잠정값: 다시 접속하는 간격
 

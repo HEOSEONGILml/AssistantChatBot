@@ -1,6 +1,6 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { loadSettings, saveSettings, type Settings } from "./shared/settings";
-import type { AiStatus } from "./shared/backend-protocol";
+type AiStatus = "ok" | "no_keys"; // v5 잔재. 이 창은 화면 계획 Task 3에서 지운다
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const msg = $("msg");

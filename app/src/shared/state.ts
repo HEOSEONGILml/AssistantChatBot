@@ -1,0 +1,139 @@
+// 화면 상태: 백엔드 메시지를 쌓아 두고, 강아지 자세·배지·툴팁·다시 붙을 때 보낼 요청을 계산한다.
+import type { BackendMessage, Entry, Limit, Outgoing, Page, PermissionMode, Schedule, ScheduleRow, Task } from "./protocol";
+
+export type Tab = "alerts" | "chat" | "tasks" | "schedules" | "usage" | "settings";
+export type Screen = "list" | "task" | "newTask" | "newSchedule" | "schedule" | "editSchedule";
+export type View = { tab: Tab; screen: Screen; taskId?: number; page: number };
+export type Pose = "sleep" | "beg" | "walk" | "lay" | "stand" | "sit";
+
+export type State = {
+  connected: boolean;
+  loggedIn: boolean | null; // null: 아직 모름
+  chatTaskId: number | null;
+  tasks: Map<number, Task>; // 배지 계산의 재료: `task`·`tasks`·`task_detail`로 알게 된 작업 전부
+  entries: Map<number, Entry[]>; // 작업 ID → 대화 줄 (id 순)
+  schedules: Map<number, Schedule>;
+  lists: { user?: Page<Task>; alerts?: Page<Task>; schedules?: Page<ScheduleRow> };
+  settings: { permissionMode: PermissionMode; recording: boolean } | null;
+  limits: Limit[];
+  panelOpen: boolean;
+  view: View;
+};
+
+export function initialState(): State {
+  return {
+    connected: false, loggedIn: null, chatTaskId: null,
+    tasks: new Map(), entries: new Map(), schedules: new Map(), lists: {},
+    settings: null, limits: [], panelOpen: false,
+    view: { tab: "alerts", screen: "list", page: 1 },
+  };
+}
+
+// 같은 id의 줄은 한 번만, id 순으로 합친다
+function mergeEntries(old: Entry[] | undefined, add: Entry[]): Entry[] {
+  const byId = new Map((old ?? []).map((e) => [e.id, e]));
+  for (const e of add) byId.set(e.id, e);
+  return [...byId.values()].sort((a, b) => a.id - b.id);
+}
+
+function withTasks(s: State, ts: Task[]): Pick<State, "tasks" | "chatTaskId" | "lists"> {
+  const tasks = new Map(s.tasks);
+  let chatTaskId = s.chatTaskId;
+  for (const t of ts) {
+    tasks.set(t.id, t);
+    if (t.source === "chat") chatTaskId = t.id;
+  }
+  // 이미 받은 목록 안의 작업도 새 값으로 바꾼다
+  const fresh = (p?: Page<Task>) => p && { ...p, items: p.items.map((t) => tasks.get(t.id) ?? t) };
+  return { tasks, chatTaskId, lists: { ...s.lists, user: fresh(s.lists.user), alerts: fresh(s.lists.alerts) } };
+}
+
+export function apply(s: State, m: BackendMessage): State {
+  switch (m.type) {
+    case "status":
+      return { ...s, connected: true, loggedIn: m.logged_in };
+    case "task":
+      return { ...s, ...withTasks(s, [m.task]) };
+    case "entry":
+      return { ...s, entries: new Map(s.entries).set(m.task_id, mergeEntries(s.entries.get(m.task_id), [m.entry])) };
+    case "tasks": {
+      const next = withTasks(s, m.items);
+      return { ...s, ...next, lists: { ...next.lists, [m.view]: { page: m.page, pages: m.pages, items: m.items } } };
+    }
+    case "task_detail": {
+      const entries = new Map(s.entries).set(m.task.id, mergeEntries(s.entries.get(m.task.id), m.entries));
+      const schedules = m.schedule ? new Map(s.schedules).set(m.task.id, m.schedule) : s.schedules;
+      return { ...s, ...withTasks(s, [m.task]), entries, schedules };
+    }
+    case "schedules":
+      return { ...s, lists: { ...s.lists, schedules: { page: m.page, pages: m.pages, items: m.items } } };
+    case "schedule": {
+      const sc = m.schedule;
+      const rows = s.lists.schedules;
+      // 목록 줄도 고친다. 도는 중이면 그대로 두고, 아니면 켜짐·꺼짐을 따른다
+      const row = (r: ScheduleRow): ScheduleRow => r.task_id !== sc.task_id ? r : {
+        ...r, name: sc.name, label: sc.label, next_run: sc.next_run,
+        state: r.state === "running" ? "running" : sc.enabled ? "next" : "off",
+      };
+      return {
+        ...s,
+        schedules: new Map(s.schedules).set(sc.task_id, sc),
+        lists: rows ? { ...s.lists, schedules: { ...rows, items: rows.items.map(row) } } : s.lists,
+      };
+    }
+    case "settings":
+      return { ...s, settings: { permissionMode: m.permission_mode, recording: m.recording } };
+    case "usage":
+      return { ...s, limits: m.limits };
+  }
+}
+
+// 대화 작업(source: "chat")은 목록·알림·배지에 넣지 않는다 (프로토콜 문서)
+const listed = (s: State) => [...s.tasks.values()].filter((t) => t.source !== "chat");
+const workingCount = (s: State) => listed(s).filter((t) => t.state === "working").length;
+
+export function badges(s: State): { red: number; yellow: number; green: number } {
+  const ts = listed(s);
+  return {
+    red: ts.filter((t) => t.state === "waiting").length,
+    yellow: ts.filter((t) => t.state === "failed" && !t.seen).length,
+    green: ts.filter((t) => t.state === "done" && !t.seen).length,
+  };
+}
+
+export function pose(s: State): Pose {
+  if (!s.connected) return "sit";
+  if (s.loggedIn === false) return "sleep";
+  const b = badges(s);
+  if (b.red > 0) return "beg";
+  if (workingCount(s) > 0) return "walk";
+  if (b.yellow > 0) return "lay";
+  if (b.green > 0) return "stand";
+  return "sit";
+}
+
+export function tooltip(s: State): string {
+  if (s.loggedIn === false) return "눌러서 로그인하기";
+  const n = workingCount(s);
+  return n > 0 ? `일하는 중 · 작업 ${n}개` : "눌러서 일 맡기기";
+}
+
+// 다시 붙었을 때·화면을 열 때 보낼 요청. 배지를 위해 알림 목록 1쪽은 늘 보낸다
+export function refreshRequests(s: State): Outgoing[] {
+  const out: Outgoing[] = [{ type: "list_tasks", page: 1, view: "alerts" }];
+  const v = s.view;
+  if (v.screen === "task" || v.screen === "schedule" || v.screen === "editSchedule") {
+    if (v.taskId !== undefined) out.push({ type: "get_task", task_id: v.taskId });
+    return out;
+  }
+  if (v.screen !== "list") return out;
+  switch (v.tab) {
+    case "alerts": if (v.page !== 1) out.push({ type: "list_tasks", page: v.page, view: "alerts" }); break;
+    case "tasks": out.push({ type: "list_tasks", page: v.page, view: "user" }); break;
+    case "schedules": out.push({ type: "list_schedules", page: v.page }); break;
+    case "chat": if (s.chatTaskId !== null) out.push({ type: "get_task", task_id: s.chatTaskId }); break;
+    case "settings": out.push({ type: "get_settings" }); break;
+    case "usage": out.push({ type: "get_usage" }); break;
+  }
+  return out;
+}

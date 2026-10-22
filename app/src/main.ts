@@ -3,19 +3,18 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { loadSettings, saveSettings, DEFAULT_SETTINGS, type Settings } from "./shared/settings";
-import type { AiStatus } from "./shared/backend-protocol";
 import { connectBackend } from "./backend-link";
 
-let aiStatus: AiStatus | null = null; // null: 백엔드에 연결되지 않음
-const setStatus = (s: AiStatus | null) => { aiStatus = s; emit("backend-status", s); };
+// v6 임시 연결: 접속 여부만 설정 창에 알린다. 이 파일은 화면 계획 Task 3에서 다시 쓴다
+let aiStatus: "ok" | null = null; // null: 백엔드에 연결되지 않음
+const setStatus = (s: "ok" | null) => { aiStatus = s; emit("backend-status", s); };
 const backend = connectBackend({
-  onMessage: (m) => { if (m.type === "status") setStatus(m.ai); },
+  onMessage: (m) => { if (m.type === "status") setStatus("ok"); },
   onOpen: () => {},
   onClose: () => setStatus(null),
 });
 
-listen<{ text: string }>("input-sent", (e) => { backend.send({ type: "message", text: e.payload.text }); });
-listen<{ name: "typesafe" | "gemini"; value: string }>("backend-set-key", (e) => { backend.send({ type: "set_key", ...e.payload }); });
+listen<{ text: string }>("input-sent", (e) => { backend.send({ type: "request", text: e.payload.text }); });
 listen("backend-status-request", () => { emit("backend-status", aiStatus); });
 
 // 전역 단축키. 등록은 한 번에 하나씩(직렬) 처리한다: 저장을 빠르게 두 번 하면 등록이 엉키기 때문이다.
