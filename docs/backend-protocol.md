@@ -1,6 +1,6 @@
 # 화면 ↔ 백엔드 프로토콜 (v7)
 
-화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. `delete_session`·`session_deleted`·`activity`는 v7에 더한 메시지다(버전은 그대로 `7`, [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 지우기"·"수정: 준비 중 표시"). 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
+화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. `delete_session`·`session_deleted`·`activity`는 v7에 더한 메시지다(버전은 그대로 `7`, [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 지우기"·"수정: 준비 중 표시"). 먼저 말 걸기의 `nudge`·`nudge_open`·`nudge_answer`·`set_jev_key`, `settings.jev_key_set`, 대화 줄 `nudge`도 v7에 더했다([먼저 말 걸기 설계](superpowers/specs/2026-10-22-proactive-help-design.md)). 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
 
 ## 연결
 
@@ -8,7 +8,7 @@
 - 화면은 그 파일을 읽어 접속하고, 첫 메시지로 `hello`를 보낸다. 5초 안에 오지 않거나 토큰이 틀리면 백엔드가 끊는다.
 - 새 화면이 `hello`에 성공하면 이전 화면은 끊긴다. 화면은 하나다.
 - 모든 메시지는 JSON이고 `v`(프로토콜 버전, 지금 `7`)와 `type`을 갖는다. `hello`의 버전이 다르면 백엔드가 끊는다.
-- 접속하면 백엔드가 `status`를 먼저 보내고, 이어서 대화 탭의 대화 세션을 `session`으로 보낸다. 화면은 그 세션 ID로 대화 탭을 연다(`get_session`)·말한다(`say`) ([0033](decisions/0033-chat-tab-single-session.md), [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 대화 탭").
+- 접속하면 백엔드가 `status`를 먼저 보내고, 이어서 대화 탭의 대화 세션을 `session`으로, 끝으로 배지 상태를 `nudge`로 보낸다. 화면은 그 세션 ID로 대화 탭을 연다(`get_session`)·말한다(`say`) ([0033](decisions/0033-chat-tab-single-session.md), [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 대화 탭").
 
 ## 화면 → 백엔드
 
@@ -35,6 +35,9 @@
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새로 띄우는 세션부터 적용 |
 | `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
+| `nudge_open` | 없음 | 배지(`nudge {active: true}`)가 뜬 강아지를 누름. 대화 세션에 `nudge` 줄을 남기고 `nudge {active: false}`를 보낸다. 그새 배지가 꺼졌으면 무시한다. 아래 [먼저 말 걸기](#먼저-말-걸기) |
+| `nudge_answer` | `help`: 참거짓 | `nudge` 줄의 [도와줘](`true`)·[괜찮아](`false`). 대화 세션의 마지막 `nudge` 줄 뒤에 `user` 줄이 없을 때만 받고, 아니면 무시한다 |
+| `set_jev_key` | `key`: 문자열 | 설정 탭 Jev API 키 [저장]. 앞뒤 공백을 떼고 저장한 뒤 `settings`를 보낸다. 빈 값이면 키를 지운다 |
 | `delete_session` | `session_id`: 정수 | 지우기. 돌거나 답을 기다리면 먼저 멈춘다(`stop`과 같이 질문은 "거부"로 풀고 Claude Code 세션을 끊는다). 세션·대화 줄·검색 색인·스케줄을 지우고 `session_deleted`를 보낸다. 지운 뒤 늦게 온 진행·결과는 버리고, 도구가 지운 세션에 대화 줄을 남기지도 않는다. 대화 세션을 지우면 새 대화 세션(제목 `대화`)을 만들어 `session`으로 보낸다. 없는 세션이어도 `session_deleted`를 보낸다 |
 
 - **규칙 `rule`**: `{"repeat": "daily"|"weekdays"|"weekly"|"monthly", "time": "HH:MM", "weekday": 0-6, "day": 1-31}`. `weekday`(월=0)는 `weekly`일 때, `day`는 `monthly`일 때만 필요하다 ([0032](decisions/0032-schedule-creation.md)). 틀린 규칙은 버린다.
@@ -52,10 +55,11 @@
 | `session_detail` | `session`: 세션, `entries`: 대화 줄 전체, `schedule`: 스케줄 또는 `null` | `get_session`의 답 |
 | `schedules` | `page`, `pages`, `items`: `{session_id, name, label, next_run, state}` 목록 | `list_schedules`의 답 |
 | `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
-| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬) | `get_settings`의 답, 바뀌었을 때 |
+| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬), `jev_key_set`: 참거짓(Jev 키가 있음. 키 원문은 보내지 않는다) | `get_settings`의 답, 바뀌었을 때 |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
 | `session_deleted` | `session_id` | `delete_session`의 답. `get_session`에 없는 세션이 왔을 때 |
 | `activity` | `session_id`, `kind`, `text` | 돌고 있는 세션이 하는 일이 바뀔 때. 대화 기록에 남기지 않는다. 아래 [지금 하는 일](#지금-하는-일-activity) |
+| `nudge` | `active`: 참거짓 | 먼저 말 걸기 배지를 켜고 끌 때(판단, 5분 지남, `nudge_open`), 접속할 때 |
 
 ### 세션 `session`
 
@@ -89,8 +93,8 @@
 | `at` | ISO 8601 지역 시각 |
 | `kind` | 아래 종류 |
 | `text` | 글 |
-| `choices` | 고를 답 목록 또는 `null`. 질문과 등록 확인에만 있다 |
-| `data` | 등록 확인의 내용, 세션 칩의 `{session_id, source}`, 또는 `null` |
+| `choices` | 고를 답 목록 또는 `null`. 질문, 등록 확인, 먼저 말 걸기에만 있다 |
+| `data` | 등록 확인의 내용, 세션 칩의 `{session_id, source}`, 먼저 말 걸기의 `{app, window}`, 또는 `null` |
 
 | `kind` | 뜻 |
 |---|---|
@@ -102,6 +106,7 @@
 | `proposal` | 등록 확인. `choices`는 `["등록", "고치기"]`, `data`는 `{name, rule, label, instruction, first_run}` (고칠 때는 `changed`: 바뀐 칸 이름 목록도) |
 | `run` | 스케줄 실행 구분선 (예: `10/21 (수) 09:00 실행`) |
 | `edit` | 지시서 수정 |
+| `nudge` | 먼저 말 걸기 물음. 대화 세션에만 생긴다. `text`는 `도움이 필요해?`, `choices`는 `["도와줘", "괜찮아"]`, `data`는 `{"app": 앱 이름, "window": 창 제목}`(판단에 쓴 가장 최근 화면). 답은 `say`가 아니라 `nudge_answer`로 보낸다 |
 | `chip` | 세션 칩. 에이전트가 `create_session`으로 새 세션을 만들었을 때 그 세션을 만든 대화에 남는다(어느 세션에서든). `text`는 새 세션 제목, `data`는 `{"session_id": 새 세션 ID, "source": "user" \| "schedule"}`. `source`가 없는 옛 칩은 작업이다. 누르면 그 세션 대화로 간다 ([0035](decisions/0035-create-session-from-any-session.md)) |
 
 등록 확인에 답하는 법: [등록]은 `say`로 `"등록"`을 보낸다. [고치기]는 양식을 열고, 고친 값을 `set_schedule`로 보낸다. 이때 백엔드는 `user` 줄 `고쳐서 등록: <이름> (<반복>)`을 남긴다.
@@ -144,6 +149,31 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 ### 사용량 `usage`
 
 `limits`의 각 칸은 Claude Code의 사용량 이벤트(`RateLimitEvent`) 중 한도 종류(`type`)별 마지막 값이다. `utilization`은 쓴 비율, `resets_at`은 초기화 시각, `received_at`은 백엔드가 받은 시각이다. 세션이 돌지 않으면 갱신되지 않는다. 종류 이름과 오는 때는 아직 실제로 확인하지 않았다 ([수동 확인](manual-checks/backend.md)).
+
+### 먼저 말 걸기
+
+백엔드가 30초마다 최근 화면 기록을 Jev에 물어 사용자가 헤매는 것 같으면 배지를 켠다. 판단 방법과 값은 [설계](superpowers/specs/2026-10-22-proactive-help-design.md) 4절에 있다.
+
+- 배지는 켠 뒤 5분이 지나면 백엔드가 끈다. 켜기 직전에 로그인을 확인해 로그아웃이면 켜지 않는다.
+- [도와줘] (`nudge_answer {help: true}`): `user` 줄 `도와줘`를 남기고, 대화 세션에 숨은 지시를 보낸다. 지시 글은 대화 줄에 남지 않는다. 대화 세션이 돌고 있으면 `say`처럼 이어서 받는다. 로그아웃이면 `say`처럼 `status {logged_in: false}`만 보낸다.
+- [괜찮아] (`nudge_answer {help: false}`): `user` 줄 `괜찮아`를 남긴다. 백엔드는 그 시각과 `nudge` 줄의 앱·창을 다음 판단에 넣는다(최근 1시간, 메모리에만 둔다).
+
+```mermaid
+sequenceDiagram
+  participant S as 화면
+  participant B as 백엔드
+  participant C as Claude Code (대화 세션)
+  B-->>S: nudge {active: true}
+  S->>B: nudge_open
+  B-->>S: entry {session_id: 1, kind: nudge, choices: [도와줘, 괜찮아], data: {app, window}}
+  B-->>S: nudge {active: false}
+  S->>B: nudge_answer {help: true}
+  B-->>S: entry {session_id: 1, kind: user, text: 도와줘}
+  B-->>S: session {id: 1, state: working}
+  B->>C: 숨은 지시 (화면 기록을 보고 두세 문장으로)
+  C-->>B: 끝
+  B-->>S: entry {session_id: 1, kind: result}
+```
 
 ## 예: 요청 하나
 

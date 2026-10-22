@@ -135,6 +135,9 @@ ROUTES = [
     ({"type": "logout"}, ("logout",)),
     ({"type": "set_recording", "enabled": False}, ("set_recording", False)),
     ({"type": "delete_session", "session_id": 3}, ("delete_session", 3)),
+    ({"type": "nudge_open"}, ("nudge_open",)),
+    ({"type": "nudge_answer", "help": False}, ("nudge_answer", False)),
+    ({"type": "set_jev_key", "key": "k"}, ("set_jev_key", "k")),
 ]
 
 
@@ -148,9 +151,10 @@ async def test_each_type_calls_its_app_method(server, msg, call):
 
 
 def test_routes_match_app_methods():
-    """경로표의 필드 이름이 실제 App 메서드의 인자 이름·순서와 같다."""
+    """경로표의 필드 이름이 실제 App 메서드의 인자 이름·순서와 같다 (기본값 있는 인자는 화면이 보내지 않는다)."""
     for kind, fields in ROUTE_TABLE.items():
-        params = list(inspect.signature(getattr(App, kind)).parameters)[1:]
+        params = [n for n, p in list(inspect.signature(getattr(App, kind)).parameters.items())[1:]
+                  if p.default is inspect.Parameter.empty]
         assert params == [name for name, _ in fields], kind
 
 
@@ -166,6 +170,9 @@ BAD = [
     {"type": "set_recording", "enabled": "off"},
     {"type": "set_recording", "enabled": 0},
     {"type": "set_recording"},
+    {"type": "nudge_answer", "help": 1},
+    {"type": "nudge_answer"},
+    {"type": "set_jev_key", "key": None},
 ]
 
 

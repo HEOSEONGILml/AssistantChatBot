@@ -169,7 +169,7 @@ class ScreenHistory:
         floor = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # timestamp는 UTC ISO. 앞부분 문자열 비교
         marks = ",".join("?" * len(OWN_APPS))
         try:
-            con = sqlite3.connect(f"file:{self._path.as_posix()}?mode=ro", uri=True, timeout=2)
+            con = sqlite3.connect(self._path.as_uri() + "?mode=ro", uri=True, timeout=2)
             try:
                 rows = con.execute(
                     "select timestamp, app_name, window_name, coalesce(nullif(full_text, ''), accessibility_text, '') "
@@ -184,7 +184,7 @@ class ScreenHistory:
 
 
 def _parse_utc(ts: str) -> datetime:
-    """소수 자리가 9자리일 수 있어 6자리로 자른다."""
+    """소수 자리가 7자리 이상이면(screenpipe는 9자리) 통째로 버린다. 판단에는 초 단위면 충분하다."""
     return datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"", ts).replace("Z", "+00:00"))
 
 

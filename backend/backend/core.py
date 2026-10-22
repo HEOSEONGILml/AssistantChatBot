@@ -20,6 +20,11 @@ VIEWS = ("user", "alerts")
 TITLE_LEN = 30
 PROPOSAL_CHOICES = ["등록", "고치기"]
 CHAT_TITLE = "대화"
+# 먼저 말 걸기 (docs/superpowers/specs/2026-10-22-proactive-help-design.md)
+NUDGE_TEXT = "도움이 필요해?"
+NUDGE_CHOICES = ["도와줘", "괜찮아"]
+HELP_PROMPT = ("[먼저 말 걸기] 사용자가 {app} · {window}에서 막힌 것 같아 도움을 청했다. "
+               "최근 화면 기록을 찾아보고 의견이나 해결 방법을 두세 문장으로 짧게 말해.")
 
 
 class Auth(Protocol):
@@ -31,6 +36,12 @@ class Auth(Protocol):
 class Recorder(Protocol):
     async def start(self) -> None: ...
     def stop(self) -> None: ...
+
+
+class Proactive(Protocol):
+    """먼저 말 걸기의 판단 고리 (proactive.Proactive). 만들 때 App.proactive에 자기를 붙인다."""
+    def current_task(self) -> tuple[str, str] | None: ...
+    def decline(self, at: datetime, app: str, window: str) -> None: ...
 
 
 def _now() -> datetime:
@@ -112,6 +123,8 @@ class App:
         self._outbox: deque[dict] = deque()
         self._sender: asyncio.Task | None = None
         self._logging_in = False  # 로그인 창이 떠 있는 동안 또 띄우지 않는다
+        self.proactive: Proactive | None = None
+        self.nudge_active = False  # 먼저 말 걸기 배지가 떠 있다
 
     # --- 화면 메시지 ---
     async def connected(self, on: bool) -> None:
@@ -120,6 +133,7 @@ class App:
             chat = self._store.chat_session()
             if chat is not None:
                 await self._send({"type": "session", "session": chat})
+            await self._send({"type": "nudge", "active": self.nudge_active})
 
     async def login(self) -> None:
         if self._logging_in:
@@ -148,7 +162,8 @@ class App:
             return
         await self._new_schedule(name, rule, instruction)
 
-    async def say(self, session_id: int, text: str) -> None:
+    async def say(self, session_id: int, text: str, prompt: str | None = None) -> None:
+        """text는 user 줄로 남긴다. prompt가 있으면 Claude에는 text 대신 prompt를 보낸다 (숨은 지시)."""
         session = self._store.get_session(session_id)
         if session is None:
             log.warning("없는 세션에 말함: %d", session_id)
@@ -156,12 +171,13 @@ class App:
         if not await self._logged_in():
             return
         self._entry(session_id, "user", text)
+        prompt = text if prompt is None else prompt
         if session_id in self._runs and session["state"] in ("working", "waiting"):
-            await self._runs[session_id][0].say(text)
+            await self._runs[session_id][0].say(prompt)
         else:
             # 끝나거나 멈춘 세션에 다시 말하면 그 Claude Code 세션을 이어 되묻는다 (끝나는 중인 세션은 버린다)
             self._set(session_id, state="working")
-            self._start(session_id, text, resume=session["claude_session_id"])
+            self._start(session_id, prompt, resume=session["claude_session_id"])
         await self._flush()
 
     async def stop(self, session_id: int) -> None:
@@ -287,7 +303,7 @@ class App:
 
     async def get_settings(self) -> None:
         await self._send({"type": "settings", "permission_mode": self._permission_mode(),
-                          "recording": self.recording_enabled()})
+                          "recording": self.recording_enabled(), "jev_key_set": bool(self.jev_key())})
 
     async def set_permission_mode(self, mode: str) -> None:
         if mode not in PERMISSION_MODES:
@@ -306,6 +322,53 @@ class App:
 
     def recording_enabled(self) -> bool:
         return self._store.get_setting("recording", "on") == "on"
+
+    async def set_jev_key(self, key: str) -> None:
+        """빈 값이면 키를 지운다. 화면에는 키 원문을 다시 보내지 않는다 (jev_key_set만)."""
+        self._store.set_setting("jev_key", key.strip())
+        await self.get_settings()
+
+    def jev_key(self) -> str:
+        return self._store.get_setting("jev_key", "")
+
+    # --- 먼저 말 걸기 ---
+    async def set_nudge(self, active: bool) -> None:
+        """배지를 켜고 끈다. 켜기 직전에만 로그인을 확인한다(CLI라 느려서 판단마다 하지 않는다)."""
+        if active and not await self._auth.logged_in():
+            log.info("로그아웃 상태라 배지를 켜지 않음")
+            return
+        self.nudge_active = active
+        await self._send({"type": "nudge", "active": active})
+
+    async def nudge_open(self) -> None:
+        """배지 누름: 대화 세션에 물음 줄을 남기고 배지를 끈다. 그새 배지가 꺼졌으면 무시한다."""
+        task = self.proactive.current_task() if self.proactive else None
+        if not self.nudge_active or task is None:
+            log.info("배지가 꺼져 있어 배지 누름을 무시함")
+            return
+        chat = self._store.chat_session()
+        if chat is None:
+            chat = self._new_chat()
+            self._post({"type": "session", "session": chat})
+        self._entry(chat["id"], "nudge", NUDGE_TEXT, choices=NUDGE_CHOICES, data={"app": task[0], "window": task[1]})
+        await self.set_nudge(False)
+
+    async def nudge_answer(self, help: bool) -> None:
+        """[도와줘]·[괜찮아]. 대화 세션의 마지막 nudge 줄 뒤에 user 줄이 없을 때만 받는다 (한 번만)."""
+        chat = self._store.chat_session()
+        entries = self._store.entries(chat["id"]) if chat else []
+        last = next((i for i in range(len(entries) - 1, -1, -1) if entries[i]["kind"] == "nudge"), None)
+        if last is None or any(e["kind"] == "user" for e in entries[last + 1:]):
+            log.info("답할 nudge가 없어 무시함")
+            return
+        data = entries[last]["data"]
+        if help:
+            await self.say(chat["id"], NUDGE_CHOICES[0], prompt=HELP_PROMPT.format(**data))
+            return
+        self._entry(chat["id"], "user", NUDGE_CHOICES[1])
+        if self.proactive:
+            self.proactive.decline(_now(), data["app"], data["window"])
+        await self._flush()
 
     async def get_usage(self) -> None:
         await self._send(self._usage())

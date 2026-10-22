@@ -1,3 +1,5 @@
+import asyncio
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -6,6 +8,8 @@ import pytest
 
 from backend import clients, proactive
 from backend.clients import Jev, ScreenHistory
+from backend.proactive import Proactive
+from tests.test_core import FakeAuth, make
 
 NOW = datetime(2026, 10, 22, 6, 0, 0, tzinfo=timezone.utc)
 
@@ -70,9 +74,6 @@ def test_should_nudge(need, declined, expected):
 
 
 def _jev(response):
-    async def noop():
-        pass
-
     def post(key, body):
         if isinstance(response, Exception):
             raise response
@@ -109,3 +110,152 @@ async def test_jev_live():
     state = "10:00:00 EXCEL.EXE · 매출.xlsx 글: #REF! 오류 수식을 고치려 여러 번 다시 입력함. 같은 셀을 계속 고치고 있다. 오류가 안 없어진다.\n최근 [괜찮아]: 없음"
     answers = await Jev().ask(_env_key(), state, proactive.QUESTIONS)
     assert answers is not None and answers["need_help"] >= 0.7
+
+
+# --- 판단 고리 ---
+@pytest.fixture
+def appdata(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+
+
+class FakeHistory:
+    def __init__(self, frames):
+        self.frames = frames
+
+    def recent(self, since):
+        return self.frames
+
+
+class FakeJev:
+    def __init__(self, answers):
+        self.answers = answers
+        self.calls = []  # (키, 글)
+
+    async def ask(self, key, state, questions):
+        assert questions is proactive.QUESTIONS
+        self.calls.append((key, state))
+        return self.answers
+
+
+class Clock:
+    def __init__(self):
+        self.now = datetime.now().astimezone()
+
+    def __call__(self):
+        return self.now
+
+
+HELPS = {"need_help": 0.89, "declined_same": 0.23}
+
+
+async def loop(answers=HELPS, key="k", logged_in=True, frames=None):
+    app, store, out, runs = make(FakeAuth(logged_in))
+    await app.startup()
+    if key:
+        await app.set_jev_key(key)
+    clock = Clock()
+    if frames is None:
+        frames = [{"at": clock.now - timedelta(seconds=10), "app": "EXCEL.EXE", "window": "매출.xlsx", "text": "#REF!"}]
+    jev = FakeJev(answers)
+    p = Proactive(store, app, FakeHistory(frames), jev, clock)
+    out.clear()
+    return p, app, store, out, jev, clock
+
+
+def nudges(out):
+    return [m for m in out if m["type"] == "nudge"]
+
+
+async def test_tick_nudges_when_jev_says_so(appdata):
+    p, app, store, out, jev, clock = await loop()
+    await p.tick()
+    assert nudges(out) == [{"type": "nudge", "active": True}]
+    assert jev.calls[0][0] == "k" and "EXCEL.EXE · 매출.xlsx #REF!" in jev.calls[0][1]
+    assert p.current_task() == ("EXCEL.EXE", "매출.xlsx")
+    await p.tick()  # 배지가 떠 있으면 쉰다
+    assert len(jev.calls) == 1 and nudges(out) == [{"type": "nudge", "active": True}]
+
+
+async def test_tick_no_nudge_below_threshold(appdata):
+    p, app, store, out, jev, clock = await loop(answers={"need_help": 0.19, "declined_same": 0.27})
+    await p.tick()
+    assert len(jev.calls) == 1 and nudges(out) == []
+
+
+async def test_tick_rests(appdata):
+    p, app, store, out, jev, clock = await loop(key="")
+    await p.tick()
+    assert jev.calls == []
+    p, app, store, out, jev, clock = await loop()
+    await app.set_recording(False)
+    await p.tick()
+    assert jev.calls == []
+    p, app, store, out, jev, clock = await loop(frames=[])  # 기록이 없거나 DB를 못 읽음
+    await p.tick()
+    assert jev.calls == [] and p.current_task() is None
+    p, app, store, out, jev, clock = await loop()
+    await app.set_nudge(True)
+    await p.tick()
+    assert jev.calls == []
+
+
+async def test_tick_logged_out_judges_but_no_badge(appdata):
+    p, app, store, out, jev, clock = await loop(logged_in=False)
+    await p.tick()
+    assert len(jev.calls) == 1 and nudges(out) == [] and app.nudge_active is False
+
+
+async def test_tick_survives_jev_failure(appdata, caplog):
+    p, app, store, out, jev, clock = await loop(answers=None, key="secret-jev-key")
+    await p.tick()
+    assert nudges(out) == [] and app.nudge_active is False
+    # 진짜 Jev 클라이언트가 실패해도 키·글은 로그에 없다
+    p._jev = Jev(post=lambda key, body: (_ for _ in ()).throw(TimeoutError()))
+    await p.tick()
+    assert nudges(out) == []
+    assert "Jev 호출 실패: TimeoutError" in caplog.text
+    assert "secret-jev-key" not in caplog.text and "#REF!" not in caplog.text
+
+
+async def test_run_forever_keeps_going_after_error(appdata):
+    p, app, store, out, jev, clock = await loop()
+    ticks = []
+
+    async def boom():
+        ticks.append(1)
+        if len(ticks) == 3:
+            raise asyncio.CancelledError
+        raise RuntimeError("x")
+    p.tick = boom
+    with pytest.raises(asyncio.CancelledError):
+        await p.run_forever(interval_s=0)
+    assert len(ticks) == 3
+
+
+async def test_badge_expires_after_5_minutes(appdata):
+    p, app, store, out, jev, clock = await loop()
+    await p.tick()
+    clock.now += timedelta(minutes=4, seconds=59)
+    await p.tick()
+    assert nudges(out) == [{"type": "nudge", "active": True}]
+    clock.now += timedelta(seconds=2)
+    await p.tick()
+    assert nudges(out) == [{"type": "nudge", "active": True}, {"type": "nudge", "active": False}]
+    assert app.nudge_active is False and len(jev.calls) == 1
+    await p.tick()  # 꺼진 뒤에는 다시 판단한다
+    assert len(jev.calls) == 2
+
+
+async def test_nudge_answer_decline_records(appdata):
+    p, app, store, out, jev, clock = await loop()
+    await p.tick()
+    await app.nudge_open()
+    await app.nudge_answer(False)
+    clock.now += timedelta(seconds=30)  # 다음 판단
+    jev.answers = {"need_help": 0.88, "declined_same": 0.80}  # 같은 작업을 거절했다고 본다 → 배지 없음
+    await p.tick()
+    assert app.nudge_active is False
+    assert re.fullmatch(r"최근 \[괜찮아\]: \d\d:\d\d EXCEL\.EXE · 매출\.xlsx", jev.calls[-1][1].split("\n")[-1])
+    clock.now += timedelta(hours=1, minutes=1)  # 1시간이 지나면 넣지 않는다
+    await p.tick()
+    assert jev.calls[-1][1].endswith("최근 [괜찮아]: 없음")

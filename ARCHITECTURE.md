@@ -2,7 +2,7 @@
 
 TamagotchiChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
 
-> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)까지 정했고 아직 구현하지 않았다.
+> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v7이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md), [디자인 갱신 계획](docs/superpowers/plans/2026-10-22-design-update.md)(지우기·지금 하는 일·강아지 끌기·큰 창), [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다. 먼저 말 걸기(디자인 23·24번)는 [설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md)와 [0037](docs/decisions/0037-jev-for-proactive-judgment.md)(판단은 Jev)대로 백엔드(판단 고리·배지·[도와줘]·[괜찮아]·Jev 키 저장)만 구현했고, 화면은 아직이다.
 
 ## 1. 한눈에 보기
 
@@ -36,6 +36,9 @@ flowchart LR
   CC <-->|"MCP stdio"| SPM["screenpipe MCP"]
   SPM -->|"HTTP localhost:3030"| SP["screenpipe record"]
   CC <-->|"--chrome"| CH["크롬 + Claude 확장"]
+  BE -->|"HTTPS"| JEV["Jev API"]
+  BE -->|"SQLite 읽기 전용"| SPDB[("screenpipe DB")]
+  SP -->|"기록"| SPDB
 
   APP -.-> BE
   BE -.-> CC
@@ -59,6 +62,8 @@ flowchart LR
 | Claude Code → 백엔드 Tools | 백엔드 프로세스 안의 MCP 서버 (이름 `assistant`) (`create_sdk_mcp_server`). 별도 프로세스가 아니다 | [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md), `backend/tools.py` |
 | Claude Code ↔ 크롬 | `--chrome` 옵션. 구독 로그인일 때만 켜진다 | [스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
 | screenpipe MCP → screenpipe | localhost:3030 REST | [비슷한 제품 조사](docs/references/similar-products.md) |
+| 백엔드 → screenpipe DB | `~/.screenpipe/db.sqlite`를 읽기 전용(`mode=ro`)으로 직접 연다. HTTP API는 토큰이 필요해서 | [먼저 말 걸기 설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md) 4절, `clients.py` `ScreenHistory` |
+| 백엔드 → Jev | `POST https://api.typesafe.ai/v1/systemone`. `urllib.request`를 `asyncio.to_thread`로 부른다. 10초 제한 | [0037](docs/decisions/0037-jev-for-proactive-judgment.md), `clients.py` `Jev` |
 
 ## 2. 입력 계층
 
@@ -327,6 +332,53 @@ sequenceDiagram
 | 지시서 수정 (에이전트) | 그 스케줄 세션에서 `update_schedule` | [등록]·[고치기] |
 | 켬·끔 | `set_schedule_enabled` | 없음 |
 
+### 3.6 먼저 말 걸기 (`proactive.py` `Proactive`)
+
+사용자가 헤매는 것 같으면 강아지에 "!" 배지를 띄우고, 누르면 대화 세션에서 도울지 묻는다. 판단은 Jev가 한다 ([설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md), [0037](docs/decisions/0037-jev-for-proactive-judgment.md)). `Proactive`는 스케줄러와 함께 백엔드 안에서 도는 판단 고리다(`__main__.py`에서 `asyncio.gather`). 만들 때 `App.proactive`에 자기를 붙인다. `App`은 거절 내역(`decline`)과 지금 작업(`current_task`)만 부른다.
+
+```mermaid
+flowchart LR
+  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 기록 꺼짐 · 키 없음"}
+  REST -->|"아니오"| H["ScreenHistory.recent<br>최근 5분 frames"]
+  H -->|"없음"| SKIP["건너뜀"]
+  H --> SUM["summarize<br>2,000자 + 최근 [괜찮아]"]
+  SUM --> J["Jev.ask<br>need_help · declined_same"]
+  J -->|"실패(None)"| SKIP
+  J --> C{"should_nudge"}
+  C -->|"예"| ON["App.set_nudge(True)<br>로그인 확인 뒤 nudge 켬"]
+  REST -->|"배지가 5분 넘음"| OFF["App.set_nudge(False)"]
+```
+
+```mermaid
+sequenceDiagram
+  participant FE as 화면
+  participant A as App
+  participant P as Proactive
+  participant CC as 대화 세션
+  P->>A: set_nudge(True)
+  A-->>FE: nudge {active: true}
+  FE->>A: nudge_open
+  A->>P: current_task()
+  A-->>FE: entry {kind: nudge, data: {app, window}}, nudge {active: false}
+  alt 도와줘
+    FE->>A: nudge_answer {help: true}
+    A->>CC: say(도와줘, prompt=숨은 지시)
+  else 괜찮아
+    FE->>A: nudge_answer {help: false}
+    A->>P: decline(시각, app, window)
+  end
+```
+
+| 단계 | 하는 일 | 코드 |
+|---|---|---|
+| 쉬는 때 | 배지가 떠 있음, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 로그아웃은 배지를 켜기 직전에만 본다(CLI라 느려서) | `Proactive.tick`, `App.set_nudge` |
+| 배지 끄기 | 켠 뒤 5분이 지나면 다음 `tick`에서 끈다 | `Proactive.tick` |
+| 판단 | 화면 기록이 없으면 건너뛴다. 가장 최근 프레임의 (앱, 창)을 지금 작업으로 둔다. Jev 답이 `should_nudge`를 넘으면 배지를 켜고 확률을 로그에 남긴다(글은 남기지 않는다) | `Proactive.tick` |
+| 배지 누름 | 지금 대화 세션(지웠으면 새로 만든 것)에 `nudge` 줄을 남기고 배지를 끈다. 배지가 이미 꺼졌으면 무시 | `App.nudge_open` |
+| [도와줘] | `say(대화 세션, "도와줘", prompt=숨은 지시)`. 줄에는 `도와줘`, Claude에는 지시가 간다. 돌고 있으면 이어서 받는다 | `App.nudge_answer`, `App.say` |
+| [괜찮아] | `user` 줄 `괜찮아` + `Proactive.decline`. 1시간이 지난 거절은 버린다 | `App.nudge_answer`, `Proactive.decline` |
+| 한 번만 | 마지막 `nudge` 줄 뒤에 `user` 줄이 있으면 답을 무시한다 | `App.nudge_answer` |
+
 ## 4. 데이터 계층
 
 ### 4.1 세션 관계
@@ -376,8 +428,9 @@ flowchart LR
 | 데이터 | 관리(쓰기) 주체 | 읽는 쪽 | 저장 위치 | 수명 |
 |---|---|---|---|---|
 | 세션 기록 (세션, 대화 줄, 스케줄 규칙) | 백엔드 | 화면, 에이전트 | `%APPDATA%\TamagotchiChatBot\backend\assistant.db` | 영구. 지우는 기능 없음 |
-| 설정 (권한 모드, 화면 기록 켬·끔) | 백엔드 | 화면, 백엔드 | 같은 DB | 영구 |
-| 화면 기록 | screenpipe | 에이전트 | `%USERPROFILE%\.screenpipe\` | 2일 |
+| 설정 (권한 모드, 화면 기록 켬·끔, Jev 키) | 백엔드 | 화면(Jev 키는 있는지만), 백엔드 | 같은 DB | 영구 |
+| 화면 기록 | screenpipe | 에이전트, 백엔드(먼저 말 걸기, `frames`만 읽기 전용) | `%USERPROFILE%\.screenpipe\` | 2일 |
+| [괜찮아] 내역 | 백엔드 (`Proactive`) | 백엔드 (다음 판단) | 메모리 | 1시간. 재시작하면 비움 |
 | Claude Code 세션 원본 | Claude Code | Claude Code (`resume`) | `~/.claude/projects/`. 백엔드는 `claude_session_id`만 갖는다 | Claude Code가 정함 |
 | 강아지 자리 | 화면 (`window.ts`, 끌어 놓을 때) | 화면 (켤 때) | 주 창 웹뷰 `localStorage`의 `dogPosition`: 강아지 왼쪽 위의 화면 좌표(물리 px) | 영구. 켤 때 어느 모니터 작업 영역에도 없으면 처음 자리(주 모니터 오른쪽 아래) |
 
@@ -455,7 +508,7 @@ erDiagram
 
 | `kind` | 쓰는 쪽 | `text` | `choices` | `data` |
 |---|---|---|---|---|
-| `user` | 백엔드 (요청·`say`·[고치기]) | 사용자 글. [고치기]는 `고쳐서 등록: <이름> (<반복>)` | — | — |
+| `user` | 백엔드 (요청·`say`·[고치기]·[도와줘]·[괜찮아]) | 사용자 글. [고치기]는 `고쳐서 등록: <이름> (<반복>)`. 먼저 말 걸기의 답은 `도와줘`·`괜찮아` | — | — |
 | `progress` | 백엔드 (에이전트 글, 최종 답과 같은 마지막 글은 뺀다) | 진행 글 | — | — |
 | `question` | 백엔드 (`AskUserQuestion`·권한 요청) | 질문 | 선택지. 권한은 `["허용", "거부"]` | — |
 | `proposal` | 백엔드 Tools (`create_session(schedule)`, `update_schedule`) | `이렇게 등록할까요?` · `이렇게 고칠까요?` | `["등록", "고치기"]` | `{name, rule, label, instruction, first_run}` + 수정이면 `changed`(바뀐 칸 이름 목록) |
@@ -464,6 +517,7 @@ erDiagram
 | `run` | 백엔드 (스케줄 실행) | `10/22 (목) 09:00 실행` | — | — |
 | `edit` | 백엔드 (지시서 수정 저장) | `작업 지시서를 고쳤어요: 이름, 반복, 지시` 중 바뀐 것 | — | — |
 | `chip` | 백엔드 Tools (`create_session`) | 새 세션 제목 | — | `{session_id, source}`. 0035 전 칩은 `{session_id}`만 |
+| `nudge` | 백엔드 (`nudge_open`, 대화 세션에만) | `도움이 필요해?` | `["도와줘", "괜찮아"]` | `{app, window}`: 판단에 쓴 가장 최근 프레임의 앱 이름·창 제목 |
 
 **`schedules`**: 스케줄 세션의 반복 규칙. 스케줄 세션 하나에 한 행
 
@@ -492,6 +546,7 @@ erDiagram
 |---|---|---|
 | `permission_mode` | `default` · `acceptEdits` · `plan` · `auto` · `bypassPermissions` | `default` |
 | `recording` | `on` · `off` | `on` |
+| `jev_key` | Jev API 키 원문. 빈 값이면 없음 (`set_jev_key`) | 없음(빈 값) |
 
 **`session_text`**: 검색 색인 (FTS5 가상 테이블)
 
@@ -525,6 +580,16 @@ erDiagram
 | `_limits` | 한도 종류 → `Limit` | 사용량. 종류별 마지막 값 | 사라짐 |
 | `_outbox` | 메시지 큐 | 화면으로 보낼 메시지 (순서 보장) | 사라짐 |
 | `_logging_in` | bool | 로그인 창이 떠 있음 | 사라짐 |
+| `nudge_active` | bool | 먼저 말 걸기 배지가 떠 있음 | 사라짐. 다시 켜면 꺼진 채로 시작 |
+| `proactive` | `Proactive` 또는 `None` | 판단 고리 (거절 내역·지금 작업을 묻는 곳) | — |
+
+`Proactive`의 메모리:
+
+| 데이터 | 형태 | 뜻 | 꺼지면 |
+|---|---|---|---|
+| `_declines` | `(시각, 앱, 창)` 목록 | 최근 1시간의 [괜찮아] | 사라짐 |
+| `_task` | `(앱, 창)` 또는 `None` | 마지막 판단의 가장 최근 프레임 | 사라짐 |
+| `_badge_at` | 시각 | 배지를 켠 시각 (5분 뒤 끄기) | 사라짐 |
 
 #### 4.3.4 화면 메모리 (`state.ts` `State`)
 
@@ -579,7 +644,7 @@ sequenceDiagram
 
 ## 5. 화면 기록
 
-screenpipe가 백그라운드에서 화면을 기록하고, 에이전트가 필요할 때 MCP로 찾아본다. 요청 흐름 밖에 있다 ([0026](docs/decisions/0026-input-layer-passes-request-only.md)). 쓰는 쪽(screenpipe record)과 읽는 쪽(screenpipe MCP)은 서로 다른 프로세스다.
+screenpipe가 백그라운드에서 화면을 기록하고, 에이전트가 필요할 때 MCP로 찾아본다. 먼저 말 걸기의 판단 고리는 DB를 직접 읽는다([3.6](#36-먼저-말-걸기-proactivepy-proactive)). 요청 흐름 밖에 있다 ([0026](docs/decisions/0026-input-layer-passes-request-only.md)). 쓰는 쪽(screenpipe record)과 읽는 쪽(screenpipe MCP)은 서로 다른 프로세스다.
 
 ```mermaid
 flowchart LR
@@ -590,6 +655,7 @@ flowchart LR
   subgraph R["읽기"]
     CC["Claude Code 세션"] -->|"MCP stdio"| MCP["screenpipe MCP<br>세션마다 1개"]
     MCP -->|"HTTP localhost:3030"| REC
+    PRO["백엔드<br>Proactive"] -->|"SQLite 읽기 전용<br>frames"| DB
   end
 ```
 
@@ -666,7 +732,7 @@ flowchart LR
 | `elements` | 화면 요소의 역할, 글자, 위치 |
 | `ocr_text` | 사진에서 읽은 글자 |
 
-- 저장 위치: `%USERPROFILE%\.screenpipe\db.sqlite`(글자·메타데이터·받아쓰기) + `data\<날짜>\<시각>_m<모니터>.jpg`(사진)·소리 파일. screenpipe가 쓰고 관리한다. 백엔드는 이 DB를 직접 읽지 않는다.
+- 저장 위치: `%USERPROFILE%\.screenpipe\db.sqlite`(글자·메타데이터·받아쓰기) + `data\<날짜>\<시각>_m<모니터>.jpg`(사진)·소리 파일. screenpipe가 쓰고 관리한다. 백엔드는 먼저 말 걸기 판단에만 `frames`의 시각·앱 이름·창 제목·글(`full_text`, 없으면 `accessibility_text`)을 읽기 전용으로 읽는다(`clients.py` `ScreenHistory`). 열 수 없으면 그 판단을 건너뛴다.
 - 백엔드의 세션 기록(`assistant.db`)과 따로라, 화면 기록이 지워져도 세션 기록은 남는다.
 
 ### 5.4 에이전트의 사용
@@ -720,7 +786,7 @@ sequenceDiagram
 
 ## 7. 실패 처리
 
-외부 호출(Claude Code, claude CLI, screenpipe)과 연결의 실패를 모았다. 로그에는 오류 종류만 쓰고 사용자 글·대화 내용은 쓰지 않는다.
+외부 호출(Claude Code, claude CLI, screenpipe, Jev)과 연결의 실패를 모았다. 로그에는 오류 종류만 쓰고 사용자 글·대화 내용은 쓰지 않는다.
 
 ```mermaid
 flowchart LR
@@ -779,3 +845,13 @@ flowchart LR
 | 로그아웃 | 이번 실행을 건너뛴다 |
 | 실행 시작 오류 | 로그만 남기고 다음 스케줄로 |
 | 스케줄의 세션이 없음 | 로그만 남기고 건너뛴다 |
+
+### 7.6 먼저 말 걸기
+
+| 실패 | 처리 | 코드 |
+|---|---|---|
+| screenpipe DB가 없음·잠김·깨짐 | 빈 기록으로 보고 그 판단을 건너뛴다. 로그에 오류 종류만 | `ScreenHistory.recent` |
+| Jev 오류 응답·시간 초과(10초)·이상한 응답 | `None`. 배지를 켜지 않고 그 판단을 건너뛴다. 로그에 상태 코드나 오류 종류만(키·글은 쓰지 않는다) | `Jev.ask` |
+| `tick` 안의 그 밖의 예외 | 로그에 종류만 남기고 고리는 계속 돈다 | `Proactive.run_forever` |
+| 배지를 켤 때 로그아웃 | 켜지 않는다 | `App.set_nudge` |
+| 답할 `nudge` 줄이 없음(이미 답함·대화 세션을 지움) | 무시한다 | `App.nudge_answer` |

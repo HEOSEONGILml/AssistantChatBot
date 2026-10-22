@@ -1,9 +1,15 @@
-"""먼저 말 걸기의 판단 재료: 화면 기록 줄이기, Jev 질문 정의, 배지 조건. 질문과 임계값은 여기에만 둔다 (CLAUDE.md 4절)."""
+"""먼저 말 걸기: 화면 기록 줄이기, Jev 질문 정의, 배지 조건, 30초마다 도는 판단 고리. 질문과 임계값은 여기에만 둔다 (CLAUDE.md 4절)."""
+import asyncio
+import logging
 from datetime import datetime, timedelta
+
+log = logging.getLogger(__name__)
 
 BUDGET = 2000       # 글자. 2천 토큰을 한글 기준 약 2,000자로 근사 (잠정)
 TEXT_LIMIT = 300    # 프레임마다 글 앞 300자
 DECLINE_WINDOW = timedelta(hours=1)
+HISTORY_WINDOW = timedelta(minutes=5)  # 판단에 넣는 화면 기록
+BADGE_TIME = timedelta(minutes=5)      # 배지가 떠 있는 시간
 NONE_DECLINED = "최근 [괜찮아]: 없음"
 
 # 한 문장에 둘을 섞으면 판단이 흐려져 둘로 나눴다 (2026-10-22 실측, docs/superpowers/specs/2026-10-22-proactive-help-design.md 4절)
@@ -48,3 +54,55 @@ def summarize(frames: list[dict], declines: list[tuple[datetime, str, str]], now
             break
         lines.append(line)
     return "\n".join([*reversed(lines), tail])
+
+
+class Proactive:
+    """판단 고리. 쉬는 때(화면 기록 꺼짐, Jev 키 없음, 배지가 떠 있음)가 아니면 화면 기록을 Jev에 묻고 배지를 켠다.
+    만들 때 app.proactive에 자기를 붙인다 ([괜찮아]·배지 누름이 거절 내역과 지금 작업을 쓴다)."""
+
+    def __init__(self, store, app, history, jev, clock=lambda: datetime.now().astimezone()):
+        self._store = store
+        self._app = app
+        self._history = history
+        self._jev = jev
+        self._clock = clock
+        self._declines: list[tuple[datetime, str, str]] = []  # 메모리에만 둔다 (재시작하면 비움)
+        self._task: tuple[str, str] | None = None
+        self._badge_at: datetime | None = None
+        app.proactive = self
+
+    def current_task(self) -> tuple[str, str] | None:
+        """마지막 판단의 가장 최근 프레임 (앱, 창 제목)."""
+        return self._task
+
+    def decline(self, at: datetime, app: str, window: str) -> None:
+        self._declines = [d for d in self._declines if _local(at) - _local(d[0]) <= DECLINE_WINDOW]
+        self._declines.append((at, app, window))
+
+    async def tick(self) -> None:
+        now = self._clock()
+        if self._app.nudge_active:
+            if self._badge_at is not None and now - self._badge_at > BADGE_TIME:
+                await self._app.set_nudge(False)
+            return
+        key = self._app.jev_key()
+        if not key or not self._app.recording_enabled():
+            return
+        frames = await asyncio.to_thread(self._history.recent, now - HISTORY_WINDOW)
+        if not frames:
+            return  # 기록이 없거나 DB를 못 읽음
+        self._task = (frames[-1]["app"], frames[-1]["window"])
+        answers = await self._jev.ask(key, summarize(frames, self._declines, now), QUESTIONS)
+        if answers is None or not should_nudge(answers):
+            return
+        log.info("배지 켬 (need_help %.2f, declined_same %.2f)", answers["need_help"], answers["declined_same"])
+        self._badge_at = now
+        await self._app.set_nudge(True)
+
+    async def run_forever(self, interval_s: float = 30) -> None:
+        while True:
+            await asyncio.sleep(interval_s)
+            try:
+                await self.tick()
+            except Exception as e:
+                log.error("먼저 말 걸기 판단 실패: %s", type(e).__name__)  # 내용은 쓰지 않는다

@@ -269,7 +269,7 @@ async def test_request_when_logged_out_resends_status():
     await app.login()
     assert auth.login_calls == 1 and out[-1] == {"type": "status", "logged_in": True}
     await app.connected(True)
-    assert out[-1] == {"type": "status", "logged_in": True}
+    assert out[-2:] == [{"type": "status", "logged_in": True}, {"type": "nudge", "active": False}]
 
 
 async def test_say_when_logged_out_resends_status():
@@ -395,9 +395,9 @@ async def test_usage_keeps_latest_per_type():
 async def test_permission_mode_saved_and_used_for_new_runs():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": False}
     await app.set_permission_mode("acceptEdits")
-    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True}
+    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True, "jev_key_set": False}
     await app.set_permission_mode("nonsense")
     assert store.get_setting("permission_mode", "default") == "acceptEdits"
     await app.request("일")
@@ -571,7 +571,8 @@ async def test_connect_sends_chat_session():
     app, store, out, runs = make()
     await app.startup()
     await app.connected(True)
-    assert out == [{"type": "status", "logged_in": True}, {"type": "session", "session": store.chat_session()}]
+    assert out == [{"type": "status", "logged_in": True}, {"type": "session", "session": store.chat_session()},
+                   {"type": "nudge", "active": False}]
 
 
 async def test_chat_resumes_after_restart():
@@ -629,7 +630,7 @@ async def test_logout_sends_status():
 async def test_settings_includes_recording():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": False}
     assert app.recording_enabled() is True
 
 
@@ -638,7 +639,7 @@ async def test_set_recording_starts_and_stops():
     app, store, out, runs = make(recorder=rec)
     await app.set_recording(False)
     assert rec.calls == ["stop"] and store.get_setting("recording", "on") == "off"
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False, "jev_key_set": False}
     await app.set_recording(True)
     assert rec.calls == ["stop", "start"] and store.get_setting("recording", "on") == "on"
     assert out[-1]["recording"] is True and app.recording_enabled() is True
@@ -805,3 +806,126 @@ async def test_say_to_session_deleted_during_login_check_does_not_start():
     await settle()
     assert runs == [] and app._runs == {}
     assert store.get_session(chat_id) is None and store.entries(chat_id) == []
+
+
+# --- 먼저 말 걸기 ---
+HELP_PROMPT = ("[먼저 말 걸기] 사용자가 EXCEL.EXE · 매출.xlsx에서 막힌 것 같아 도움을 청했다. "
+               "최근 화면 기록을 찾아보고 의견이나 해결 방법을 두세 문장으로 짧게 말해.")
+
+
+class FakeProactive:
+    def __init__(self):
+        self.declines = []
+
+    def current_task(self):
+        return ("EXCEL.EXE", "매출.xlsx")
+
+    def decline(self, at, app, window):
+        self.declines.append((app, window))
+
+
+async def nudged(auth=None):
+    """대화 세션이 있고 배지가 켜진 앱."""
+    app, store, out, runs = make(auth)
+    await app.startup()
+    app.proactive = FakeProactive()
+    await app.set_nudge(True)
+    return app, store, out, runs
+
+
+async def test_nudge_open_adds_entry_and_clears_badge():
+    app, store, out, runs = await nudged()
+    out.clear()
+    await app.nudge_open()
+    chat_id = store.chat_session()["id"]
+    entry = store.entries(chat_id)[-1]
+    assert (entry["kind"], entry["text"], entry["choices"], entry["data"]) == (
+        "nudge", "도움이 필요해?", ["도와줘", "괜찮아"], {"app": "EXCEL.EXE", "window": "매출.xlsx"})
+    assert out == [{"type": "entry", "session_id": chat_id, "entry": entry}, {"type": "nudge", "active": False}]
+    assert app.nudge_active is False
+
+
+async def test_nudge_open_without_badge_is_ignored():
+    app, store, out, runs = make()
+    await app.startup()
+    app.proactive = FakeProactive()
+    await app.nudge_open()
+    assert store.entries(store.chat_session()["id"]) == [] and out == []
+
+
+async def test_nudge_open_uses_current_chat():
+    app, store, out, runs = await nudged()
+    old = store.chat_session()["id"]
+    await app.delete_session(old)
+    await app.nudge_open()
+    chat = store.chat_session()
+    assert chat["id"] != old
+    assert [e["kind"] for e in store.entries(chat["id"])] == ["nudge"]
+    assert store.entries(old) == []
+
+
+async def test_nudge_answer_help_sends_hidden_prompt():
+    app, store, out, runs = await nudged()
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    chat_id = store.chat_session()["id"]
+    assert [(e["kind"], e["text"]) for e in store.entries(chat_id)][-1] == ("user", "도와줘")
+    assert runs[0].prompt == HELP_PROMPT
+    assert store.get_session(chat_id)["state"] == "working"
+    assert app.proactive.declines == []
+
+
+async def test_nudge_answer_help_while_chat_is_working():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.say(chat_id, "안녕")
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    assert len(runs) == 1 and runs[0].said == [HELP_PROMPT]
+    assert [e["text"] for e in store.entries(chat_id) if e["kind"] == "user"] == ["안녕", "도와줘"]
+
+
+async def test_nudge_answer_decline_records():
+    app, store, out, runs = await nudged()
+    await app.nudge_open()
+    await app.nudge_answer(False)
+    chat_id = store.chat_session()["id"]
+    assert [(e["kind"], e["text"]) for e in store.entries(chat_id)][-1] == ("user", "괜찮아")
+    assert app.proactive.declines == [("EXCEL.EXE", "매출.xlsx")]
+    assert runs == []
+
+
+async def test_nudge_answer_only_once():
+    app, store, out, runs = await nudged()
+    chat_id = store.chat_session()["id"]
+    await app.nudge_answer(True)  # 아직 nudge 줄이 없다
+    assert store.entries(chat_id) == [] and runs == []
+    await app.nudge_open()
+    await app.nudge_answer(True)
+    await app.nudge_answer(True)
+    await app.nudge_answer(False)
+    assert [e["kind"] for e in store.entries(chat_id)] == ["nudge", "user"]
+    assert len(runs) == 1 and runs[0].said == [] and app.proactive.declines == []
+
+
+async def test_set_nudge_on_skips_when_logged_out():
+    app, store, out, runs = make(FakeAuth(ok=False))
+    await app.set_nudge(True)
+    assert app.nudge_active is False and of(out, "nudge") == []
+
+
+async def test_set_jev_key():
+    app, store, out, runs = make()
+    await app.set_jev_key("  secret-jev  ")
+    assert store.get_setting("jev_key", "") == "secret-jev"
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": True}
+    assert "secret-jev" not in json.dumps(out, ensure_ascii=False)
+    await app.set_jev_key("")
+    assert store.get_setting("jev_key", "x") == "" and out[-1]["jev_key_set"] is False
+
+
+async def test_connected_sends_nudge_state():
+    app, store, out, runs = await nudged()
+    out.clear()
+    await app.connected(True)
+    assert out[-1] == {"type": "nudge", "active": True}

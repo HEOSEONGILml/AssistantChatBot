@@ -12,8 +12,9 @@ from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 
 from . import config
-from .clients import Auth, Recorder
+from .clients import Auth, Jev, Recorder, ScreenHistory
 from .core import App
+from .proactive import Proactive
 from .scheduler import Scheduler
 from .server import Link
 from .store import Store
@@ -54,6 +55,7 @@ async def main() -> None:
     recorder = Recorder()
     app = App(store, link.send, Auth(), recorder)
     link.app = app
+    proactive = Proactive(store, app, ScreenHistory(config.screenpipe_db()), Jev())
     try:
         await app.startup()  # 화면 기록이 켜져 있으면 여기서 screenpipe를 띄운다
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,7 +65,8 @@ async def main() -> None:
             info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
             log.info("백엔드 시작: 포트 %d", port)
             try:
-                await Scheduler(store, app).run_forever()  # 끌 때까지 연결을 받으며 스케줄을 돌린다
+                # 끌 때까지 연결을 받으며 스케줄과 먼저 말 걸기 판단을 돌린다
+                await asyncio.gather(Scheduler(store, app).run_forever(), proactive.run_forever())
             finally:
                 info.unlink(missing_ok=True)
     finally:
