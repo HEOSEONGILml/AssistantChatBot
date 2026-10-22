@@ -191,6 +191,16 @@ describe("badge sweep", () => {
   });
 });
 
+describe("로그인 진행", () => {
+  it("status가 오면 로그인하는 중이 풀리고, 끊겨도 풀린다", () => {
+    const s = { ...online(), loggingIn: true };
+    expect(run(s, { type: "status", logged_in: false }).loggingIn).toBe(false);
+    expect(run(s, { type: "status", logged_in: true }).loggingIn).toBe(false);
+    expect(disconnected(s).loggingIn).toBe(false);
+    expect(initialState().loggingIn).toBe(false);
+  });
+});
+
 describe("disconnected", () => {
   it("keeps view, panel and login, forgets backend data", () => {
     let s = run(online(),
@@ -315,6 +325,11 @@ describe("스케줄 목록 다시 받기", () => {
     expect(followUps(run(viewing(), working), working)).toEqual([{ type: "list_schedules", page: 1 }]);
     const done: BackendMessage = { type: "task", task: task(3, { source: "schedule", state: "done" }) };
     expect(followUps(run(viewing(), done), done)).toEqual([]);
+  });
+
+  it("목록에 없는 스케줄의 작업 소식(task)만으로는 다시 받지 않는다", () => {
+    const m: BackendMessage = { type: "task", task: task(9, { source: "schedule", state: "working" }) };
+    expect(followUps(run(viewing(), m), m)).toEqual([]);
   });
 
   it("스케줄 탭 목록을 보고 있지 않으면 받지 않는다", () => {

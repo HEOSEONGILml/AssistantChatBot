@@ -9,6 +9,7 @@ import {
 } from "./shared/state";
 import { renderDog } from "./ui/dog";
 import { renderPanel } from "./ui/panel";
+import { clearDraft } from "./ui/schedule";
 import { openDetail as showDetail, placeWindow } from "./window";
 
 const DOG = { width: 128, height: 96 };
@@ -40,10 +41,16 @@ const backend = connectBackend({
   },
   onClose: () => { state = disconnected(state); asked.clear(); seenSent.clear(); answered.clear(); render(); },
 });
-const send = (m: Outgoing): boolean => backend.send(m);
+const send = (m: Outgoing): boolean => {
+  const ok = backend.send(m);
+  // [로그인]을 누르면 status가 올 때까지 버튼을 막는다
+  if (ok && m.type === "login") { state = { ...state, loggingIn: true }; render(); }
+  return ok;
+};
 
 // 화면을 바꾸고 그 화면에 필요한 목록을 요청한다
 function go(view: View) {
+  if (view.proposal) clearDraft(); // [고치기]로 여는 수정 화면은 남은 적던 값 없이 등록 확인 값으로 채운다
   state = { ...state, view };
   for (const out of refreshRequests(state)) send(out);
   render();

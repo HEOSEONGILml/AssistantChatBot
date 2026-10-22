@@ -33,7 +33,7 @@ export function draftOfProposal(data: Record<string, unknown>): ScheduleDraft {
   const d = emptyDraft();
   const r = data.rule as Record<string, unknown> | null | undefined;
   const int = (x: unknown) => (Number.isInteger(x) ? (x as number) : null);
-  const form: RuleForm = typeof r === "object" && r !== null && typeof r.repeat === "string" && r.repeat in REPEAT_LABELS && typeof r.time === "string"
+  const form: RuleForm = typeof r === "object" && r !== null && typeof r.repeat === "string" && Object.hasOwn(REPEAT_LABELS, r.repeat) && typeof r.time === "string"
     ? { repeat: r.repeat as Rule["repeat"], time: r.time, weekday: int(r.weekday), day: int(r.day) }
     : d.form;
   return {

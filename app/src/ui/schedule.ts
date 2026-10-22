@@ -5,7 +5,7 @@ import { REPEAT_LABELS, WEEKDAY_LABELS, type RuleForm } from "../shared/forms";
 import {
   afterEdit, draftOf, draftOfProposal, draftToFields, emptyDraft, instructionMeta, rowIcon, rowRight, type RowIcon, type ScheduleDraft,
 } from "../shared/schedules";
-import { BACK_ICON, EXPAND_ICON, h, header, svg } from "./dom";
+import { BACK_ICON, EXPAND_ICON, h, header, svg, switchButton } from "./dom";
 import { ICON, pager } from "./lists";
 
 type Send = (m: Outgoing) => unknown; // false면 못 보냄
@@ -23,9 +23,14 @@ const PEN_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 let draft: { key: string; d: ScheduleDraft } | null = null;
 const formKey = (v: View) => `${v.screen}|${v.taskId ?? ""}`;
 
-// 양식 화면을 새로 연다(적던 값을 버린다)
-export function openForm(go: Go, v: View): void {
+// 적던 값을 버린다
+export function clearDraft(): void {
   draft = null;
+}
+
+// 양식 화면을 새로 연다
+export function openForm(go: Go, v: View): void {
+  clearDraft();
   go(v);
 }
 
@@ -62,11 +67,7 @@ export function scheduleHead(s: State, t: Task, send: Send, go: Go, openDetail: 
     h("div", { class: "head-main" },
       h("span", { class: "head-title" }, sc?.name ?? t.title),
       h("span", { class: "head-sub src-schedule" }, "스케줄")),
-    sc ? h("button", {
-      type: "button", role: "switch", class: on ? "switch" : "switch switch-off", "aria-checked": String(on),
-      "aria-label": on ? "스케줄 켜짐" : "스케줄 꺼짐", disabled: !s.connected,
-      onClick: () => send({ type: "set_schedule_enabled", task_id: t.id, enabled: !on }),
-    }, h("span", {}, on ? "켜짐" : "꺼짐"), h("span", { class: "switch-track", "aria-hidden": "true" }, h("span", { class: "switch-knob" }))) : null,
+    sc ? switchButton({ on, label: "스케줄", disabled: !s.connected, onToggle: () => send({ type: "set_schedule_enabled", task_id: t.id, enabled: !on }) }) : null,
     h("button", { type: "button", class: "icon-btn", "aria-label": "창으로 크게 보기", onClick: () => openDetail(t.id) }, svg(EXPAND_ICON)));
   return sc ? [head, instructionRow(sc, v, go)] : [head];
 }

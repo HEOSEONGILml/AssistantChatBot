@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clockText, dateTimeText, formToRule, isSendKey, limitRows, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
+  clockText, dateTimeText, formToRule, isSendKey, limitRight, limitRows, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
   type RuleForm,
 } from "../src/shared/forms";
 
@@ -79,5 +79,15 @@ describe("clockText, dateTimeText", () => {
   it("시각과 날짜 시각", () => {
     expect(clockText("2026-10-21T09:05:00")).toBe("09:05");
     expect(dateTimeText("2026-10-21T09:10:00")).toBe("10월 21일 09:10");
+  });
+});
+
+describe("limitRight", () => {
+  const now = new Date("2026-10-22T12:00:00");
+  it("퍼센트와 초기화 글", () => {
+    expect(limitRight({ name: "현재 세션", percent: 42, resets_at: "2026-10-22T14:10:00" }, now)).toEqual({ percent: "42%", reset: "2시간 10분 뒤 초기화" });
+  });
+  it("값이 없으면 줄표, 초기화 시각이 없으면 빈 글", () => {
+    expect(limitRight({ name: "x", percent: null, resets_at: null }, now)).toEqual({ percent: "—", reset: "" });
   });
 });

@@ -5,6 +5,8 @@ import { isSendKey } from "../shared/forms";
 import { BACK_ICON, EXPAND_ICON, h, header, svg } from "./dom";
 import { renderConversation } from "./conversation";
 import { alertsBody, miniBadges, tasksBody } from "./lists";
+import { settingsBody } from "./settings";
+import { usageBody } from "./usage";
 import { formReady, scheduleForm, scheduleHead, schedulesBody } from "./schedule";
 
 type Send = (m: Outgoing) => unknown;
@@ -32,7 +34,6 @@ function tabBar(s: State, go: Go): HTMLElement {
       }, svg(icon)))));
 }
 
-const placeholder = () => h("div", { class: "placeholder" }, "준비 중");
 const loading = () => h("p", { class: "empty" }, "불러오는 중…");
 
 // 새 작업 화면(6 Input): [취소]·뒤로 → 작업 탭, [맡기기]·Enter → request 후 작업 탭
@@ -79,7 +80,8 @@ function body(s: State, send: Send, go: Go): Node[] {
     : v.tab === "tasks" ? tasksBody(s, send, go)
     : v.tab === "chat" ? [loading()] // 대화 작업을 아직 모를 때
     : v.tab === "schedules" ? schedulesBody(s, go)
-    : [placeholder()];
+    : v.tab === "usage" ? usageBody(s)
+    : settingsBody(s, send);
   return [tabBar(s, go), ...content];
 }
 

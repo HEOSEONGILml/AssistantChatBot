@@ -70,6 +70,10 @@ export function limitRows(limits: Limit[]): { common: LimitRow[]; models: LimitR
   return { common, models };
 }
 
+// 사용량 행 오른쪽 글: 퍼센트(값이 없으면 줄표)와 초기화 글
+export const limitRight = (r: LimitRow, now: Date): { percent: string; reset: string } =>
+  ({ percent: r.percent === null ? "—" : `${r.percent}%`, reset: resetText(r.resets_at, now) });
+
 export const clockText = (iso: string): string => hhmm(new Date(iso));
 
 // 상세 창 날짜 줄: "10월 21일 09:10"

@@ -10,6 +10,7 @@ export type Pose = "sleep" | "beg" | "walk" | "lay" | "stand" | "sit";
 export type State = {
   connected: boolean;
   loggedIn: boolean | null; // null: 아직 모름
+  loggingIn: boolean; // [로그인]을 눌러 status를 기다리는 중
   chatTaskId: number | null;
   tasks: Map<number, Task>; // 배지 계산의 재료: `task`·`tasks`·`task_detail`로 알게 된 작업 전부
   entries: Map<number, Entry[]>; // 작업 ID → 대화 줄 (id 순)
@@ -23,7 +24,7 @@ export type State = {
 
 export function initialState(): State {
   return {
-    connected: false, loggedIn: null, chatTaskId: null,
+    connected: false, loggedIn: null, loggingIn: false, chatTaskId: null,
     tasks: new Map(), entries: new Map(), schedules: new Map(), lists: {},
     settings: null, limits: [], panelOpen: false,
     view: { tab: "alerts", screen: "list", page: 1 },
@@ -73,7 +74,7 @@ export function followUps(s: State, m: BackendMessage): Outgoing[] {
     const id = m.type === "schedule" ? m.schedule.task_id : m.task.id;
     const row = list.items.find((r) => r.task_id === id);
     const stale = row ? m.type === "task" && (row.state === "running") !== (m.task.state === "working" || m.task.state === "waiting")
-      : list.page === 1;
+      : m.type === "schedule" && list.page === 1; // 목록에 없는 행은 `schedule` 소식일 때만 다시 받는다
     return stale ? [{ type: "list_schedules", page: list.page }] : [];
   }
   if (m.type !== "tasks") return [];
@@ -86,7 +87,7 @@ export function followUps(s: State, m: BackendMessage): Outgoing[] {
 export function apply(s: State, m: BackendMessage): State {
   switch (m.type) {
     case "status":
-      return { ...s, connected: true, loggedIn: m.logged_in };
+      return { ...s, connected: true, loggedIn: m.logged_in, loggingIn: false };
     case "task":
       return { ...s, ...withTasks(s, [m.task]) };
     case "entry":
