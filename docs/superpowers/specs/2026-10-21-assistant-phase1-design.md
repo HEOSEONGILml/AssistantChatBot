@@ -253,7 +253,7 @@ flowchart TB
 - 비우기: `clear_recording`을 받으면 screenpipe를 멈추고 기록 폴더를 지운다. 화면 기록이 켜져 있으면 다시 띄운다. 끝나면 바뀐 용량을 담아 `settings`를 보낸다. 쓰는 중에 지우면 기록 DB가 깨질 수 있어서 반드시 멈춘 뒤 지운다. 프론트는 비우기 확인을 거친 뒤에만 보낸다.
 - 연결된 MCP (사용자: 설정 탭에 연결된 MCP 목록을 보여야 한다. 메시지 설계는 Claude 제안, 사용자 수용): `settings`에 MCP 목록을 담는다. 항목은 이름, 하는 일, 상태(연결됨 / 연결 안 됨 / 확인 중).
   - 상태는 Claude Code가 세션을 시작할 때 보내는 `SystemMessage`(subtype `init`)의 `mcp_servers`에서 받아, 백엔드가 서버마다 마지막 값을 보관한다. `connected` → 연결됨, `failed`·`needs-auth`·`disabled` → 연결 안 됨, `pending` 또는 아직 세션을 띄운 적 없음 → 확인 중. 출처: [Agent SDK MCP 문서](https://code.claude.com/docs/en/agent-sdk/mcp), 2026-10-22 확인.
-  - 하는 일 설명은 설정 모듈에 서버 이름별로 둔 문구를 쓴다. 목록에 보이는 서버는 지금 `screenpipe`, `claude-in-chrome`(크롬)이다. 이 프로그램의 백엔드 MCP(`assistant`)는 내부라 목록에서 뺀다 (사용자).
+  - 하는 일 설명은 설정 모듈에 서버 이름별로 둔 문구를 쓴다. 목록에 보이는 서버는 지금 `screenpipe`, `claude-in-chrome`(크롬)이다. 이 프로그램의 파이썬 백엔드 MCP(`backend`)는 내부라 목록에서 뺀다 (사용자).
   - 상태가 바뀌면 `settings`를 다시 보낸다.
 
 ## 6. 외부 도구

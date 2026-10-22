@@ -181,4 +181,4 @@ sequenceDiagram
 
 - 상태는 Claude Code가 세션을 시작할 때 보내는 `init` 시스템 메시지의 MCP 서버 상태에서 받아, 백엔드가 서버마다 마지막 값을 보관한다. 아직 세션을 띄운 적이 없거나 연결을 기다리는 중이면 "확인 중"이다.
 - 하는 일 설명은 백엔드 설정에 서버 이름별로 둔 문구다. 보기만 하고, 추가·삭제는 없다.
-- 이 프로그램의 파이썬 백엔드 MCP(`assistant`)는 내부라 목록에서 뺀다(사용자). 외부 MCP(`screenpipe`, `claude-in-chrome`)만 보인다.
+- 이 프로그램의 파이썬 백엔드 MCP(`backend`)는 내부라 목록에서 뺀다(사용자). 외부 MCP(`screenpipe`, `claude-in-chrome`)만 보인다.

@@ -155,9 +155,9 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 
 설정 탭 "연결된 MCP" 칸의 목록이다. 각 칸은 `{name, description, status}`이다. Claude Code에 연결된 MCP 전부를 받은 순서대로 담고, 이 프로그램의 파이썬 백엔드 MCP(이름 `backend`)만 뺀다(사용자).
 
-- `status`: `connected`(연결됨), `disconnected`(연결 안 됨), `checking`(확인 중) 셋 중 하나다. Claude Code 상태 `connected`는 `connected`, `failed`·`needs-auth`·`disabled`는 `disconnected`, `pending`은 `checking`으로 바꾼다. 모르는 상태는 `disconnected`로 본다.
+- `status`: `connected`(연결됨), `disconnected`(연결 안 됨), `checking`(확인 중) 셋 중 하나다. Claude Code 상태 `connected`는 `connected`, `failed`·`needs-auth`·`disabled`는 `disconnected`, `pending`은 `checking`으로 바꾼다. 모르는 상태는 `disconnected`로 본다 (Claude 판단).
 - `description`: 이름별 문구(`config.MCP_DESCRIPTIONS`). `screenpipe` `화면 기록 검색`, `claude-in-chrome` `크롬 브라우저 조작`. 그 밖에 이름이 `claude.ai `로 시작하면 `claude.ai 계정 커넥터`, 아니면 빈 글이다.
-- 값은 백엔드 메모리에만 둔다. 처음에는 `screenpipe`, `claude-in-chrome` 두 칸이 `checking`이다. 백엔드가 뜬 뒤 한 번 세션과 같은 옵션으로 Claude Code를 붙여 상태만 읽고(모델 호출 없음, 10초 제한) 끊는다. 그 뒤로는 세션이 시작될 때마다 오는 `init`의 `mcp_servers`로 고친다. 읽기가 실패하거나 모양이 다르면 이전 값을 둔다.
+- 값은 백엔드 메모리에만 둔다. 처음에는 `screenpipe`, `claude-in-chrome` 두 칸이 `checking`이다. 백엔드가 뜬 뒤 한 번 세션과 같은 옵션으로 Claude Code를 붙여 상태만 읽고(모델 호출 없음, 10초 제한) 끊는다. 그 뒤로는 세션이 시작될 때마다 오는 `init`의 `mcp_servers`로 고친다. 세션 `init`이 시작 때 읽기보다 먼저 오면 뒤늦은 읽기 결과는 버린다. 시작 때 읽기는 질문을 보내지 않고 도구 권한은 모두 거부한다. 읽기가 실패하거나 모양이 다르면 이전 값을 둔다.
 - 목록이 바뀌었을 때만 `settings`를 다시 보낸다.
 
 ```mermaid

@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Awaitable, Callable, Protocol
 
 from . import config
+from claude_agent_sdk import PermissionResultDeny
+
 from .agent import AgentRun, build_options, fetch_mcp_status
 from .clients import clear_recording_files, recording_bytes
 from .schedule_rule import label, next_run, validate
@@ -30,6 +32,7 @@ HELP_PROMPT = ("[먼저 말 걸기] 사용자가 {app} · {window}에서 막힌 
 # 연결된 MCP (계획 2026-10-22-mcp-list "정한 값"). 파이썬 백엔드 MCP는 내부라 목록에서 뺀다 (사용자)
 MCP_STATUS = {"connected": "connected", "failed": "disconnected", "needs-auth": "disconnected",
               "disabled": "disconnected", "pending": "checking"}
+INITIAL_MCP = ("screenpipe", "claude-in-chrome")  # 시작 때 읽기 전에 확인 중으로 보일 외부 MCP
 
 
 class Auth(Protocol):
@@ -68,6 +71,11 @@ def _mcp_view(servers) -> list[dict] | None:
         view.append({"name": name, "description": description,
                      "status": MCP_STATUS.get(s["status"], "disconnected")})
     return view
+
+
+async def _deny_tools(tool_name, tool_input, ctx) -> PermissionResultDeny:
+    """시작 때 읽기의 권한 콜백. 질문을 보내지 않으므로 도구가 돌 일이 없다. 그래도 오면 거부한다."""
+    return PermissionResultDeny(message="MCP 상태만 읽는 중")
 
 
 def _now() -> datetime:
@@ -161,7 +169,8 @@ class App:
         self.recording_lock = asyncio.Lock()
         self.clearing = False  # 화면 기록을 비우는 중 (판단 고리가 쉰다)
         # 서버별 마지막 MCP 상태. 시작 때 읽기 전에는 외부 MCP 둘을 확인 중으로 둔다
-        self._mcp_servers = _mcp_view([{"name": n, "status": "pending"} for n in config.MCP_DESCRIPTIONS])
+        self._mcp_servers = _mcp_view([{"name": n, "status": "pending"} for n in INITIAL_MCP])
+        self._mcp_from_session = False  # 세션 init의 값을 받았다 (뒤늦은 시작 때 읽기는 버린다)
         self._settings_jobs: set[asyncio.Task] = set()  # mcp_status가 띄운 settings 다시 보내기
 
     # --- 화면 메시지 ---
@@ -351,31 +360,41 @@ class App:
                           "mcp_servers": self._mcp_servers})
 
     def mcp_status(self, servers) -> None:
-        """세션 init·시작 때 읽기의 MCP 상태를 받아 둔다. 모양이 다르면 이전 값을 두고,
-        목록이 바뀌었을 때만 settings를 다시 보낸다 (init 이벤트는 동기 콜백이라 작업으로 띄운다)."""
+        """세션 init의 MCP 상태를 받아 둔다. 받은 뒤로는 시작 때 읽기의 결과를 버린다 (세션 값이 더 새롭다)."""
+        if self._apply_mcp(servers):
+            self._mcp_from_session = True
+
+    def _apply_mcp(self, servers) -> bool:
+        """모양이 다르면 이전 값을 두고 False. 목록이 바뀌었을 때만 settings를 다시 보낸다
+        (init 이벤트는 동기 콜백이라 작업으로 띄운다)."""
         view = _mcp_view(servers)
         if view is None:
             log.info("MCP 상태 모양이 달라 무시함")
-            return
-        if view == self._mcp_servers:
-            return
-        self._mcp_servers = view
-        job = asyncio.create_task(self.get_settings())
-        self._settings_jobs.add(job)
-        job.add_done_callback(self._settings_jobs.discard)
+            return False
+        if view != self._mcp_servers:
+            self._mcp_servers = view
+            job = asyncio.create_task(self.get_settings())
+            self._settings_jobs.add(job)
+            job.add_done_callback(self._settings_jobs.discard)
+        return True
 
     async def read_mcp_status(self) -> None:
         """백엔드 시작 때 MCP 상태를 한 번 읽는다. 세션과 같은 옵션으로 붙어 목록이 같다.
-        세션은 만들지 않는다(세션 0은 없어 이벤트가 버려진다). 실패하면 처음 값을 두고 종류만 남긴다."""
+        세션은 만들지 않는다(세션 0은 없어 이벤트가 버려진다). 실패하면 처음 값을 두고 종류만 남긴다.
+        세션 init이 먼저 왔으면 결과를 버린다."""
         probe = AgentRun(0, _Events(self, 0))
         try:
-            options = build_options(permission_mode=self._permission_mode(), can_use_tool=probe.can_use_tool,
+            # 질문(prompt)을 보내지 않으므로 도구가 돌지 않는다. 권한 콜백은 늘 거부한다
+            options = build_options(permission_mode=self._permission_mode(), can_use_tool=_deny_tools,
                                     mcp_servers={MCP_NAME: backend_server(self._store, probe)}, resume=None)
             servers = await fetch_mcp_status(options)
         except Exception as e:
             log.warning("시작 때 MCP 상태를 읽지 못했다 (%s)", type(e).__name__)
             return
-        self.mcp_status(servers)
+        if self._mcp_from_session:
+            log.info("세션 init이 먼저 와서 시작 때 읽은 MCP 상태를 버림")
+            return
+        self._apply_mcp(servers)
 
     async def set_permission_mode(self, mode: str) -> None:
         if mode not in PERMISSION_MODES:

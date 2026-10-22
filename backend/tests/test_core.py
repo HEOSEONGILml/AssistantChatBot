@@ -1283,3 +1283,39 @@ async def test_read_mcp_status_failure_keeps_initial(monkeypatch, caplog):
     assert "TimeoutError" in caplog.text
     await app.get_settings()
     assert out[-1]["mcp_servers"] == INITIAL_MCP
+
+
+async def test_probe_options_deny_tools(monkeypatch):
+    from claude_agent_sdk import PermissionResultDeny, ToolPermissionContext
+    seen = []
+
+    async def fetch(options):
+        seen.append(options)
+        return []
+
+    monkeypatch.setattr(core, "fetch_mcp_status", fetch)
+    app, store, out, runs = make()
+    await app.read_mcp_status()
+    res = await asyncio.wait_for(seen[0].can_use_tool("Bash", {"command": "dir"}, ToolPermissionContext()), 1)
+    assert isinstance(res, PermissionResultDeny)
+    assert of(out, "entry") == []
+
+
+async def test_probe_result_ignored_after_session_init(monkeypatch):
+    """세션 init이 먼저 오면 늦게 끝난 시작 때 읽기는 버린다."""
+    gate = asyncio.Event()
+
+    async def fetch(options):
+        await gate.wait()
+        return [{"name": "screenpipe", "status": "failed"}]
+
+    monkeypatch.setattr(core, "fetch_mcp_status", fetch)
+    app, store, out, runs = make()
+    probe = asyncio.ensure_future(app.read_mcp_status())
+    await settle()
+    app.mcp_status([{"name": "screenpipe", "status": "connected"}])
+    gate.set()
+    await probe
+    await sent(app)
+    await app.get_settings()
+    assert out[-1]["mcp_servers"] == [{"name": "screenpipe", "description": "화면 기록 검색", "status": "connected"}]
