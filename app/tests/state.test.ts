@@ -63,8 +63,8 @@ describe("apply", () => {
     s = run(s, { type: "schedule", schedule });
     expect(s.schedules.get(3)).toEqual(schedule);
     expect(s.lists.schedules?.items[0]).toEqual({ session_id: 3, name: "주간 보고", label: "매일 09:00", next_run: null, state: "off" });
-    s = run(s, { type: "settings", permission_mode: "plan", recording: false, recording_dir: "/home/x/.screenpipe", recording_bytes: 2048, jev_key_set: true });
-    expect(s.settings).toEqual({ permissionMode: "plan", recording: false, recordingDir: "/home/x/.screenpipe", recordingBytes: 2048, jevKeySet: true });
+    s = run(s, { type: "settings", permission_mode: "plan", recording: false, recording_dir: "/home/x/.screenpipe", recording_bytes: 2048, jev_key_set: true, mcp_servers: [{ name: "screenpipe", description: "화면 기록 검색", status: "checking" }] });
+    expect(s.settings).toEqual({ permissionMode: "plan", recording: false, recordingDir: "/home/x/.screenpipe", recordingBytes: 2048, jevKeySet: true, mcpServers: [{ name: "screenpipe", description: "화면 기록 검색", status: "checking" }] });
     const limits = [{ type: "five_hour", utilization: 0.5, resets_at: null, received_at: "2026-10-22T09:00:00" }];
     s = run(s, { type: "usage", limits });
     expect(s.limits).toEqual(limits);

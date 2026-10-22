@@ -1,6 +1,6 @@
 // 설정 탭(13·10): 계정, 화면 기록 스위치, 권한 모드, 먼저 말 걸기 Jev 키. 값은 다이제스트 6절.
 // Jev 키 입력칸은 양식처럼 입력 중에 다시 그리지 않는다(panel.ts formKey)
-import type { Outgoing } from "../shared/protocol";
+import type { McpServer, Outgoing } from "../shared/protocol";
 import type { State } from "../shared/state";
 import { PERMISSION_MODES } from "../shared/settings";
 import { bytesText } from "../shared/forms";
@@ -42,6 +42,7 @@ export function settingsBody(s: State, send: Send): Node[] {
         onToggle: () => send({ type: "set_recording", enabled: !st.recording }),
       })),
     recordingFolder(s, send),
+    mcpList(st.mcpServers),
     h("fieldset", { class: "set-sec set-modes" },
       h("legend", { class: "sr-only" }, "권한 모드"),
       ...PERMISSION_MODES.map((m) => h("label", { class: m.value === st.permissionMode ? "mode mode-on" : "mode" },
@@ -76,6 +77,18 @@ function recordingFolder(s: State, send: Send): HTMLElement {
       h("span", { class: "set-note" }, "기록 폴더 · ", h("b", { class: "set-size" }, size), " · 이틀 지난 기록은 저절로 지워져요"),
       h("span", { class: "set-path", title: st.recordingDir }, st.recordingDir)),
     h("button", { type: "button", class: "btn-secondary btn-clear", disabled: !s.connected, onClick: ask }, "비우기"));
+}
+
+// 연결된 MCP 칸(13): 제목 + 줄(이름·하는 일·상태). 보기만 한다
+const MCP_STATUS_TEXT: Record<McpServer["status"], string> = { connected: "연결됨", disconnected: "연결 안 됨", checking: "확인 중" };
+
+function mcpList(servers: McpServer[]): HTMLElement {
+  return h("section", { class: "set-sec set-mcp", "aria-labelledby": "mcp-head" },
+    h("h3", { id: "mcp-head", class: "set-label" }, `연결된 MCP ${servers.length}`),
+    h("ul", { class: "mcp-list" }, ...servers.map((m) => h("li", { class: "mcp-row" },
+      h("span", { class: "mcp-name" }, m.name),
+      h("span", { class: "mcp-desc" }, m.description),
+      h("span", { class: `mcp-status mcp-${m.status}` }, h("span", { class: "dot-sm", "aria-hidden": "true" }), MCP_STATUS_TEXT[m.status])))));
 }
 
 let jevDraft = ""; // Jev 키 입력 글. 다시 그려도 남는다. 로그에 찍지 않는다

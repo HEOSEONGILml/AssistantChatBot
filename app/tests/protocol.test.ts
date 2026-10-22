@@ -24,7 +24,7 @@ describe("parseBackendMessage", () => {
       { type: "session_detail", session: { ...session, id: 3, source: "schedule" }, entries: [], schedule },
       { type: "schedules", page: 1, pages: 1, items: [{ session_id: 3, name: "주간 보고", label: "매주 수 09:00", next_run: null, state: "off" }] },
       { type: "schedule", schedule },
-      { type: "settings", permission_mode: "acceptEdits", recording: false, recording_dir: "/home/x/.screenpipe", recording_bytes: 1536, jev_key_set: true },
+      { type: "settings", permission_mode: "acceptEdits", recording: false, recording_dir: "/home/x/.screenpipe", recording_bytes: 1536, jev_key_set: true, mcp_servers: [{ name: "screenpipe", description: "화면 기록 검색", status: "connected" }, { name: "claude.ai Gmail", description: "claude.ai 계정 커넥터", status: "disconnected" }, { name: "x", description: "", status: "checking" }] },
       { type: "nudge", active: true },
       { type: "usage", limits: [{ type: "five_hour", utilization: 0.4, resets_at: 1761100000, received_at: "2026-10-22T09:00:00" }] },
       { type: "session_deleted", session_id: 2 },
@@ -64,10 +64,15 @@ describe("parseBackendMessage", () => {
     expect(parseBackendMessage(msg({ type: "sessions", view: "user", page: 1, pages: 1, items: [{}] }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "schedule", schedule: { ...schedule, enabled: "yes" } }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "schedules", page: 1, pages: 1, items: [{ session_id: 3, name: "x", label: "y", next_run: null, state: "on" }] }))).toBeNull();
-    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "yolo", recording: true, recording_dir: "d", recording_bytes: 0, jev_key_set: false }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "yolo", recording: true, recording_dir: "d", recording_bytes: 0, jev_key_set: false, mcp_servers: [] }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true, jev_key_set: false }))).toBeNull();
-    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true, recording_dir: "d", recording_bytes: "1", jev_key_set: false }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true, recording_dir: "d", recording_bytes: "1", jev_key_set: false, mcp_servers: [] }))).toBeNull();
+    const ok = { type: "settings", permission_mode: "plan", recording: true, recording_dir: "d", recording_bytes: 0, jev_key_set: false };
+    expect(parseBackendMessage(msg(ok))).toBeNull(); // mcp_servers 없음
+    expect(parseBackendMessage(msg({ ...ok, mcp_servers: [{ name: "a", description: "", status: "failed" }] }))).toBeNull();
+    expect(parseBackendMessage(msg({ ...ok, mcp_servers: [{ name: "a", status: "connected" }] }))).toBeNull();
+    expect(parseBackendMessage(msg({ ...ok, mcp_servers: "none" }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "nudge", active: "yes" }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "nudge" }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "usage", limits: [{ utilization: 1 }] }))).toBeNull();

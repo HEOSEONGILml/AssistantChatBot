@@ -84,8 +84,9 @@ function body(s: State, send: Send, go: Go, openBig: OpenBig): Node[] {
     : v.tab === "chat" ? [loading()] // 대화 작업을 아직 모를 때
     : v.tab === "schedules" ? schedulesBody(s, go)
     : v.tab === "usage" ? usageBody(s)
-    : settingsBody(s, send);
-  return [tabBar(s, go, openBig), ...content];
+    : null;
+  // 설정 탭은 길어서 탭 줄 아래 본문만 패널 안에서 스크롤한다(13)
+  return [tabBar(s, go, openBig), ...(content ?? [h("div", { class: "set-body" }, ...settingsBody(s, send))])];
 }
 
 export const SOURCE_TEXT: Record<Session["source"], string> = { user: "내 요청", schedule: "스케줄", chat: "대화" };

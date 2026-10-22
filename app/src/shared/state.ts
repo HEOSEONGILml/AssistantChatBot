@@ -1,5 +1,5 @@
 // 화면 상태: 백엔드 메시지를 쌓아 두고, 강아지 자세·배지·툴팁·다시 붙을 때 보낼 요청을 계산한다.
-import type { ActivityKind, BackendMessage, Entry, Limit, Outgoing, Page, PermissionMode, Schedule, ScheduleRow, Session } from "./protocol";
+import type { ActivityKind, BackendMessage, Entry, Limit, McpServer, Outgoing, Page, PermissionMode, Schedule, ScheduleRow, Session } from "./protocol";
 
 export type Tab = "alerts" | "chat" | "tasks" | "schedules" | "usage" | "settings";
 export type Screen = "list" | "task" | "newTask" | "newSchedule" | "schedule" | "editSchedule";
@@ -20,7 +20,7 @@ export type State = {
   schedules: Map<number, Schedule>;
   activity: Map<number, Activity>; // 세션 ID → 지금 하는 일 (준비 중 줄)
   lists: { user?: Page<Session>; alerts?: Page<Session>; schedules?: Page<ScheduleRow> };
-  settings: { permissionMode: PermissionMode; recording: boolean; recordingDir: string; recordingBytes: number; jevKeySet: boolean } | null;
+  settings: { permissionMode: PermissionMode; recording: boolean; recordingDir: string; recordingBytes: number; jevKeySet: boolean; mcpServers: McpServer[] } | null;
   nudge: boolean; // 먼저 말 걸기 배지가 떠 있음
   limits: Limit[];
   panelOpen: boolean;
@@ -182,7 +182,7 @@ export function apply(s: State, m: BackendMessage, now: number = Date.now()): St
       };
     }
     case "settings":
-      return { ...s, settings: { permissionMode: m.permission_mode, recording: m.recording, recordingDir: m.recording_dir, recordingBytes: m.recording_bytes, jevKeySet: m.jev_key_set } };
+      return { ...s, settings: { permissionMode: m.permission_mode, recording: m.recording, recordingDir: m.recording_dir, recordingBytes: m.recording_bytes, jevKeySet: m.jev_key_set, mcpServers: m.mcp_servers } };
     case "nudge":
       return { ...s, nudge: m.active };
     case "usage":

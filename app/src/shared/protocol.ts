@@ -32,6 +32,8 @@ export type Schedule = {
 export type ScheduleRow = { session_id: number; name: string; label: string; next_run: string | null; state: (typeof ROW_STATES)[number] };
 // 사용량 한도 하나. 종류 이름과 값의 모양은 아직 실제로 확인하지 않았다 (프로토콜 문서)
 export type Limit = { type: string; utilization: number | null; resets_at: number | string | null; received_at: string };
+export const MCP_STATUSES = ["connected", "disconnected", "checking"] as const;
+export type McpServer = { name: string; description: string; status: (typeof MCP_STATUSES)[number] };
 export type Page<T> = { page: number; pages: number; items: T[] };
 
 export type BackendMessage =
@@ -42,7 +44,7 @@ export type BackendMessage =
   | { type: "session_detail"; session: Session; entries: Entry[]; schedule: Schedule | null }
   | ({ type: "schedules" } & Page<ScheduleRow>)
   | { type: "schedule"; schedule: Schedule }
-  | { type: "settings"; permission_mode: PermissionMode; recording: boolean; recording_dir: string; recording_bytes: number; jev_key_set: boolean }
+  | { type: "settings"; permission_mode: PermissionMode; recording: boolean; recording_dir: string; recording_bytes: number; jev_key_set: boolean; mcp_servers: McpServer[] }
   | { type: "usage"; limits: Limit[] }
   | { type: "session_deleted"; session_id: number }
   | { type: "activity"; session_id: number; kind: ActivityKind; text: string }
@@ -97,6 +99,7 @@ const isRow = (x: unknown): x is ScheduleRow => isObj(x) && isInt(x.session_id) 
 const isNum = (x: unknown): x is number => typeof x === "number";
 const isLimit = (x: unknown): x is Limit => isObj(x) && isStr(x.type) && orNull(isNum)(x.utilization)
   && (x.resets_at === null || isNum(x.resets_at) || isStr(x.resets_at)) && isStr(x.received_at);
+const isMcp = (x: unknown): x is McpServer => isObj(x) && isStr(x.name) && isStr(x.description) && oneOf(MCP_STATUSES)(x.status);
 const isPage = (o: O, item: (x: unknown) => boolean) => isInt(o.page) && isInt(o.pages) && listOf(item)(o.items);
 
 function valid(o: O): boolean {
@@ -109,7 +112,7 @@ function valid(o: O): boolean {
     case "schedules": return isPage(o, isRow);
     case "schedule": return isSchedule(o.schedule);
     case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording)
-      && isStr(o.recording_dir) && isInt(o.recording_bytes) && isBool(o.jev_key_set);
+      && isStr(o.recording_dir) && isInt(o.recording_bytes) && isBool(o.jev_key_set) && listOf(isMcp)(o.mcp_servers);
     case "usage": return listOf(isLimit)(o.limits);
     case "session_deleted": return isInt(o.session_id);
     case "activity": return isInt(o.session_id) && oneOf(ACTIVITY_KINDS)(o.kind) && isStr(o.text);
