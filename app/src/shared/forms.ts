@@ -26,6 +26,13 @@ export const ruleToForm = (r: Rule): RuleForm =>
 export const isSendKey = (e: { key: string; shiftKey: boolean; isComposing: boolean }): boolean =>
   e.key === "Enter" && !e.shiftKey && !e.isComposing;
 
+// 기록 용량 글: 1024³ 이상 X.X GB, 1024² 이상 X MB, 그 밖 X KB (확인 상자·기록 폴더 줄)
+export function bytesText(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
+  if (n >= 1024 ** 2) return `${Math.round(n / 1024 ** 2)} MB`;
+  return `${Math.round(n / 1024)} KB`;
+}
+
 const p2 = (n: number) => String(n).padStart(2, "0");
 const hhmm = (d: Date) => `${p2(d.getHours())}:${p2(d.getMinutes())}`;
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();

@@ -7,7 +7,7 @@ import { clockText } from "../shared/forms";
 import { h, svg, switchButton, trashIcon } from "./dom";
 import { renderConversation } from "./conversation";
 import { ICON, alertsBody, miniBadges, tasksBody } from "./lists";
-import { SOURCE_TEXT, chatStrip, conversationSession, formKey, newTask, openConfirm, syncConfirm } from "./panel";
+import { SOURCE_TEXT, chatStrip, conversationSession, deleteConfirm, formKey, newTask, syncConfirm } from "./panel";
 import { instructionRow, scheduleForm, schedulesBody } from "./schedule";
 import { settingsBody } from "./settings";
 import { usageBody } from "./usage";
@@ -75,7 +75,7 @@ export function renderBig(root: HTMLElement, s: State, send: Send, go: Go): void
   const t = conversationSession(s);
   syncConfirm(root, t?.id);
   const name = t && ((t.source === "schedule" && s.schedules.get(t.id)?.name) || t.title);
-  const askDelete = () => { if (t) openConfirm(root, t, name!, send); };
+  const askDelete = () => { if (t) deleteConfirm(root, t, name!, send); };
 
   const conn = s.connected ? [] : [h("div", { class: "conn" }, "백엔드에 연결하는 중…")];
   const isChat = !!t && v.screen === "list"; // 대화 탭의 대화(그 밖은 작업·스케줄 대화)

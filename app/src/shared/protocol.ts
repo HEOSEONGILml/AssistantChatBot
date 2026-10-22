@@ -42,7 +42,7 @@ export type BackendMessage =
   | { type: "session_detail"; session: Session; entries: Entry[]; schedule: Schedule | null }
   | ({ type: "schedules" } & Page<ScheduleRow>)
   | { type: "schedule"; schedule: Schedule }
-  | { type: "settings"; permission_mode: PermissionMode; recording: boolean; jev_key_set: boolean }
+  | { type: "settings"; permission_mode: PermissionMode; recording: boolean; recording_dir: string; recording_bytes: number; jev_key_set: boolean }
   | { type: "usage"; limits: Limit[] }
   | { type: "session_deleted"; session_id: number }
   | { type: "activity"; session_id: number; kind: ActivityKind; text: string }
@@ -67,6 +67,7 @@ export type Outgoing =
   | { type: "get_settings" }
   | { type: "set_permission_mode"; mode: PermissionMode }
   | { type: "set_recording"; enabled: boolean }
+  | { type: "clear_recording" }
   | { type: "get_usage" }
   | { type: "nudge_open" }
   | { type: "nudge_answer"; help: boolean }
@@ -107,7 +108,8 @@ function valid(o: O): boolean {
     case "session_detail": return isSession(o.session) && listOf(isEntry)(o.entries) && orNull(isSchedule)(o.schedule);
     case "schedules": return isPage(o, isRow);
     case "schedule": return isSchedule(o.schedule);
-    case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording) && isBool(o.jev_key_set);
+    case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording)
+      && isStr(o.recording_dir) && isInt(o.recording_bytes) && isBool(o.jev_key_set);
     case "usage": return listOf(isLimit)(o.limits);
     case "session_deleted": return isInt(o.session_id);
     case "activity": return isInt(o.session_id) && oneOf(ACTIVITY_KINDS)(o.kind) && isStr(o.text);

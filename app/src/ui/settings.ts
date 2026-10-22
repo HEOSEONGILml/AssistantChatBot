@@ -3,7 +3,9 @@
 import type { Outgoing } from "../shared/protocol";
 import type { State } from "../shared/state";
 import { PERMISSION_MODES } from "../shared/settings";
+import { bytesText } from "../shared/forms";
 import { h, switchButton } from "./dom";
+import { openConfirm } from "./panel";
 
 type Send = (m: Outgoing) => unknown;
 
@@ -39,6 +41,7 @@ export function settingsBody(s: State, send: Send): Node[] {
         on: st.recording, label: "화면 기록", disabled: !s.connected,
         onToggle: () => send({ type: "set_recording", enabled: !st.recording }),
       })),
+    recordingFolder(s, send),
     h("fieldset", { class: "set-sec set-modes" },
       h("legend", { class: "sr-only" }, "권한 모드"),
       ...PERMISSION_MODES.map((m) => h("label", { class: m.value === st.permissionMode ? "mode mode-on" : "mode" },
@@ -52,6 +55,27 @@ export function settingsBody(s: State, send: Send): Node[] {
       h("p", { class: "set-foot" }, "새로 맡기는 작업부터 적용돼요")),
     jevKey(s, send));
   return out;
+}
+
+// 기록 폴더 줄(13): 용량·경로와 [비우기]. [비우기]는 25번 확인을 거친다. 끊겼으면 막는다
+function recordingFolder(s: State, send: Send): HTMLElement {
+  const st = s.settings!;
+  const size = bytesText(st.recordingBytes);
+  const ask = (e: Event) => {
+    const root = (e.currentTarget as HTMLElement).closest(".panel, .big") as HTMLElement | null;
+    if (!root) return;
+    openConfirm(root, undefined, {
+      title: "화면 기록을 모두 비울까요?",
+      body: ["기록 폴더의 ", h("b", {}, size), "가 지워져요. 지금까지 본 화면을 찾지 못하게 돼요. 되돌릴 수 없어요. 화면 기록은 켜진 그대로 이어서 쌓여요."],
+      action: "비우기",
+      run: () => send({ type: "clear_recording" }),
+    });
+  };
+  return h("section", { class: "set-sec set-folder" },
+    h("div", { class: "set-main" },
+      h("span", { class: "set-note" }, "기록 폴더 · ", h("b", { class: "set-size" }, size), " · 이틀 지난 기록은 저절로 지워져요"),
+      h("span", { class: "set-path", title: st.recordingDir }, st.recordingDir)),
+    h("button", { type: "button", class: "btn-secondary btn-clear", disabled: !s.connected, onClick: ask }, "비우기"));
 }
 
 let jevDraft = ""; // Jev 키 입력 글. 다시 그려도 남는다. 로그에 찍지 않는다

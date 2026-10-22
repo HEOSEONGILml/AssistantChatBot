@@ -614,7 +614,7 @@ erDiagram
 | `schedules` | 세션 ID → `Schedule` | 받은 스케줄 |
 | `activity` | 세션 ID → `{kind, text, since}` | 돌고 있는 세션이 지금 하는 일(준비 중 줄). `since`는 이번 대답의 첫 `activity`를 받은 시각. 결과·실패·질문·등록 확인 줄, 일하는 중이 아니게 된 `session`, `session_deleted`, 끊김에 지운다 |
 | `lists` | `user`·`alerts`·`schedules` → `Page` | 목록 한 쪽 |
-| `settings` | `{permissionMode, recording, jevKeySet}` 또는 `null` | 설정 |
+| `settings` | `{permissionMode, recording, recordingDir, recordingBytes, jevKeySet}` 또는 `null` | 설정. `recordingDir`·`recordingBytes`는 설정 탭 기록 폴더 줄에 쓴다 |
 | `nudge` | bool | 먼저 말 걸기 배지가 떠 있음. 끊김에 끈다 |
 | `limits` | `Limit[]` | 사용량 |
 | `panelOpen`, `view` | bool, `{tab, screen, sessionId?, page, proposal?}` | 보는 화면 |

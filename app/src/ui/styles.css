@@ -752,8 +752,12 @@ html:has(.big-body), .big-body { height: 100%; background: #FFFFFF; }
 .dot-off { background: #9AA3AF; }
 .btn-logout { flex: none; min-height: 36px; padding: 0 12px; }
 .btn-login { flex: none; min-height: 36px; padding: 0 14px; }
+.set-folder { padding: 8px 8px 8px 16px; display: flex; align-items: center; gap: 8px; }
+.set-size { font-weight: 500; color: #1B1F27; }
+.set-path { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #3D4552; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-clear { flex: none; min-height: 36px; padding: 0 12px; }
 .set-modes { padding: 8px 8px 12px; display: flex; flex-direction: column; gap: 2px; }
-.mode { min-height: 44px; box-sizing: border-box; padding: 4px 8px; border-radius: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.mode { min-height: 40px; box-sizing: border-box; padding: 2px 8px; border-radius: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .mode-on { background: #E3ECFF; }
 .mode input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: #1D4ED8; }
 .mode-text { display: flex; flex-direction: column; gap: 1px; }

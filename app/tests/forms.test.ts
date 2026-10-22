@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clockText, dateTimeText, formToRule, isSendKey, limitRight, limitRows, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
+  clockText, dateTimeText, formToRule, isSendKey, limitRight, limitRows, bytesText, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
   type RuleForm,
 } from "../src/shared/forms";
 
@@ -89,5 +89,14 @@ describe("limitRight", () => {
   });
   it("값이 없으면 줄표, 초기화 시각이 없으면 빈 글", () => {
     expect(limitRight({ name: "x", percent: null, resets_at: null }, now)).toEqual({ percent: "—", reset: "" });
+  });
+});
+
+describe("bytesText", () => {
+  it("GB는 소수 한 자리, MB·KB는 정수로 올림 없이 가까운 값", () => {
+    expect(bytesText(0)).toBe("0 KB");
+    expect(bytesText(1536)).toBe("2 KB");
+    expect(bytesText(5 * 1024 ** 2)).toBe("5 MB");
+    expect(bytesText(1.8 * 1024 ** 3)).toBe("1.8 GB");
   });
 });

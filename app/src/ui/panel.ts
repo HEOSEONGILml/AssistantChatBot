@@ -122,15 +122,18 @@ export function chatStrip(askDelete: () => void): HTMLElement {
     h("button", { type: "button", class: "chat-clear", onClick: askDelete }, svg(trashIcon(13)), "대화 지우기"));
 }
 
-// --- 지우기 확인(19): 패널 안 덮개 + alertdialog. 문구는 context "정한 값" ---
+// --- 확인 상자: 지우기(19), 화면 기록 비우기(25). 같은 덮개·상자 ---
+// 지우기(19): 패널 안 덮개 + alertdialog. 문구는 context "정한 값" ---
 const DELETE_TEXT: Record<Session["source"], { title: string; body: (name: string) => (Node | string)[] }> = {
   user: { title: "이 작업을 지울까요?", body: (n) => [h("b", {}, n), "과 그 대화 기록이 모두 지워져요. 되돌릴 수 없어요. 돌고 있는 작업이면 먼저 멈춰요."] },
   schedule: { title: "이 스케줄을 지울까요?", body: (n) => [h("b", {}, n), "과 작업 지시서, 대화 기록이 모두 지워져요. 되돌릴 수 없어요. 돌고 있으면 먼저 멈춰요."] },
   chat: { title: "대화를 지울까요?", body: () => ["Claude와 나눈 대화 기록이 모두 지워지고 새 대화로 시작해요. 되돌릴 수 없어요."] },
 };
 
-// 열린 확인 상자. 그 세션의 대화 화면을 떠나면(다시 그릴 때) 닫는다
-let confirming: { sessionId: number; el: HTMLElement } | null = null;
+// 열린 확인 상자. 연 화면(세션 대화, 또는 sessionId 없는 설정 탭)을 떠나면(다시 그릴 때) 닫는다
+let confirming: { sessionId: number | undefined; el: HTMLElement } | null = null;
+
+export type ConfirmSpec = { title: string; body: (Node | string)[]; action: string; run: () => unknown };
 
 function closeConfirm(): void {
   confirming?.el.remove();
@@ -138,25 +141,32 @@ function closeConfirm(): void {
 }
 
 // 다시 그릴 때: 확인 상자를 연 세션의 대화 화면이 아니면 닫는다
+export function deleteConfirm(root: HTMLElement, t: Session, name: string, send: Send): void {
+  const text = DELETE_TEXT[t.source];
+  openConfirm(root, t.id, {
+    title: text.title, body: text.body(name), action: "지우기",
+    run: () => send({ type: "delete_session", session_id: t.id }),
+  });
+}
+
 export function syncConfirm(root: HTMLElement, sessionId: number | undefined): void {
   if (confirming && (confirming.sessionId !== sessionId || !root.contains(confirming.el))) closeConfirm();
 }
 
-// [취소]·Esc는 닫기. [지우기]는 delete_session을 보내고 닫는다. 못 보냈으면(끊김) 상자를 둔다
-export function openConfirm(root: HTMLElement, t: Session, name: string, send: Send): void {
+// [취소]·Esc는 닫기. 실행 버튼은 run()을 부르고 닫는다. run()이 false를 돌려주면(못 보냄·끊김) 상자를 둔다
+export function openConfirm(root: HTMLElement, sessionId: number | undefined, spec: ConfirmSpec): void {
   closeConfirm();
-  const text = DELETE_TEXT[t.source];
   const cancel = h("button", { type: "button", class: "btn-secondary", onClick: closeConfirm }, "취소");
-  const remove = () => { if (send({ type: "delete_session", session_id: t.id }) !== false) closeConfirm(); };
+  const run = () => { if (spec.run() !== false) closeConfirm(); };
   const el = h("div", { class: "confirm", onKeydown: (e) => { if ((e as KeyboardEvent).key === "Escape") closeConfirm(); } },
     h("div", { role: "alertdialog", "aria-modal": "true", "aria-labelledby": "deltitle", "aria-describedby": "deldesc", class: "confirm-box" },
-      h("h2", { id: "deltitle" }, text.title),
-      h("p", { id: "deldesc" }, ...text.body(name)),
+      h("h2", { id: "deltitle" }, spec.title),
+      h("p", { id: "deldesc" }, ...spec.body),
       h("div", { class: "confirm-buttons" },
         cancel,
-        h("button", { type: "button", class: "btn-danger", onClick: remove }, "지우기"))));
+        h("button", { type: "button", class: "btn-danger", onClick: run }, spec.action))));
   root.append(el);
-  confirming = { sessionId: t.id, el };
+  confirming = { sessionId, el };
   cancel.focus();
 }
 
@@ -190,7 +200,7 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
       root.replaceChildren(h("div", { class: "slot" }), h("div", { class: "conv-host" }), tail());
     }
     const name = (v.screen === "schedule" && state.schedules.get(t.id)?.name) || t.title;
-    const askDelete = () => openConfirm(root, t, name, send);
+    const askDelete = () => deleteConfirm(root, t, name, send);
     const top = isChat ? [tabBar(state, go, openBig), chatStrip(askDelete)]
       : v.screen === "schedule" ? scheduleHead(state, t, send, go, openBig, askDelete) : [taskHead(state, t, send, go, openBig, askDelete)];
     root.querySelector(".slot")!.replaceChildren(...conn, ...top);

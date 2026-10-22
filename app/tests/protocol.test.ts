@@ -24,7 +24,7 @@ describe("parseBackendMessage", () => {
       { type: "session_detail", session: { ...session, id: 3, source: "schedule" }, entries: [], schedule },
       { type: "schedules", page: 1, pages: 1, items: [{ session_id: 3, name: "주간 보고", label: "매주 수 09:00", next_run: null, state: "off" }] },
       { type: "schedule", schedule },
-      { type: "settings", permission_mode: "acceptEdits", recording: false, jev_key_set: true },
+      { type: "settings", permission_mode: "acceptEdits", recording: false, recording_dir: "/home/x/.screenpipe", recording_bytes: 1536, jev_key_set: true },
       { type: "nudge", active: true },
       { type: "usage", limits: [{ type: "five_hour", utilization: 0.4, resets_at: 1761100000, received_at: "2026-10-22T09:00:00" }] },
       { type: "session_deleted", session_id: 2 },
@@ -64,8 +64,10 @@ describe("parseBackendMessage", () => {
     expect(parseBackendMessage(msg({ type: "sessions", view: "user", page: 1, pages: 1, items: [{}] }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "schedule", schedule: { ...schedule, enabled: "yes" } }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "schedules", page: 1, pages: 1, items: [{ session_id: 3, name: "x", label: "y", next_run: null, state: "on" }] }))).toBeNull();
-    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "yolo", recording: true, jev_key_set: false }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "yolo", recording: true, recording_dir: "d", recording_bytes: 0, jev_key_set: false }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true, jev_key_set: false }))).toBeNull();
+    expect(parseBackendMessage(msg({ type: "settings", permission_mode: "plan", recording: true, recording_dir: "d", recording_bytes: "1", jev_key_set: false }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "nudge", active: "yes" }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "nudge" }))).toBeNull();
     expect(parseBackendMessage(msg({ type: "usage", limits: [{ utilization: 1 }] }))).toBeNull();
@@ -82,6 +84,7 @@ describe("outgoing", () => {
     expect(JSON.parse(outgoing({ type: "say", session_id: 1, text: "안녕" }))).toEqual({ v: 7, type: "say", session_id: 1, text: "안녕" });
     expect(JSON.parse(outgoing({ type: "delete_session", session_id: 4 }))).toEqual({ v: 7, type: "delete_session", session_id: 4 });
     expect(JSON.parse(outgoing({ type: "get_settings" }))).toEqual({ v: 7, type: "get_settings" });
+    expect(JSON.parse(outgoing({ type: "clear_recording" }))).toEqual({ v: 7, type: "clear_recording" });
     expect(JSON.parse(outgoing({ type: "nudge_open" }))).toEqual({ v: 7, type: "nudge_open" });
     expect(JSON.parse(outgoing({ type: "nudge_answer", help: false }))).toEqual({ v: 7, type: "nudge_answer", help: false });
     expect(JSON.parse(outgoing({ type: "set_jev_key", key: "k" }))).toEqual({ v: 7, type: "set_jev_key", key: "k" });
