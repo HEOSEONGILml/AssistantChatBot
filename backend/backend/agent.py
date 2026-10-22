@@ -25,7 +25,8 @@ STOP_ANSWER = "거부"
 PROBE_TIMEOUT = 10  # 초. 시작 때 MCP 상태 읽기가 매달리면 포기한다 (계획 2026-10-22-mcp-list Review Focus 4)
 PROBE_POLL = 1  # 초. 연결 중(pending)인 MCP가 있으면 이 간격으로 다시 읽는다 (잠정값)
 DISCONNECT_TIMEOUT = 5  # 초. 끊기가 매달려도 시작 때 읽기를 끝낸다 (잠정값)
-# 초. 결과 뒤 처리 안 된 덧붙인 말이 있을 때 다음 차례를 기다리는 시간 (잠정값. 2026-10-23 실측에서 다음 차례는 0.1초 안에 시작했다)
+# 초. 결과 뒤 처리 안 된 덧붙인 말이 있을 때 다음 차례를 기다리는 시간. 결과를 받은 때부터 잰다
+# (잠정값. 2026-10-23 실측에서 다음 차례는 0.1초 안에 시작했다)
 FOLLOWUP_GRACE = 3
 
 # 도구 이름 -> 준비 중 줄의 글. 앞부분이 맞으면 그 글이다 (context 정한 값 표)
@@ -158,12 +159,15 @@ class AgentRun:
             self._sent += 1
             await client.query(prompt)
             messages = client.receive_messages()
+            deadline = None  # 결과를 쥔 뒤 다음 차례를 기다릴 마감. 사이에 다른 메시지가 와도 늦추지 않는다
             while True:
+                if self._pending_result is None:
+                    deadline = None
+                elif deadline is None:
+                    deadline = asyncio.get_running_loop().time() + FOLLOWUP_GRACE
                 try:
-                    if self._pending_result is None:
+                    async with asyncio.timeout_at(deadline):  # None이면 마감 없음
                         m = await anext(messages)
-                    else:  # 다음 차례가 FOLLOWUP_GRACE 안에 시작하지 않으면 쥔 결과로 끝낸다
-                        m = await asyncio.wait_for(anext(messages), FOLLOWUP_GRACE)
                 except StopAsyncIteration:
                     break
                 except TimeoutError:
@@ -185,7 +189,10 @@ class AgentRun:
             self._flush()
             # SDK 오류 글·트레이스백에는 CLI 출력(사용자 내용)이 섞일 수 있어 종류만 남긴다
             log.error("세션 %d: Claude Code 실행 실패 (%s)", self.session_id, type(e).__name__)
-            self._events.finished("Claude Code를 실행하지 못했어요", True)
+            if self._pending_result is not None:  # 앞 차례의 답은 받았으니 그것으로 끝낸다
+                self._events.finished(*self._pending_result)
+            else:
+                self._events.finished("Claude Code를 실행하지 못했어요", True)
         finally:
             self._client = None
             await self._disconnect(client)
@@ -236,6 +243,7 @@ class AgentRun:
         if self._pending_result is not None:
             if not self._stopped:
                 self._events.turn_result(*self._pending_result)
+                self._activity = None  # 화면은 result 줄에서 준비 중 줄을 지우므로 같은 일도 다시 보낸다
             self._pending_result = None
 
     def _flush(self) -> None:

@@ -525,8 +525,10 @@ def test_probe_poll_and_disconnect_limits():
 async def test_queued_followup_gets_its_own_result():
     """글로만 답하는 중에 덧붙이면 첫 차례가 끝난 뒤 다음 차례가 따로 온다. 다음 차례 결과까지 받는다 (Review Focus 2)."""
     step = asyncio.Event()
-    client = FakeClient([init(), replay("처음"), text("고양이 이야기"), step, tool_result(), result("고양이 이야기"),
-                         init(), replay("개도"), text("개도 넣었어요"), result("고양이와 개"), asyncio.Event()])
+    writing = {"type": "text", "text": ""}
+    client = FakeClient([init(), replay("처음"), block_start(writing), text("고양이 이야기"), step, tool_result(),
+                         result("고양이 이야기"), init(), replay("개도"), block_start(writing), text("개도 넣었어요"),
+                         result("고양이와 개"), asyncio.Event()])
     events = FakeEvents()
     run = AgentRun(1, events, make_client=client)
     task = asyncio.ensure_future(run.run("처음", None))
@@ -538,6 +540,53 @@ async def test_queued_followup_gets_its_own_result():
     assert events.of("progress") == [("개도 넣었어요",)]
     assert events.of("finished") == [("고양이와 개", False)]
     assert client.disconnected == 1
+    # 화면은 result 줄에서 준비 중 줄을 지운다. 다음 차례의 같은 일도 다시 보낸다
+    order = [c[0] for c in events.calls if c[0] in ("activity", "turn_result", "finished")]
+    assert order == ["activity", "turn_result", "activity", "finished"]
+
+
+async def test_run_failure_after_held_result_finishes_with_it(monkeypatch):
+    """결과를 쥐고 다음 차례를 기다리다 실행이 깨지면 받은 답으로 끝낸다."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 100)
+    step = asyncio.Event()
+
+    class Broken(FakeClient):
+        async def receive_messages(self):
+            async for m in super().receive_messages():
+                yield m
+            raise RuntimeError("CLI 출력")
+    client = Broken([init(), replay("처음"), step, result("했어요")])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("이것도")
+    step.set()
+    await asyncio.wait_for(task, 1)
+    assert events.of("finished") == [("했어요", False)]
+
+
+async def test_grace_is_a_deadline_from_result(monkeypatch):
+    """결과 뒤 다른 메시지(사용량 등)가 와도 기다림이 늘지 않는다."""
+    monkeypatch.setattr(agent, "FOLLOWUP_GRACE", 0.1)
+    step = asyncio.Event()
+
+    class Trickle(FakeClient):
+        async def receive_messages(self):
+            async for m in super().receive_messages():
+                yield m
+            while True:  # 다음 차례는 오지 않고 0.05초마다 다른 메시지만 온다
+                await asyncio.sleep(0.05)
+                yield stream({"type": "message_stop"})
+    client = Trickle([init(), replay("처음"), step, result("했어요")])
+    events = FakeEvents()
+    run = AgentRun(1, events, make_client=client)
+    task = asyncio.ensure_future(run.run("처음", None))
+    await until(lambda: client.queries == ["처음"])
+    await run.say("이것도")
+    step.set()
+    await asyncio.wait_for(task, 1)
+    assert events.of("finished") == [("했어요", False)]
 
 
 async def test_merged_followup_finishes_at_its_result(monkeypatch):
@@ -594,8 +643,7 @@ async def test_stop_while_waiting_next_turn_does_not_wait(monkeypatch):
     await until(lambda: client.queries == ["처음"])
     await run.say("이것도")
     step.set()
-    for _ in range(20):
-        await asyncio.sleep(0)
+    await until(lambda: run._pending_result is not None)
     await run.stop()
     await asyncio.wait_for(task, 1)
     assert events.of("finished") == [] and events.of("turn_result") == []
