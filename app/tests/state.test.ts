@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackendMessage, Entry, Schedule, Task } from "../src/shared/protocol";
-import { apply, badges, disconnected, followUps, initialState, pose, refreshRequests, tooltip, type State } from "../src/shared/state";
+import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, pendingQuestion, pose, refreshRequests, rowNote, tooltip, type State } from "../src/shared/state";
 
 const task = (id: number, o: Partial<Task> = {}): Task => ({
   id, source: "user", title: `작업 ${id}`, state: "done", seen: true, session_id: null, created_at: "2026-10-22T09:00:00", ...o,
@@ -206,5 +206,38 @@ describe("disconnected", () => {
     expect(d.connected).toBe(false);
     expect(tooltip(d)).toBe("눌러서 일 맡기기");
     expect(pose(d)).toBe("sit");
+  });
+});
+
+describe("알림 카드와 행 부가 글", () => {
+  const q = (id: number, task_id: number, text: string, kind: Entry["kind"] = "question"): Entry =>
+    ({ id, task_id, at: "2026-10-22T09:12:00", kind, text, choices: kind === "question" ? ["결제", "취소"] : null, data: null });
+  const alerts = (...items: Task[]) => run(online(), { type: "tasks", view: "alerts", page: 1, pages: 1, items });
+
+  it("firstWaiting picks the first waiting task of the shown alerts page", () => {
+    const s = alerts(task(1, { state: "failed", seen: false }), task(2, { state: "waiting" }), task(3, { state: "waiting" }));
+    expect(firstWaiting(s)?.id).toBe(2);
+    expect(alertRows(s).map((t) => t.id)).toEqual([1, 3]);
+    expect(firstWaiting(alerts(task(1, { state: "done", seen: false })))).toBeUndefined();
+    expect(firstWaiting(initialState())).toBeUndefined();
+    expect(alertRows(initialState())).toEqual([]);
+  });
+
+  it("pendingQuestion is the last question after the last user line", () => {
+    let s = run(online(), { type: "task_detail", task: task(2, { state: "waiting" }), entries: [q(1, 2, "누구?"), q(2, 2, "민지", "user"), q(3, 2, "결제할까요?")], schedule: null });
+    expect(pendingQuestion(s, 2)?.text).toBe("결제할까요?");
+    s = run(s, { type: "entry", task_id: 2, entry: q(4, 2, "결제", "user") });
+    expect(pendingQuestion(s, 2)).toBeUndefined();
+    expect(pendingQuestion(s, 9)).toBeUndefined();
+  });
+
+  it("rowNote shows the cached question or the state text", () => {
+    const s = run(online(), { type: "entry", task_id: 2, entry: q(1, 2, "결제할까요?") });
+    expect(rowNote(s, task(2, { state: "waiting" }))).toBe("결제할까요?");
+    expect(rowNote(s, task(5, { state: "waiting" }))).toBe("답을 기다려요");
+    expect(rowNote(s, task(5, { state: "working" }))).toBe("일하는 중");
+    expect(rowNote(s, task(5, { state: "done" }))).toBe("다 했어요");
+    expect(rowNote(s, task(5, { state: "failed" }))).toBe("못 했어요");
+    expect(rowNote(s, task(5, { state: "stopped" }))).toBe("멈췄어요");
   });
 });

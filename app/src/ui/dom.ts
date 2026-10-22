@@ -12,3 +12,10 @@ export function h(tag: string, attrs: Record<string, Attr> = {}, ...children: Ch
   for (const c of children) if (c !== null && c !== undefined && c !== false) el.append(c);
   return el;
 }
+
+// 고정된 SVG 글(코드 안의 상수만, 사용자 글은 넣지 않는다)을 요소로 만든다
+export function svg(markup: string): Element {
+  const t = document.createElement("template");
+  t.innerHTML = markup.trim();
+  return t.content.firstElementChild!;
+}

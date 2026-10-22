@@ -23,9 +23,14 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 상세 창은 닫기 버튼을 눌러도 숨기기만 한다(다시 열 때 같은 창을 쓴다)
+            // 상세 창은 닫기 버튼을 눌러도 숨기기만 한다(다시 열 때 같은 창을 쓴다).
+            // 주 창(강아지)이 닫히면(Alt+F4 등) 앱을 끝낸다. 그래야 Exit에서 백엔드도 꺼진다
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "detail" { api.prevent_close(); let _ = window.hide(); }
+                match window.label() {
+                    "detail" => { api.prevent_close(); let _ = window.hide(); }
+                    "main" => window.app_handle().exit(0),
+                    _ => {}
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![backend_endpoint, backend_start])

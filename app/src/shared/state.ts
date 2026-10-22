@@ -163,3 +163,30 @@ export function refreshRequests(s: State): Outgoing[] {
   }
   return out;
 }
+
+// 알림 탭: 보고 있는 쪽의 첫 `waiting` 작업만 질문 카드로 보인다. 나머지는 행
+export const firstWaiting = (s: State): Task | undefined => s.lists.alerts?.items.find((t) => t.state === "waiting");
+
+export function alertRows(s: State): Task[] {
+  const card = firstWaiting(s);
+  return (s.lists.alerts?.items ?? []).filter((t) => t !== card);
+}
+
+// 아직 답하지 않은 질문: 마지막 사용자 줄 뒤의 마지막 `question` 줄 (캐시에 있을 때만)
+export function pendingQuestion(s: State, taskId: number): Entry | undefined {
+  const es = s.entries.get(taskId) ?? [];
+  for (let i = es.length - 1; i >= 0; i--) {
+    if (es[i].kind === "user") return undefined;
+    if (es[i].kind === "question") return es[i];
+  }
+  return undefined;
+}
+
+const STATE_TEXT: Record<Task["state"], string> = {
+  working: "일하는 중", waiting: "답을 기다려요", done: "다 했어요", failed: "못 했어요", stopped: "멈췄어요",
+};
+
+// 목록 행의 부가 글: 질문을 기다리면 그 질문 글(캐시에 있으면), 아니면 상태 글
+export function rowNote(s: State, t: Task): string {
+  return (t.state === "waiting" && pendingQuestion(s, t.id)?.text) || STATE_TEXT[t.state];
+}

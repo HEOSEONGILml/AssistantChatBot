@@ -19,12 +19,16 @@ html, body {
 }
 
 .panel {
+  position: relative; /* 꼬리 기준 */
+  display: flex;
+  flex-direction: column;
   width: 340px;
   box-sizing: border-box;
   margin-bottom: 12px;
   background: #FFFFFF;
   border: 1px solid #D5DAE1;
   border-radius: 14px;
+  /* 그림자(0 10px 28px)는 넣지 않는다: 창이 패널 너비(340)라 그림자가 창 끝에서 잘린다 */
 }
 .panel[hidden] { display: none; }
 .placeholder { padding: 16px; color: #5B6472; }
@@ -71,3 +75,225 @@ html, body {
 .badge-red { background: #C81E1E; }
 .badge-yellow { background: #B45309; }
 .badge-green { background: #15803D; }
+
+/* --- 패널 (다이제스트 2절) --- */
+button { font: inherit; color: inherit; }
+.tail {
+  position: absolute;
+  right: 56px;
+  bottom: -8px;
+  width: 14px;
+  height: 14px;
+  background: #FFFFFF;
+  border-right: 1px solid #D5DAE1;
+  border-bottom: 1px solid #D5DAE1;
+  transform: rotate(45deg);
+}
+.conn {
+  padding: 6px 12px;
+  border-radius: 14px 14px 0 0;
+  background: #F7F8FA;
+  color: #5B6472;
+  font-size: 12px;
+}
+
+/* 탭 바 */
+.tabbar { display: flex; align-items: center; padding: 0 4px 0 8px; border-bottom: 1px solid #E6E9EE; }
+.tabs { flex: 1; display: flex; }
+.tab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+  white-space: nowrap;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #5B6472;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { border-bottom-color: #1B1F27; color: #1B1F27; font-weight: 700; }
+.tab-icon { width: 36px; justify-content: center; padding: 0; }
+.mini {
+  display: inline-block;
+  min-width: 13px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+.mini + .mini { margin-left: 2px; }
+.mini-red { background: #C81E1E; }
+.mini-yellow { background: #B45309; }
+.mini-green { background: #15803D; }
+
+/* 머리: 뒤로 + 제목 */
+.head { display: flex; align-items: center; gap: 4px; padding: 0 4px; border-bottom: 1px solid #E6E9EE; }
+.back {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #1B1F27;
+  cursor: pointer;
+}
+.head-title { flex: 1; font-size: 14px; font-weight: 700; }
+
+/* 목록 행 */
+.rows { margin: 0; padding: 0 4px 0 12px; list-style: none; display: flex; flex-direction: column; font-size: 13px; }
+.row { min-height: 44px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #E6E9EE; }
+.row:last-child { border-bottom: 0; }
+.row-open {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.row-open svg { flex: none; }
+.row-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-text b, .card-title b { font-weight: 500; }
+.note { color: #5B6472; }
+.note-ask { color: #B42318; }
+.tag-schedule { color: #0F5F52; }
+.row-answer {
+  flex: none;
+  min-height: 32px;
+  margin: 6px 4px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #1D4ED8;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.row-stop {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.row-time { flex: none; width: 44px; text-align: center; font-size: 12px; color: #5B6472; }
+.empty { margin: 0; padding: 16px; color: #5B6472; font-size: 13px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 질문 카드 (7 Alerts) */
+.card-wrap { padding: 10px 12px 0; display: flex; flex-direction: column; }
+.card {
+  padding: 10px 12px;
+  border: 2px solid #C81E1E;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.card-head { display: flex; align-items: center; gap: 8px; }
+.card-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-time { font-size: 12px; color: #5B6472; }
+.card-text { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-actions { display: flex; align-items: center; gap: 6px; }
+.link {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1D4ED8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.link:hover { color: #1E3A8A; }
+
+/* 버튼 */
+.btn-primary, .btn-secondary {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-primary { border: 0; background: #1D4ED8; color: #FFFFFF; font-weight: 700; }
+.btn-primary:disabled { opacity: 0.5; cursor: default; }
+.btn-secondary { border: 1px solid #C4CAD3; background: #FFFFFF; color: #1B1F27; font-weight: 500; }
+.btn-sm { min-height: 36px; border-radius: 8px; }
+
+/* 페이저 */
+.pager { display: flex; align-items: center; justify-content: center; border-top: 1px solid #E6E9EE; font-size: 12px; color: #5B6472; }
+.pager button {
+  width: 44px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #1B1F27;
+  cursor: pointer;
+}
+.pager button:disabled { color: #C4CAD3; cursor: default; }
+
+/* 하단 추가 버튼 */
+.add { padding: 8px; border-top: 1px solid #E6E9EE; }
+.add-btn {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed #C4CAD3;
+  border-radius: 10px;
+  background: transparent;
+  color: #1B1F27;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 새 작업 (6 Input) */
+.form { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.label { font-size: 12px; font-weight: 700; color: #5B6472; }
+.newreq {
+  height: 160px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 2px solid #1D4ED8;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: #1B1F27;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+}
+.newreq::placeholder { color: #6B7280; }
+.form-actions { display: flex; align-items: center; gap: 6px; }
+.hint { flex: 1; font-size: 11px; color: #5B6472; }
