@@ -134,6 +134,7 @@ ROUTES = [
     ({"type": "get_usage"}, ("get_usage",)),
     ({"type": "logout"}, ("logout",)),
     ({"type": "set_recording", "enabled": False}, ("set_recording", False)),
+    ({"type": "delete_session", "session_id": 3}, ("delete_session", 3)),
 ]
 
 

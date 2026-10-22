@@ -31,6 +31,7 @@ ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
     "get_usage": (),
     "logout": (),
     "set_recording": (("enabled", bool),),
+    "delete_session": (("session_id", int),),
 }
 # 기다리지 않고 따로 돌리는 메시지. 로그인은 사용자가 브라우저에서 끝낼 때까지 걸려 다른 메시지를 막으면 안 된다.
 # 로그아웃도 CLI를 불러 최대 20초 걸릴 수 있다.

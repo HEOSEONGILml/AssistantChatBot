@@ -153,6 +153,7 @@ flowchart LR
 | 인증 | `ANTHROPIC_API_KEY=""` | API 키 과금을 막고 구독 로그인을 씀 |
 | 외부 설정 | `setting_sources=[]` | `CLAUDE.md`·사용자 설정을 읽지 않음 |
 | 세션 이어 쓰기 | `resume=<claude_session_id>` | 끝난 세션에 `say`, 스케줄 재실행 |
+| 부분 메시지 | `include_partial_messages=True` | `StreamEvent`의 `content_block_start`로 지금 하는 일(`activity`)을 만든다 |
 
 #### 백엔드 Tools
 
@@ -206,6 +207,7 @@ sequenceDiagram
 | 끝 | `result` / `failure` | `done` / `failed` |
 | Claude Code 세션 ID | — (`claude_session_id`에 저장. 이어 쓰기에 쓴다) | — |
 | 사용량 | — (메모리에만. `usage`로 보낸다) | — |
+| 블록 시작 (생각·글·도구) | — (저장하지 않는다. 하는 일이 바뀔 때만 `activity`로 보낸다. `AskUserQuestion`은 보내지 않음) | — |
 
 - 질문은 한 번에 하나만 보인다. 겹치면 줄 서서 기다린다.
 - 돌고 있는 세션에 `say`하면 질문 대기 중엔 답, 아니면 덧붙인다.
@@ -230,6 +232,7 @@ stateDiagram-v2
 | 상황 | 처리 |
 |---|---|
 | 멈추기 | 기다리던 질문은 "거부"로 풀고 Claude Code 세션을 끊는다. 늦게 온 끝은 버린다 |
+| 지우기 (`delete_session`) | 돌고 있으면 멈추기와 같이 멈춘 뒤 세션·대화 줄·검색 색인·스케줄을 한 트랜잭션으로 지운다. 지운 세션에 늦게 온 이벤트는 버린다. 스케줄러는 지운 스케줄을 보지 않는다. 대화 세션을 지우면 새로 만든다 |
 | 백엔드가 꺼졌다 켜짐 | `working`·`waiting`이던 세션은 `failed`("앱이 꺼져서 멈췄어요"). 대화 세션만 `done`으로 |
 | 대화 세션 | 하나뿐. 없으면 시작 때 만든다. 작업 목록·알림에 넣지 않는다 |
 | 로그아웃 상태 | 세션을 만들거나 이어 쓰지 않고 `status(logged_in: false)`를 보낸다. 스케줄은 이번 실행을 건너뛴다 |

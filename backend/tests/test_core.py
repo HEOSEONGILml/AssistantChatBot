@@ -671,3 +671,91 @@ async def test_login_failure_still_sends_status_and_unlocks():
     assert out == [{"type": "status", "logged_in": False}]
     await app.login()  # 잠금이 풀려 다시 할 수 있다
     assert auth.login_calls == 2
+
+
+async def test_delete_session_removes_and_announces():
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].events.finished("했어요", False)
+    runs[0].end()
+    await settle()
+    out.clear()
+    await app.delete_session(1)
+    assert store.get_session(1) is None and store.entries(1) == []
+    assert out == [{"type": "session_deleted", "session_id": 1}]
+
+
+async def test_delete_missing_session_still_answers():
+    app, store, out, runs = make()
+    await app.delete_session(42)
+    assert out == [{"type": "session_deleted", "session_id": 42}]
+
+
+async def test_get_missing_session_answers_deleted():
+    app, store, out, runs = make()
+    await app.get_session(42)
+    assert out == [{"type": "session_deleted", "session_id": 42}]
+
+
+async def test_delete_running_session_stops_then_deletes():
+    app, store, out, runs = make()
+    await app.request("오래 걸리는 일")
+    runs[0].events.question("할까요?", ["예", "아니오"])  # 답 기다리는 중
+    await settle()
+    out.clear()
+    await app.delete_session(1)
+    await settle()
+    assert runs[0].stopped
+    assert store.get_session(1) is None and store.entries(1) == []
+    assert out[-1] == {"type": "session_deleted", "session_id": 1}
+    assert app._runs == {}
+
+
+async def test_late_events_after_delete_are_dropped():
+    app, store, out, runs = make()
+    await app.request("일")
+    ev = runs[0].events
+    await app.delete_session(1)
+    await settle()
+    out.clear()
+    ev.progress("늦은 진행")
+    ev.question("늦은 질문", ["예"])
+    ev.claude_session("s9")
+    ev.activity("tool", "파일 읽는 중")
+    ev.finished("늦은 결과", False)
+    await settle()
+    assert out == []
+    assert store.get_session(1) is None and store.entries(1) == []
+
+
+async def test_late_failure_after_delete_does_not_crash_drive():
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].fail = True
+    await app.delete_session(1)  # FakeRun.stop이 run을 끝내고, run은 예외로 끝난다
+    await settle()
+    assert store.get_session(1) is None and app._runs == {}
+
+
+async def test_delete_chat_creates_new_chat_session():
+    app, store, out, runs = make()
+    await app.startup()
+    old = store.chat_session()["id"]
+    await app.say(old, "안녕")
+    out.clear()
+    await app.delete_session(old)
+    await settle()
+    chat = store.chat_session()
+    assert chat is not None and chat["id"] != old
+    assert (chat["title"], chat["state"], chat["seen"], chat["claude_session_id"]) == ("대화", "done", True, None)
+    assert out[-2:] == [{"type": "session_deleted", "session_id": old}, {"type": "session", "session": chat}]
+    assert runs[0].stopped and store.entries(old) == []
+
+
+async def test_activity_is_sent_not_stored():
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].events.activity("tool", "웹에서 검색하는 중")
+    await settle()
+    assert of(out, "activity") == [{"type": "activity", "session_id": 1, "kind": "tool", "text": "웹에서 검색하는 중"}]
+    assert [e["kind"] for e in store.entries(1)] == ["user"]

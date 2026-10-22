@@ -3,9 +3,10 @@ import sys
 
 from claude_agent_sdk import (AssistantMessage, PermissionResultAllow, PermissionResultDeny, RateLimitEvent,
                               RateLimitInfo, ResultMessage, SystemMessage, TextBlock, ToolPermissionContext)
+from claude_agent_sdk.types import StreamEvent
 
 from backend import agent, config
-from backend.agent import HARNESS, AgentRun, build_options
+from backend.agent import HARNESS, AgentRun, activity_of, build_options
 from backend.tools import MCP_PREFIX
 
 QUESTION = "브라우저로 example.com을 열까요?"
@@ -243,6 +244,7 @@ def test_build_options_values(tmp_path, monkeypatch):
     # SDK는 options.env를 os.environ 위에 덮으므로 빈 값으로 덮어야 키가 빠진다
     assert not o.env.get("ANTHROPIC_API_KEY")
     assert o.max_turns is None and o.model is None
+    assert o.include_partial_messages is True  # 지금 하는 일(activity)을 StreamEvent로 받는다
 
 
 def test_claude_env_blanks_api_key(monkeypatch):
@@ -326,3 +328,83 @@ async def test_stop_during_connect_disconnects_client():
     assert client.queries == []
     assert client.disconnected >= 1
     assert events.of("finished") == []
+
+
+def stream(event):
+    return StreamEvent(uuid="u", session_id="s1", event=event)
+
+
+def block_start(block):
+    return stream({"type": "content_block_start", "index": 0, "content_block": block})
+
+
+def tool(name):
+    return block_start({"type": "tool_use", "id": "t", "name": name, "input": {}})
+
+
+def delta(t):
+    return stream({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": t}})
+
+
+def test_activity_of_blocks_and_tools():
+    assert activity_of({"type": "thinking", "thinking": ""}) == ("thinking", "생각하는 중")
+    assert activity_of({"type": "text", "text": ""}) == ("writing", "답 쓰는 중")
+    names = {
+        "mcp__screenpipe__search-content": "화면 기록에서 찾는 중",
+        "mcp__claude-in-chrome__navigate": "크롬에서 작업하는 중",
+        MCP_PREFIX + "search_sessions": "지난 작업 찾는 중",
+        "WebSearch": "웹에서 검색하는 중",
+        "WebFetch": "웹 페이지 읽는 중",
+        "Bash": "명령 실행하는 중",
+        "Read": "파일 읽는 중", "Glob": "파일 읽는 중", "Grep": "파일 읽는 중",
+        "Write": "파일 고치는 중", "Edit": "파일 고치는 중", "NotebookEdit": "파일 고치는 중",
+        "Task": "다른 에이전트에게 맡기는 중", "Agent": "다른 에이전트에게 맡기는 중",
+        "TodoWrite": "도구 쓰는 중",
+    }
+    for name, text in names.items():
+        assert activity_of({"type": "tool_use", "name": name}) == ("tool", text), name
+    assert activity_of({"type": "tool_use", "name": "AskUserQuestion"}) is None  # 질문 줄이 대신 보인다
+    assert activity_of({"type": "redacted_thinking"}) is None
+
+
+async def test_activity_only_on_block_start():
+    """글자 조각(delta)마다 보내지 않고, 하는 일이 바뀔 때만 보낸다."""
+    client = FakeClient([
+        init(),
+        block_start({"type": "thinking", "thinking": ""}), stream({"type": "content_block_delta", "index": 0,
+                                                                   "delta": {"type": "thinking_delta", "thinking": "음"}}),
+        block_start({"type": "text", "text": ""}), delta("찾"), delta("아"), delta("볼게요"),
+        tool("Read"), tool("Grep"),  # 같은 글이면 다시 보내지 않는다
+        tool("Bash"),
+        tool("AskUserQuestion"),  # 보내지 않는다
+        block_start({"type": "text", "text": ""}),
+        stream({"type": "message_stop"}),
+        result("찾았어요"),
+    ])
+    events = FakeEvents()
+    await AgentRun(7, events, make_client=client).run("요청", None)
+    assert events.of("activity") == [("thinking", "생각하는 중"), ("writing", "답 쓰는 중"),
+                                     ("tool", "파일 읽는 중"), ("tool", "명령 실행하는 중"),
+                                     ("writing", "답 쓰는 중")]
+    assert events.of("finished") == [("찾았어요", False)]
+
+
+async def test_activity_repeats_after_question():
+    """질문이 준비 중 줄을 지우므로, 답한 뒤에는 앞과 같은 일도 다시 보낸다."""
+    events = FakeEvents()
+    run = AgentRun(1, events)
+    run._handle(block_start({"type": "text", "text": ""}))
+    pending = asyncio.ensure_future(run.can_use_tool("WebFetch", {}, ToolPermissionContext()))
+    await until(lambda: run.waiting)
+    await run.say("허용")
+    await pending
+    run._handle(block_start({"type": "text", "text": ""}))
+    assert events.of("activity") == [("writing", "답 쓰는 중"), ("writing", "답 쓰는 중")]
+
+
+async def test_no_activity_after_stop():
+    events = FakeEvents()
+    run = AgentRun(1, events)
+    await run.stop()
+    run._handle(tool("Bash"))
+    assert events.of("activity") == []

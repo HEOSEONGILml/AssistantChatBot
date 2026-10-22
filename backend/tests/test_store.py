@@ -128,3 +128,19 @@ INSERT INTO task_text VALUES (1, '아침 뉴스'), (1, '오늘의 주요 뉴스'
     assert [x["id"] for x in s.search_sessions("회의", None, None, 5)] == [2, 1]
     assert s.create_session("user", "새 일")["id"] == 3
     assert Store(p).get_session(1)["title"] == "아침 뉴스"  # 다시 열어도 그대로
+
+
+def test_delete_session_removes_entries_index_schedule_and_session():
+    s = Store(None)
+    keep = s.create_session("user", "남길 일")
+    s.add_entry(keep["id"], "result", "남는 글")
+    gone = s.create_session("schedule", "지울 스케줄")
+    s.add_entry(gone["id"], "result", "지울 글")
+    s.create_schedule(gone["id"], "지울 스케줄", {"repeat": "daily", "time": "09:00"}, "요약")
+    s.delete_session(gone["id"])
+    assert s.get_session(gone["id"]) is None
+    assert s.entries(gone["id"]) == []
+    assert s.get_schedule(gone["id"]) is None and s.all_schedules() == []
+    assert s.search_sessions("지울", None, None, 5) == []  # 검색 색인도 지운다
+    assert [x["id"] for x in s.search_sessions("남는", None, None, 5)] == [keep["id"]]
+    s.delete_session(99)  # 없는 세션은 그냥 지나간다

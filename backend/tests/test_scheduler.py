@@ -88,3 +88,11 @@ async def test_missing_session_does_not_abort_tick():
     clock.t = datetime(2026, 10, 22, 18, 0, 30, tzinfo=KST)
     await s.tick()
     assert app.calls == []
+
+
+async def test_deleted_schedule_does_not_run():
+    s, clock, app = setup(datetime(2026, 10, 22, 17, 59, tzinfo=KST))
+    s._store.delete_session(1)
+    clock.t = datetime(2026, 10, 22, 18, 0, 30, tzinfo=KST)
+    await s.tick()
+    assert app.calls == []

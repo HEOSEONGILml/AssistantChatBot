@@ -8,6 +8,7 @@ from typing import Protocol
 from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, PermissionResultAllow,
                               PermissionResultDeny, RateLimitEvent, ResultMessage, SystemMessage, TextBlock,
                               ToolPermissionContext)
+from claude_agent_sdk.types import StreamEvent
 
 from . import config
 from .tools import MCP_PREFIX
@@ -21,6 +22,34 @@ SCREENPIPE = ({"command": "cmd", "args": ["/c", "npx", "-y", "screenpipe-mcp@lat
               if sys.platform == "win32"
               else {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]})
 STOP_ANSWER = "거부"
+
+# 도구 이름 -> 준비 중 줄의 글. 앞부분이 맞으면 그 글이다 (context 정한 값 표)
+_TOOL_PREFIX_TEXT = (("mcp__screenpipe__", "화면 기록에서 찾는 중"),
+                     ("mcp__claude-in-chrome__", "크롬에서 작업하는 중"),
+                     (MCP_PREFIX, "지난 작업 찾는 중"))
+_TOOL_TEXT = {"WebSearch": "웹에서 검색하는 중", "WebFetch": "웹 페이지 읽는 중", "Bash": "명령 실행하는 중",
+              "Read": "파일 읽는 중", "Glob": "파일 읽는 중", "Grep": "파일 읽는 중",
+              "Write": "파일 고치는 중", "Edit": "파일 고치는 중", "NotebookEdit": "파일 고치는 중",
+              "Task": "다른 에이전트에게 맡기는 중", "Agent": "다른 에이전트에게 맡기는 중"}
+
+
+def activity_of(block: dict) -> tuple[str, str] | None:
+    """content_block_start의 블록 -> (kind, text). 보내지 않을 블록이면 None.
+    AskUserQuestion은 질문 줄이 대신 보이므로 보내지 않는다."""
+    kind = block.get("type")
+    if kind == "thinking":
+        return "thinking", "생각하는 중"
+    if kind == "text":
+        return "writing", "답 쓰는 중"
+    if kind != "tool_use":
+        return None
+    name = block.get("name", "")
+    if name == "AskUserQuestion":
+        return None
+    for prefix, text in _TOOL_PREFIX_TEXT:
+        if name.startswith(prefix):
+            return "tool", text
+    return "tool", _TOOL_TEXT.get(name, "도구 쓰는 중")
 
 
 def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resume: str | None) -> ClaudeAgentOptions:
@@ -37,6 +66,7 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
         permission_mode=permission_mode,
         can_use_tool=can_use_tool,
         resume=resume,
+        include_partial_messages=True,  # 지금 하는 일(activity)을 StreamEvent로 받는다 (스펙 5.1)
     )
 
 
@@ -54,6 +84,7 @@ class RunEvents(Protocol):
     def finished(self, result_text: str, is_error: bool) -> None: ...
     def claude_session(self, claude_session_id: str) -> None: ...
     def rate_limit(self, info: dict) -> None: ...
+    def activity(self, kind: str, text: str) -> None: ...
 
 
 class AgentRun:
@@ -70,6 +101,7 @@ class AgentRun:
         self._stopped = False
         # 마지막 글은 최종 답(ResultMessage)과 같으므로, 다음 메시지가 올 때까지 진행으로 보내지 않고 쥔다
         self._held: str | None = None
+        self._activity: tuple[str, str] | None = None  # 마지막으로 보낸 지금 하는 일
 
     @property
     def waiting(self) -> bool:
@@ -105,7 +137,14 @@ class AgentRun:
 
     def _handle(self, m) -> bool:
         """메시지 하나를 이벤트로. 끝이면 True."""
-        if isinstance(m, AssistantMessage):
+        if isinstance(m, StreamEvent):
+            # 글자 조각(delta)은 보지 않고 블록이 시작될 때만 본다
+            if m.event.get("type") == "content_block_start" and not self._stopped:
+                now = activity_of(m.event.get("content_block", {}))
+                if now is not None and now != self._activity:
+                    self._activity = now
+                    self._events.activity(*now)
+        elif isinstance(m, AssistantMessage):
             for b in m.content:
                 self._flush()
                 if isinstance(b, TextBlock) and b.text.strip():
@@ -194,6 +233,7 @@ class AgentRun:
         """_ask_lock을 쥔 채로 부른다. 멈췄으면 묻지 않고 "거부"."""
         if self._stopped:
             return STOP_ANSWER
+        self._activity = None  # 질문이 준비 중 줄을 지우므로 답한 뒤에는 같은 일도 다시 보낸다
         emit()
         return await self._wait()
 

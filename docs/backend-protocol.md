@@ -1,6 +1,6 @@
 # 화면 ↔ 백엔드 프로토콜 (v7)
 
-화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
+화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. `delete_session`·`session_deleted`·`activity`는 v7에 더한 메시지다(버전은 그대로 `7`, [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 지우기"·"수정: 준비 중 표시"). 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
 
 ## 연결
 
@@ -27,7 +27,7 @@
 | `stop` | `session_id`: 정수 | 멈추기 |
 | `seen` | `session_id`: 정수 | 열어 봤을 때 |
 | `list_sessions` | `page`: 정수(1부터), `view`: `"user"` \| `"alerts"` | 작업 탭(`user`)·알림 탭(`alerts`) 한 쪽 |
-| `get_session` | `session_id`: 정수 | 대화 열기 |
+| `get_session` | `session_id`: 정수 | 대화 열기. 없는 세션이면 `session_deleted`로 답한다 |
 | `list_schedules` | `page`: 정수 | 스케줄 탭 한 쪽 |
 | `set_schedule` | `session_id`: 정수, `name`, `rule`, `instruction` | 지시서 수정 양식의 [저장]. 등록 확인을 기다리는 중이면 [고치기]로 고친 값을 그 확인의 답으로 넘긴다 |
 | `set_schedule_enabled` | `session_id`: 정수, `enabled`: 참거짓 | 스케줄 스위치 |
@@ -35,6 +35,7 @@
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새로 띄우는 세션부터 적용 |
 | `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
+| `delete_session` | `session_id`: 정수 | 지우기. 돌거나 답을 기다리면 먼저 멈춘다(`stop`과 같이 질문은 "거부"로 풀고 Claude Code 세션을 끊는다). 세션·대화 줄·검색 색인·스케줄을 지우고 `session_deleted`를 보낸다. 지운 뒤 늦게 온 진행·결과는 버린다. 대화 세션을 지우면 새 대화 세션(제목 `대화`)을 만들어 `session`으로 보낸다. 없는 세션이어도 `session_deleted`를 보낸다 |
 
 - **규칙 `rule`**: `{"repeat": "daily"|"weekdays"|"weekly"|"monthly", "time": "HH:MM", "weekday": 0-6, "day": 1-31}`. `weekday`(월=0)는 `weekly`일 때, `day`는 `monthly`일 때만 필요하다 ([0032](decisions/0032-schedule-creation.md)). 틀린 규칙은 버린다.
 - **권한 모드 `mode`**: `"default"`(기본), `"acceptEdits"`, `"plan"`, `"auto"`, `"bypassPermissions"`. 다른 값은 버린다.
@@ -53,6 +54,8 @@
 | `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
 | `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬) | `get_settings`의 답, 바뀌었을 때 |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
+| `session_deleted` | `session_id` | `delete_session`의 답. `get_session`에 없는 세션이 왔을 때 |
+| `activity` | `session_id`, `kind`, `text` | 돌고 있는 세션이 하는 일이 바뀔 때. 대화 기록에 남기지 않는다. 아래 [지금 하는 일](#지금-하는-일-activity) |
 
 ### 세션 `session`
 
@@ -116,6 +119,27 @@
 | `last_result` | 마지막 실행이 끝난 상태(`done`·`failed`·`stopped`) 또는 `null` |
 
 `schedules` 목록의 `state`: `"running"`(도는 중·답 기다림), `"next"`(켜짐), `"off"`(꺼짐).
+
+### 지금 하는 일 `activity`
+
+Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `content_block_start`에서 만든다(스펙 5.1). 글자 조각(`content_block_delta`)마다 보내지 않는다. 바로 앞에 보낸 것과 `kind`·`text`가 같으면 보내지 않는다. 질문·권한 요청·등록 확인을 띄우면 이 비교를 처음으로 되돌린다(답한 뒤 같은 일도 다시 보낸다). 멈춘 뒤에는 보내지 않는다.
+
+| 블록 | `kind` | `text` |
+|---|---|---|
+| `thinking` | `thinking` | `생각하는 중` |
+| `text` | `writing` | `답 쓰는 중` |
+| `tool_use` `mcp__screenpipe__*` | `tool` | `화면 기록에서 찾는 중` |
+| `tool_use` `mcp__claude-in-chrome__*` | `tool` | `크롬에서 작업하는 중` |
+| `tool_use` `mcp__assistant__*` (백엔드 Tools) | `tool` | `지난 작업 찾는 중` |
+| `tool_use` `WebSearch` | `tool` | `웹에서 검색하는 중` |
+| `tool_use` `WebFetch` | `tool` | `웹 페이지 읽는 중` |
+| `tool_use` `Bash` | `tool` | `명령 실행하는 중` |
+| `tool_use` `Read`·`Glob`·`Grep` | `tool` | `파일 읽는 중` |
+| `tool_use` `Write`·`Edit`·`NotebookEdit` | `tool` | `파일 고치는 중` |
+| `tool_use` `Task`·`Agent` | `tool` | `다른 에이전트에게 맡기는 중` |
+| `tool_use` `AskUserQuestion` | — | 보내지 않는다(질문 줄이 대신 보인다) |
+| `tool_use` 그 밖 | `tool` | `도구 쓰는 중` |
+| 그 밖의 블록 | — | 보내지 않는다 |
 
 ### 사용량 `usage`
 

@@ -82,6 +82,11 @@ class _Events:
     def finished(self, result_text: str, is_error: bool) -> None:
         self._app._finish(self._id, result_text, is_error)
 
+    def activity(self, kind: str, text: str) -> None:
+        """지금 하는 일. 대화 기록에 남기지 않고 바로 보낸다."""
+        if self._app._store.get_session(self._id) is not None:
+            self._app._post({"type": "activity", "session_id": self._id, "kind": kind, "text": text})
+
     def claude_session(self, claude_session_id: str) -> None:
         self._app._store.update_session(self._id, claude_session_id=claude_session_id)
 
@@ -184,11 +189,26 @@ class App:
     async def get_session(self, session_id: int) -> None:
         session = self._store.get_session(session_id)
         if session is None:
-            log.warning("없는 세션을 열려 함: %d", session_id)
+            # 지운 세션의 칩을 눌렀을 때. 화면이 목록으로 돌아가게 지웠다고 답한다
+            await self._send({"type": "session_deleted", "session_id": session_id})
             return
         schedule = self._store.get_schedule(session_id)
         await self._send({"type": "session_detail", "session": session, "entries": self._store.entries(session_id),
                           "schedule": self._schedule_view(schedule) if schedule else None})
+
+    async def delete_session(self, session_id: int) -> None:
+        """돌거나 답을 기다리면 먼저 멈추고 지운다. 대화 세션을 지우면 새 대화 세션을 만든다 (대화 세션은 늘 하나)."""
+        session = self._store.get_session(session_id)
+        if session is not None:
+            held = self._runs.get(session_id)
+            if held is not None:
+                await held[0].stop()  # 기다리던 답은 "거부"로 풀고 Claude Code 세션을 끊는다
+            self._store.delete_session(session_id)  # 뒤에 오는 이벤트는 세션이 없어 버려진다
+            log.info("세션 %d: 지움", session_id)
+        self._post({"type": "session_deleted", "session_id": session_id})
+        if session is not None and session["source"] == "chat":
+            self._post({"type": "session", "session": self._new_chat()})
+        await self._flush()
 
     async def list_schedules(self, page: int) -> None:
         schedules, pages = self._store.list_schedules(page)
@@ -300,12 +320,16 @@ class App:
             self._store.add_entry(session["id"], "failure", "앱이 꺼져서 멈췄어요")
             self._store.update_session(session["id"], state="failed", seen=False)
         if self._store.chat_session() is None:
-            chat = self._store.create_session("chat", CHAT_TITLE)
-            self._store.update_session(chat["id"], state="done", seen=True)
+            self._new_chat()
         if self.recording_enabled():
             await self._recorder.start()
 
     # --- 세션 ---
+    def _new_chat(self) -> dict:
+        """대화 세션을 만든다. 돌지 않고 첫 say를 기다린다."""
+        chat = self._store.create_session("chat", CHAT_TITLE)
+        return self._store.update_session(chat["id"], state="done", seen=True)
+
     async def _new_session(self, source: str, fields: dict) -> dict | None:
         """에이전트의 create_session. 어느 세션에서 불렀든 같은 길로 만든다."""
         if source == "user":
@@ -360,24 +384,30 @@ class App:
             await run.run(prompt, options)
         except Exception as e:
             log.error("세션 %d: Claude Code 세션이 예외로 끝났다 (%s)", session_id, type(e).__name__)  # 트레이스백엔 사용자 내용이 섞일 수 있다
-            if self._store.get_session(session_id)["state"] in ("working", "waiting"):  # 이미 끝났으면 실패 줄을 또 쓰지 않는다
+            session = self._store.get_session(session_id)
+            if session is not None and session["state"] in ("working", "waiting"):  # 이미 끝났거나 지웠으면 쓰지 않는다
                 self._finish(session_id, "작업을 실행하지 못했어요", True)
         finally:
             if self._runs.get(session_id, (None,))[0] is run:
                 del self._runs[session_id]
 
     def _finish(self, session_id: int, text: str, is_error: bool) -> None:
-        if self._store.get_session(session_id)["state"] == "stopped":
-            return  # 멈춘 뒤 늦게 온 끝은 버린다
+        session = self._store.get_session(session_id)
+        if session is None or session["state"] == "stopped":
+            return  # 지우거나 멈춘 뒤 늦게 온 끝은 버린다
         self._entry(session_id, "failure" if is_error else "result", text)
         self._set(session_id, state="failed" if is_error else "done", seen=False)
 
-    # --- 저장과 알림 ---
+    # --- 저장과 알림 (지운 세션에는 쓰지 않는다) ---
     def _entry(self, session_id: int, kind: str, text: str, **extra) -> None:
+        if self._store.get_session(session_id) is None:
+            return
         entry = self._store.add_entry(session_id, kind, text, **extra)
         self._post({"type": "entry", "session_id": session_id, "entry": entry})
 
     def _set(self, session_id: int, **fields) -> None:
+        if self._store.get_session(session_id) is None:
+            return
         self._post({"type": "session", "session": self._store.update_session(session_id, **fields)})
 
     @staticmethod

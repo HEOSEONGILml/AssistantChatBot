@@ -128,6 +128,14 @@ class Store:
         row = self._db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         return _session(row) if row else None
 
+    def delete_session(self, session_id: int) -> None:
+        """세션과 그 대화 줄·검색 색인·스케줄을 한 트랜잭션으로 지운다. 없으면 아무것도 하지 않는다."""
+        with self._db:
+            self._db.execute("DELETE FROM entries WHERE session_id = ?", (session_id,))
+            self._db.execute("DELETE FROM session_text WHERE session_id = ?", (session_id,))
+            self._db.execute("DELETE FROM schedules WHERE session_id = ?", (session_id,))
+            self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
     def chat_session(self) -> dict | None:
         """대화 탭의 대화 세션 (하나뿐이다). 아직 없으면 None."""
         row = self._db.execute("SELECT * FROM sessions WHERE source = 'chat' ORDER BY id LIMIT 1").fetchone()
