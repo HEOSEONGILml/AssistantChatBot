@@ -45,7 +45,7 @@
 
 ## 4. Jev 사용 규칙
 
-- 지금은 Jev를 쓰지 않는다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 필요하다고 판단되면 결정 기록을 남기고 쓴다.
+- Jev는 먼저 말 걸기 판단에 쓴다 ([0037](docs/decisions/0037-jev-for-proactive-judgment.md)). 다른 곳에 쓰려면 결정 기록을 남기고 쓴다.
 - 쓰게 되면: Jev는 판단의 분포만 준다(선택·점수·예/아니오의 확률). 텍스트 생성은 Jev의 역할이 아니다.
 - 질문 정의(`instructions`, `criteria`)는 코드에 흩뿌리지 않고 한곳에서 관리한다. 임계값은 **근거와 함께** 문서에 기록하고, 잠정값이면 잠정값이라고 적는다.
 - API 상세와 사내 사용 사례는 `docs/references/typesafe-jev.md`를 본다.
