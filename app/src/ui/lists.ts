@@ -1,5 +1,5 @@
 // 알림 탭·작업 탭의 목록: 질문 카드, 작업 행, 페이저. 값은 다이제스트 2·3절(7 Alerts, 8 TaskPanel).
-import type { Outgoing, Task } from "../shared/protocol";
+import type { Outgoing, Session } from "../shared/protocol";
 import { alertRows, badges, firstWaiting, pendingQuestion, rowNote, type State, type View } from "../shared/state";
 import { timeText } from "../shared/forms";
 import { answered, answerKey } from "../shared/entries";
@@ -22,22 +22,22 @@ export const ICON = {
 };
 
 const now = () => new Date();
-const openTask = (s: State, t: Task, go: Go) => () => go({ tab: s.view.tab, screen: "task", taskId: t.id, page: s.view.page });
-const scheduleTag = (t: Task) => (t.source === "schedule" ? [" ", h("span", { class: "tag-schedule" }, "스케줄")] : []);
+const openSession = (s: State, t: Session, go: Go) => () => go({ tab: s.view.tab, screen: "task", sessionId: t.id, page: s.view.page });
+const scheduleTag = (t: Session) => (t.source === "schedule" ? [" ", h("span", { class: "tag-schedule" }, "스케줄")] : []);
 
-function stateIcon(t: Task): Element {
+function stateIcon(t: Session): Element {
   if (t.state === "working") return svg(t.source === "schedule" ? ICON.scheduleWorking : ICON.working);
   return svg(ICON[t.state]);
 }
 
-// 작업 행 하나: 아이콘 · 이름(+스케줄 태그) · 부가 글 | [답하기] · 멈추기 · 시각
-function taskRow(s: State, t: Task, send: Send, go: Go): HTMLElement {
-  const open = openTask(s, t, go);
+// 세션 행 하나: 아이콘 · 이름(+스케줄 태그) · 부가 글 | [답하기] · 멈추기 · 시각
+function sessionRow(s: State, t: Session, send: Send, go: Go): HTMLElement {
+  const open = openSession(s, t, go);
   const note = rowNote(s, t);
   const right = t.state === "waiting"
     ? h("button", { type: "button", class: "row-answer", onClick: open }, "답하기")
     : t.state === "working"
-      ? h("button", { type: "button", class: "row-stop", "aria-label": `${t.title} 멈추기`, onClick: () => send({ type: "stop", task_id: t.id }) }, svg(ICON.stop))
+      ? h("button", { type: "button", class: "row-stop", "aria-label": `${t.title} 멈추기`, onClick: () => send({ type: "stop", session_id: t.id }) }, svg(ICON.stop))
       : h("span", { class: "row-time" }, timeText(t.created_at, now()));
   return h("li", { class: "row" },
     h("button", { type: "button", class: "row-open", onClick: open },
@@ -49,12 +49,12 @@ function taskRow(s: State, t: Task, send: Send, go: Go): HTMLElement {
 }
 
 // 첫 질문 카드: 이름 · 출처 | 시각, 질문 글, [선택지…] 대화 보기 ›
-function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
+function questionCard(s: State, t: Session, send: Send, go: Go): HTMLElement {
   const q = pendingQuestion(s, t.id);
-  // 한 번 누르면 작업·줄이 바뀔 때까지 막는다 (두 번 답하지 않게)
+  // 한 번 누르면 세션·줄이 바뀔 때까지 막는다 (두 번 답하지 않게)
   const key = answerKey(t, s.entries.get(t.id) ?? []);
   const pick = (c: string) => () => {
-    if (send({ type: "say", task_id: t.id, text: c }) === false) return;
+    if (send({ type: "say", session_id: t.id, text: c }) === false) return;
     answered.add(key);
     for (const b of choices) (b as HTMLButtonElement).disabled = true;
   };
@@ -68,7 +68,7 @@ function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
         h("span", { class: "card-time" }, timeText(q?.at ?? t.created_at, now()))),
       q ? h("div", { class: "card-text" }, markdown(q.text)) : h("span", { class: "card-text" }, rowNote(s, t)),
       h("div", { class: "card-actions" }, ...choices,
-        h("button", { type: "button", class: "link", onClick: openTask(s, t, go) }, "대화 보기 ›"))));
+        h("button", { type: "button", class: "link", onClick: openSession(s, t, go) }, "대화 보기 ›"))));
 }
 
 export function pager(label: string, page: number, pages: number, onPage: (p: number) => void): HTMLElement {
@@ -78,8 +78,8 @@ export function pager(label: string, page: number, pages: number, onPage: (p: nu
     h("button", { type: "button", "aria-label": "다음 페이지", disabled: page >= pages, onClick: () => onPage(page + 1) }, svg(ICON.next)));
 }
 
-const rows = (s: State, ts: Task[], send: Send, go: Go, empty: string): HTMLElement =>
-  ts.length ? h("ul", { class: "rows" }, ...ts.map((t) => taskRow(s, t, send, go))) : h("p", { class: "empty" }, empty);
+const rows = (s: State, ts: Session[], send: Send, go: Go, empty: string): HTMLElement =>
+  ts.length ? h("ul", { class: "rows" }, ...ts.map((t) => sessionRow(s, t, send, go))) : h("p", { class: "empty" }, empty);
 
 const toPage = (s: State, go: Go) => (page: number) => go({ ...s.view, page });
 

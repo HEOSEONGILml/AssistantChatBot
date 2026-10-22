@@ -9,7 +9,7 @@ from websockets.exceptions import ConnectionClosed
 
 log = logging.getLogger(__name__)
 
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
 HELLO_TIMEOUT_S = 5
 CLOSE_BAD_HELLO, CLOSE_REPLACED, CLOSE_VERSION = 4001, 4002, 4003
 
@@ -18,14 +18,14 @@ ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
     "login": (),
     "request": (("text", str),),
     "add_schedule": (("name", str), ("rule", dict), ("instruction", str)),
-    "say": (("task_id", int), ("text", str)),
-    "stop": (("task_id", int),),
-    "seen": (("task_id", int),),
-    "list_tasks": (("page", int), ("view", str)),
-    "get_task": (("task_id", int),),
+    "say": (("session_id", int), ("text", str)),
+    "stop": (("session_id", int),),
+    "seen": (("session_id", int),),
+    "list_sessions": (("page", int), ("view", str)),
+    "get_session": (("session_id", int),),
     "list_schedules": (("page", int),),
-    "set_schedule": (("task_id", int), ("name", str), ("rule", dict), ("instruction", str)),
-    "set_schedule_enabled": (("task_id", int), ("enabled", bool)),
+    "set_schedule": (("session_id", int), ("name", str), ("rule", dict), ("instruction", str)),
+    "set_schedule_enabled": (("session_id", int), ("enabled", bool)),
     "get_settings": (),
     "set_permission_mode": (("mode", str),),
     "get_usage": (),

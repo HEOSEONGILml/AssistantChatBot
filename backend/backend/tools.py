@@ -1,4 +1,4 @@
-"""에이전트가 쓰는 백엔드 MCP 도구. 작업 기록 검색, 스케줄 등록·수정, 새 작업 만들기를 맡는다."""
+"""에이전트가 쓰는 백엔드 MCP 도구. 세션 조회, 새 세션 만들기, 지금 세션의 제목·스케줄 고치기를 맡는다."""
 import json
 from datetime import datetime
 from typing import Protocol
@@ -11,22 +11,23 @@ from .store import Store
 MCP_PREFIX = "mcp__assistant__"
 
 
-class TaskContext(Protocol):
-    """도구가 지금 작업과 이야기하는 통로. 제안 줄과 상태는 confirm이 남긴다.
+class SessionContext(Protocol):
+    """도구가 지금 세션과 이야기하는 통로. 제안 줄과 상태는 confirm이 남긴다.
     도구가 저장한 줄·스케줄은 entry_added·schedule_changed로 화면에 알린다."""
 
-    task_id: int
+    session_id: int
 
     async def confirm(self, kind: str, text: str, data: dict) -> str | dict: ...
 
-    def notify(self, task: dict) -> None: ...
+    def notify(self, session: dict) -> None: ...
 
     def entry_added(self, entry: dict) -> None: ...
 
     def schedule_changed(self) -> None: ...
 
-    async def start_task(self, text: str) -> dict | None:
-        """새 사용자 작업을 만들어 돌린다. 로그아웃이면 만들지 않고 None."""
+    async def start_session(self, source: str, fields: dict) -> dict | None:
+        """새 세션을 만든다. 작업(user)은 바로 돌리고, 스케줄(schedule)은 첫 실행 때 돈다.
+        로그아웃이면 만들지 않고 None."""
 
 
 def _ok(value) -> dict:
@@ -66,74 +67,87 @@ def edit_text(current: dict, values: dict) -> str | None:
     return "작업 지시서를 고쳤어요: " + ", ".join(fields) if fields else None
 
 
-def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
-    @tool("recent_tasks", "최근 작업 목록 (최신순).", {"type": "object", "properties": {
+def build_tools(store: Store, ctx: SessionContext) -> list[SdkMcpTool]:
+    @tool("recent_sessions", "최근 세션 목록 (최신순).", {"type": "object", "properties": {
         "limit": {"type": "integer", "description": "개수 (기본 10)"}}})
-    async def recent_tasks(args):
-        return _ok(store.recent_tasks(args.get("limit", 10)))
+    async def recent_sessions(args):
+        return _ok(store.recent_sessions(args.get("limit", 10)))
 
-    @tool("search_tasks", "작업 제목과 대화 글을 검색한다. since·until은 날짜(YYYY-MM-DD)나 ISO 시각.", {
+    @tool("search_sessions", "세션 제목과 대화 글을 검색한다. since·until은 날짜(YYYY-MM-DD)나 ISO 시각.", {
         "type": "object",
         "properties": {"query": {"type": "string"}, "since": {"type": "string"},
                        "until": {"type": "string"}, "limit": {"type": "integer"}},
         "required": ["query"]})
-    async def search_tasks(args):
-        return _ok(store.search_tasks(args["query"], args.get("since"), args.get("until"), args.get("limit", 10)))
+    async def search_sessions(args):
+        return _ok(store.search_sessions(args["query"], args.get("since"), args.get("until"), args.get("limit", 10)))
 
-    @tool("get_task", "작업 하나와 그 대화 줄을 본다.", {"task_id": int})
-    async def get_task(args):
-        task = store.get_task(args["task_id"])
-        if task is None:
-            return _text("그런 작업이 없다", True)
-        return _ok({"task": task, "entries": store.entries(task["id"])})
+    @tool("get_session", "세션 하나와 그 대화 줄을 본다.", {"session_id": int})
+    async def get_session(args):
+        session = store.get_session(args["session_id"])
+        if session is None:
+            return _text("그런 세션이 없다", True)
+        return _ok({"session": session, "entries": store.entries(session["id"])})
 
-    @tool("get_schedule", "이 작업의 스케줄 지시서를 본다.", {})
+    @tool("get_schedule", "이 세션의 스케줄 지시서를 본다.", {})
     async def get_schedule(args):
-        schedule = store.get_schedule(ctx.task_id)
+        schedule = store.get_schedule(ctx.session_id)
         if schedule is None:
-            return _text("이 작업에는 스케줄이 없다", True)
+            return _text("이 세션에는 스케줄이 없다", True)
         return _ok(schedule)
 
-    @tool("set_task_title", "이 작업의 제목을 정한다.", {"title": str})
-    async def set_task_title(args):
-        if store.get_task(ctx.task_id)["source"] == "chat":
+    @tool("set_session_title", "이 세션의 제목을 정한다.", {"title": str})
+    async def set_session_title(args):
+        if store.get_session(ctx.session_id)["source"] == "chat":
             return _text("대화 탭의 제목은 바꾸지 않는다", True)
-        ctx.notify(store.update_task(ctx.task_id, title=args["title"]))
+        ctx.notify(store.update_session(ctx.session_id, title=args["title"]))
         return _ok({"ok": True})
 
-    @tool("create_schedule",
-          "이 작업을 반복 스케줄로 등록한다. 사용자 확인을 거친다. "
+    @tool("create_session",
+          "새 세션을 만들고 지금 세션에 칩 줄로 잇는다. 어느 세션에서든 쓴다. "
+          "source=user(작업): text에 맡긴 일을 사용자 말 그대로, 맥락이 빠졌으면 채워서 적는다. 바로 돈다. "
+          "source=schedule(스케줄): name, rule, instruction. 사용자 확인을 거친다. 정한 시각에 돈다. "
           "rule: {repeat: daily|weekdays|weekly|monthly, time: 'HH:MM', weekday: 0-6(월=0), day: 1-31}",
           {"type": "object",
-           "properties": {"name": {"type": "string"}, "rule": {"type": "object"}, "instruction": {"type": "string"}},
-           "required": ["name", "rule", "instruction"]})
-    async def create_schedule(args):
-        if store.get_schedule(ctx.task_id) is not None:
-            return _text("이 작업은 이미 스케줄이다. update_schedule로 고쳐라", True)
-        if (err := _invalid(args["rule"])):
-            return _text(err, True)
-        proposal = _proposal(args["name"], args["rule"], args["instruction"])
-        answer = await ctx.confirm("proposal", "이렇게 등록할까요?", proposal)
-        if isinstance(answer, dict):
-            values = _confirmed(answer, proposal)
-        elif answer in ("등록", "예"):
-            values = _confirmed({}, proposal)
+           "properties": {"source": {"type": "string", "enum": ["user", "schedule"]}, "text": {"type": "string"},
+                          "name": {"type": "string"}, "rule": {"type": "object"}, "instruction": {"type": "string"}},
+           "required": ["source"]})
+    async def create_session(args):
+        source = args.get("source")
+        if source == "user":
+            if not isinstance(args.get("text"), str) or not args["text"]:
+                return _text("작업에는 text가 필요하다", True)
+            fields = {"text": args["text"]}
+        elif source == "schedule":
+            if not all(isinstance(args.get(k), str) for k in ("name", "instruction")):
+                return _text("스케줄에는 name, rule, instruction이 필요하다", True)
+            if (err := _invalid(args.get("rule"))):
+                return _text(err, True)
+            proposal = _proposal(args["name"], args["rule"], args["instruction"])
+            answer = await ctx.confirm("proposal", "이렇게 등록할까요?", proposal)
+            if isinstance(answer, dict):
+                fields = _confirmed(answer, proposal)
+            elif answer in ("등록", "예"):
+                fields = _confirmed({}, proposal)
+            else:
+                return _text(f"등록하지 않았다. 사용자 답: {answer}")
+            if (err := _invalid(fields["rule"])):
+                return _text(err, True)
         else:
-            return _text(f"등록하지 않았다. 사용자 답: {answer}")
-        if (err := _invalid(values["rule"])):
-            return _text(err, True)
-        store.create_schedule(ctx.task_id, values["name"], values["rule"], values["instruction"])
-        ctx.notify(store.update_task(ctx.task_id, source="schedule"))
-        ctx.schedule_changed()
-        return _ok({"ok": True, "saved": values})
+            return _text("source는 user나 schedule이다 (대화 세션은 하나뿐이다)", True)
+        session = await ctx.start_session(source, fields)
+        if session is None:
+            return _text("로그아웃 상태라 세션을 만들지 못했다", True)
+        ctx.entry_added(store.add_entry(ctx.session_id, "chip", session["title"],
+                                        data={"session_id": session["id"], "source": source}))
+        return _ok({"session_id": session["id"], "source": source, "title": session["title"]})
 
-    @tool("update_schedule", "이 작업의 스케줄을 고친다 (바뀐 칸만). 사용자 확인을 거친다.",
+    @tool("update_schedule", "이 세션의 스케줄을 고친다 (바뀐 칸만). 사용자 확인을 거친다.",
           {"type": "object",
            "properties": {"name": {"type": "string"}, "rule": {"type": "object"}, "instruction": {"type": "string"}}})
     async def update_schedule(args):
-        current = store.get_schedule(ctx.task_id)
+        current = store.get_schedule(ctx.session_id)
         if current is None:
-            return _text("이 작업에는 스케줄이 없다", True)
+            return _text("이 세션에는 스케줄이 없다", True)
         changes = {k: args[k] for k in ("name", "rule", "instruction") if k in args}
         if not changes:
             return _text("바꿀 내용이 없다", True)
@@ -153,23 +167,14 @@ def build_tools(store: Store, ctx: TaskContext) -> list[SdkMcpTool]:
             return _text(err, True)
         if all(values[k] == current[k] for k in values):
             return _text("바뀐 내용이 없어 저장하지 않았다")
-        store.update_schedule(ctx.task_id, **values)
-        ctx.entry_added(store.add_entry(ctx.task_id, "edit", edit_text(current, values)))
+        store.update_schedule(ctx.session_id, **values)
+        ctx.entry_added(store.add_entry(ctx.session_id, "edit", edit_text(current, values)))
         ctx.schedule_changed()
         return _ok({"ok": True, "saved": values})
 
-    @tool("create_task", "사용자가 맡긴 일을 새 작업(새 세션)으로 만들어 따로 실행한다. "
-                         "text에는 맡긴 일을 사용자 말 그대로, 맥락이 빠졌으면 채워서 적는다.", {"text": str})
-    async def create_task(args):
-        task = await ctx.start_task(args["text"])
-        if task is None:
-            return _text("로그아웃 상태라 작업을 만들지 못했다", True)
-        ctx.entry_added(store.add_entry(ctx.task_id, "chip", task["title"], data={"task_id": task["id"]}))
-        return _ok({"task_id": task["id"], "title": task["title"]})
-
-    return [recent_tasks, search_tasks, get_task, get_schedule, set_task_title, create_schedule, update_schedule,
-            create_task]
+    return [recent_sessions, search_sessions, get_session, get_schedule, set_session_title, create_session,
+            update_schedule]
 
 
-def backend_server(store: Store, ctx: TaskContext):
+def backend_server(store: Store, ctx: SessionContext):
     return create_sdk_mcp_server(name="assistant", tools=build_tools(store, ctx))

@@ -1,5 +1,5 @@
-"""작업 관리: 화면 메시지마다 메서드 하나. 작업 하나 = Claude Code 세션 하나를 백그라운드로 돌리고,
-세션에서 일어난 일을 대화 줄·상태로 저장해 화면에 보낸다. 전송 방식과 화면을 모른다."""
+"""세션 관리: 화면 메시지마다 메서드 하나. 세션 하나 = Claude Code 세션 하나를 백그라운드로 돌리고,
+Claude Code 세션에서 일어난 일을 대화 줄·상태로 저장해 화면에 보낸다. 전송 방식과 화면을 모른다."""
 import asyncio
 import logging
 from collections import deque
@@ -42,11 +42,11 @@ def _iso(t: datetime) -> str:
 
 
 class _Events:
-    """작업 하나의 RunEvents. 세션 이벤트를 저장하고 화면에 알린다."""
+    """세션 하나의 RunEvents. Claude Code 세션 이벤트를 저장하고 화면에 알린다."""
 
-    def __init__(self, app: "App", task_id: int):
+    def __init__(self, app: "App", session_id: int):
         self._app = app
-        self._id = task_id
+        self._id = session_id
         self.confirming = False  # 등록 확인을 기다리는 중 ([고치기] 양식의 값을 답으로 넘길 때)
 
     def progress(self, text: str) -> None:
@@ -65,30 +65,30 @@ class _Events:
         self.confirming = False
         self._app._set(self._id, state="working")
 
-    def task_changed(self) -> None:
+    def session_changed(self) -> None:
         self._app._set(self._id)
 
     def entry_added(self, entry: dict) -> None:
-        self._app._post({"type": "entry", "task_id": self._id, "entry": entry})
+        self._app._post({"type": "entry", "session_id": self._id, "entry": entry})
 
     def schedule_changed(self) -> None:
         schedule = self._app._store.get_schedule(self._id)
         if schedule is not None:
             self._app._post({"type": "schedule", "schedule": self._app._schedule_view(schedule)})
 
-    async def start_task(self, text: str) -> dict | None:
-        return await self._app._new_task(text)
+    async def start_session(self, source: str, fields: dict) -> dict | None:
+        return await self._app._new_session(source, fields)
 
     def finished(self, result_text: str, is_error: bool) -> None:
         self._app._finish(self._id, result_text, is_error)
 
-    def session(self, session_id: str) -> None:
-        self._app._store.update_task(self._id, session_id=session_id)
+    def claude_session(self, claude_session_id: str) -> None:
+        self._app._store.update_session(self._id, claude_session_id=claude_session_id)
 
     def rate_limit(self, info: dict) -> None:
         kind = info.get("type")
         if kind is None:
-            log.warning("작업 %d: 종류 없는 사용량 이벤트를 버림", self._id)
+            log.warning("세션 %d: 종류 없는 사용량 이벤트를 버림", self._id)
             return
         self._app._limits[kind] = {**info, "received_at": _iso(_now())}
         self._app._post(self._app._usage())
@@ -112,9 +112,9 @@ class App:
     async def connected(self, on: bool) -> None:
         if on:
             await self._send({"type": "status", "logged_in": await self._auth.logged_in()})
-            chat = self._store.chat_task()
+            chat = self._store.chat_session()
             if chat is not None:
-                await self._send({"type": "task", "task": chat})
+                await self._send({"type": "session", "session": chat})
 
     async def login(self) -> None:
         if self._logging_in:
@@ -138,60 +138,56 @@ class App:
         await self._new_task(text)
 
     async def add_schedule(self, name: str, rule: dict, instruction: str) -> None:
-        """양식으로 바로 저장한다 (확인 없음). 세션은 첫 실행 때 연다."""
+        """양식으로 바로 저장한다 (확인 없음). Claude Code 세션은 첫 실행 때 연다."""
         if not self._valid_rule(rule):
             return
-        task = self._store.create_task("schedule", name)
-        task = self._store.update_task(task["id"], state="done", seen=True)
-        schedule = self._store.create_schedule(task["id"], name, rule, instruction)
-        self._post({"type": "task", "task": task})
-        await self._send({"type": "schedule", "schedule": self._schedule_view(schedule)})
+        await self._new_schedule(name, rule, instruction)
 
-    async def say(self, task_id: int, text: str) -> None:
-        task = self._store.get_task(task_id)
-        if task is None:
-            log.warning("없는 작업에 말함: %d", task_id)
+    async def say(self, session_id: int, text: str) -> None:
+        session = self._store.get_session(session_id)
+        if session is None:
+            log.warning("없는 세션에 말함: %d", session_id)
             return
         if not await self._logged_in():
             return
-        self._entry(task_id, "user", text)
-        if task_id in self._runs and task["state"] in ("working", "waiting"):
-            await self._runs[task_id][0].say(text)
+        self._entry(session_id, "user", text)
+        if session_id in self._runs and session["state"] in ("working", "waiting"):
+            await self._runs[session_id][0].say(text)
         else:
-            # 끝나거나 멈춘 작업에 다시 말하면 그 세션을 이어 되묻는다 (끝나는 중인 세션은 버린다)
-            self._set(task_id, state="working")
-            self._start(task_id, text, resume=task["session_id"])
+            # 끝나거나 멈춘 세션에 다시 말하면 그 Claude Code 세션을 이어 되묻는다 (끝나는 중인 세션은 버린다)
+            self._set(session_id, state="working")
+            self._start(session_id, text, resume=session["claude_session_id"])
         await self._flush()
 
-    async def stop(self, task_id: int) -> None:
-        if task_id not in self._runs:
-            log.warning("돌고 있지 않은 작업을 멈추려 함: %d", task_id)
+    async def stop(self, session_id: int) -> None:
+        if session_id not in self._runs:
+            log.warning("돌고 있지 않은 세션을 멈추려 함: %d", session_id)
             return
-        run = self._runs[task_id][0]
-        self._set(task_id, state="stopped")
+        run = self._runs[session_id][0]
+        self._set(session_id, state="stopped")
         await run.stop()
         await self._flush()
 
-    async def seen(self, task_id: int) -> None:
-        if self._store.get_task(task_id) is None:
+    async def seen(self, session_id: int) -> None:
+        if self._store.get_session(session_id) is None:
             return
-        self._set(task_id, seen=True)
+        self._set(session_id, seen=True)
         await self._flush()
 
-    async def list_tasks(self, page: int, view: str) -> None:
+    async def list_sessions(self, page: int, view: str) -> None:
         if view not in VIEWS:
             log.warning("모르는 목록: %s", view)
             return
-        items, pages = self._store.list_tasks(page, view)
-        await self._send({"type": "tasks", "view": view, "page": page, "pages": pages, "items": items})
+        items, pages = self._store.list_sessions(page, view)
+        await self._send({"type": "sessions", "view": view, "page": page, "pages": pages, "items": items})
 
-    async def get_task(self, task_id: int) -> None:
-        task = self._store.get_task(task_id)
-        if task is None:
-            log.warning("없는 작업을 열려 함: %d", task_id)
+    async def get_session(self, session_id: int) -> None:
+        session = self._store.get_session(session_id)
+        if session is None:
+            log.warning("없는 세션을 열려 함: %d", session_id)
             return
-        schedule = self._store.get_schedule(task_id)
-        await self._send({"type": "task_detail", "task": task, "entries": self._store.entries(task_id),
+        schedule = self._store.get_schedule(session_id)
+        await self._send({"type": "session_detail", "session": session, "entries": self._store.entries(session_id),
                           "schedule": self._schedule_view(schedule) if schedule else None})
 
     async def list_schedules(self, page: int) -> None:
@@ -199,74 +195,74 @@ class App:
         items = []
         for s in schedules:
             v = self._schedule_view(s)
-            if self._store.get_task(s["task_id"])["state"] in ("working", "waiting"):
+            if self._store.get_session(s["session_id"])["state"] in ("working", "waiting"):
                 state = "running"
             else:
                 state = "next" if s["enabled"] else "off"
-            items.append({k: v[k] for k in ("task_id", "name", "label", "next_run")} | {"state": state})
+            items.append({k: v[k] for k in ("session_id", "name", "label", "next_run")} | {"state": state})
         await self._send({"type": "schedules", "page": page, "pages": pages, "items": items})
 
-    async def set_schedule(self, task_id: int, name: str, rule: dict, instruction: str) -> None:
+    async def set_schedule(self, session_id: int, name: str, rule: dict, instruction: str) -> None:
         if not self._valid_rule(rule):
             return
         values = {"name": name, "rule": rule, "instruction": instruction}
-        held = self._runs.get(task_id)
+        held = self._runs.get(session_id)
         if held and held[1].confirming:
             # 등록 확인의 [고치기]: 저장은 기다리던 도구가 한다. 사용자 답이라 user 줄을 남긴다 (지시는 길어 뺀다)
-            self._entry(task_id, "user", f"고쳐서 등록: {name} ({label(rule)})")
+            self._entry(session_id, "user", f"고쳐서 등록: {name} ({label(rule)})")
             held[0].answer(values)
             await self._flush()
             return
-        current = self._store.get_schedule(task_id)
+        current = self._store.get_schedule(session_id)
         if current is None:
-            log.warning("스케줄이 없는 작업을 고치려 함: %d", task_id)
+            log.warning("스케줄이 없는 세션을 고치려 함: %d", session_id)
             return
         text = edit_text(current, values)
         if text is None:
             return
-        schedule = self._store.update_schedule(task_id, **values)
-        self._entry(task_id, "edit", text)
+        schedule = self._store.update_schedule(session_id, **values)
+        self._entry(session_id, "edit", text)
         self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
         await self._flush()
 
-    async def set_schedule_enabled(self, task_id: int, enabled: bool) -> None:
-        if self._store.get_schedule(task_id) is None:
-            log.warning("스케줄이 없는 작업을 켜고 끄려 함: %d", task_id)
+    async def set_schedule_enabled(self, session_id: int, enabled: bool) -> None:
+        if self._store.get_schedule(session_id) is None:
+            log.warning("스케줄이 없는 세션을 켜고 끄려 함: %d", session_id)
             return
-        schedule = self._store.update_schedule(task_id, enabled=enabled)
+        schedule = self._store.update_schedule(session_id, enabled=enabled)
         await self._send({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
-    async def run_schedule(self, task_id: int, now: datetime) -> None:
-        """스케줄 한 번 실행. 세션이 있으면 이어가고 없으면 새로 연다. 끝나면 last_run_at·last_result
-        (끝난 작업의 상태 done/failed/stopped)를 기록하고 schedule 메시지를 보낸다."""
-        task = self._store.get_task(task_id)
-        if task is None or self._store.get_schedule(task_id) is None:
-            log.warning("없는 스케줄을 실행하려 함: %d", task_id)
+    async def run_schedule(self, session_id: int, now: datetime) -> None:
+        """스케줄 한 번 실행. Claude Code 세션이 있으면 이어가고 없으면 새로 연다. 끝나면 last_run_at·last_result
+        (끝난 세션의 상태 done/failed/stopped)를 기록하고 schedule 메시지를 보낸다."""
+        session = self._store.get_session(session_id)
+        if session is None or self._store.get_schedule(session_id) is None:
+            log.warning("없는 스케줄을 실행하려 함: %d", session_id)
             return
-        if task["state"] in ("working", "waiting"):
-            log.info("스케줄 %d: 아직 실행 중이라 건너뜀", task_id)
+        if session["state"] in ("working", "waiting"):
+            log.info("스케줄 %d: 아직 실행 중이라 건너뜀", session_id)
             return
         if not await self._auth.logged_in():
-            log.warning("스케줄 %d: 로그아웃 상태라 이번 실행을 건너뜀", task_id)
+            log.warning("스케줄 %d: 로그아웃 상태라 이번 실행을 건너뜀", session_id)
             return
         when = f"{now:%m/%d} ({'월화수목금토일'[now.weekday()]}) {now:%H:%M}"
-        self._entry(task_id, "run", f"{when} 실행")
-        self._set(task_id, state="working")
-        if self._start(task_id, f"[스케줄 실행 · {when}] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해.",
-                       resume=task["session_id"]):
-            self._runs[task_id][2].add_done_callback(lambda _: self._schedule_ran(task_id, now))
+        self._entry(session_id, "run", f"{when} 실행")
+        self._set(session_id, state="working")
+        if self._start(session_id, f"[스케줄 실행 · {when}] get_schedule로 지금 작업 지시서를 읽고 그대로 한 번 실행해.",
+                       resume=session["claude_session_id"]):
+            self._runs[session_id][2].add_done_callback(lambda _: self._schedule_ran(session_id, now))
         await self._flush()
 
-    def _schedule_ran(self, task_id: int, now: datetime) -> None:
-        if task_id in self._runs:
+    def _schedule_ran(self, session_id: int, now: datetime) -> None:
+        if session_id in self._runs:
             # 끝난 실행은 _drive가 이미 뺐다. 남아 있으면 멈춘 뒤 새로 시작한 실행이 도는 중이다
-            log.info("스케줄 %d: 새 실행이 도는 중이라 지난 실행 결과를 기록하지 않음", task_id)
+            log.info("스케줄 %d: 새 실행이 도는 중이라 지난 실행 결과를 기록하지 않음", session_id)
             return
-        task = self._store.get_task(task_id)
-        if task is None or self._store.get_schedule(task_id) is None:
-            log.warning("스케줄 %d: 끝났지만 작업이나 스케줄이 없어 결과를 기록하지 않음", task_id)
+        session = self._store.get_session(session_id)
+        if session is None or self._store.get_schedule(session_id) is None:
+            log.warning("스케줄 %d: 끝났지만 세션이나 스케줄이 없어 결과를 기록하지 않음", session_id)
             return
-        schedule = self._store.update_schedule(task_id, last_run_at=_iso(now), last_result=task["state"])
+        schedule = self._store.update_schedule(session_id, last_run_at=_iso(now), last_result=session["state"])
         self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
     async def get_settings(self) -> None:
@@ -295,31 +291,46 @@ class App:
         await self._send(self._usage())
 
     async def startup(self) -> None:
-        """앱이 꺼지며 끊긴 세션의 작업을 실패로 닫는다 (대화 작업은 done으로만 되돌린다).
-        대화 작업이 없으면 만든다 (하나뿐, 0033). 다음 say가 저장된 세션을 이어 쓴다. 화면 기록이 켜져 있으면 screenpipe를 띄운다."""
-        for task in self._store.tasks_in_states("working", "waiting"):
-            if task["source"] == "chat":
-                self._store.update_task(task["id"], state="done")  # 대화는 실패로 알리지 않는다
+        """앱이 꺼지며 끊긴 세션을 실패로 닫는다 (대화 세션은 done으로만 되돌린다).
+        대화 세션이 없으면 만든다 (하나뿐, 0033). 다음 say가 저장된 Claude Code 세션을 이어 쓴다. 화면 기록이 켜져 있으면 screenpipe를 띄운다."""
+        for session in self._store.sessions_in_states("working", "waiting"):
+            if session["source"] == "chat":
+                self._store.update_session(session["id"], state="done")  # 대화는 실패로 알리지 않는다
                 continue
-            self._store.add_entry(task["id"], "failure", "앱이 꺼져서 멈췄어요")
-            self._store.update_task(task["id"], state="failed", seen=False)
-        if self._store.chat_task() is None:
-            chat = self._store.create_task("chat", CHAT_TITLE)
-            self._store.update_task(chat["id"], state="done", seen=True)
+            self._store.add_entry(session["id"], "failure", "앱이 꺼져서 멈췄어요")
+            self._store.update_session(session["id"], state="failed", seen=False)
+        if self._store.chat_session() is None:
+            chat = self._store.create_session("chat", CHAT_TITLE)
+            self._store.update_session(chat["id"], state="done", seen=True)
         if self.recording_enabled():
             await self._recorder.start()
 
     # --- 세션 ---
+    async def _new_session(self, source: str, fields: dict) -> dict | None:
+        """에이전트의 create_session. 어느 세션에서 불렀든 같은 길로 만든다."""
+        if source == "user":
+            return await self._new_task(fields["text"])
+        return await self._new_schedule(fields["name"], fields["rule"], fields["instruction"])
+
+    async def _new_schedule(self, name: str, rule: dict, instruction: str) -> dict:
+        """스케줄 세션을 만든다. 돌지 않고 다음 실행 시각을 기다린다 (스케줄 탭 양식, create_session)."""
+        session = self._store.create_session("schedule", name)
+        session = self._store.update_session(session["id"], state="done", seen=True)
+        schedule = self._store.create_schedule(session["id"], name, rule, instruction)
+        self._post({"type": "session", "session": session})
+        await self._send({"type": "schedule", "schedule": self._schedule_view(schedule)})
+        return session
+
     async def _new_task(self, text: str) -> dict | None:
-        """사용자 작업을 만들어 돌린다 (작업 탭 입력칸, 대화의 create_task). 로그아웃이면 None."""
+        """작업 세션을 만들어 돌린다 (작업 탭 입력칸, create_session). 로그아웃이면 None."""
         if not await self._logged_in():
             return None
-        task = self._store.create_task("user", text[:TITLE_LEN])
-        self._post({"type": "task", "task": task})
+        task = self._store.create_session("user", text[:TITLE_LEN])
+        self._post({"type": "session", "session": task})
         self._entry(task["id"], "user", text)
         self._start(task["id"], text, resume=None)
         await self._flush()
-        return self._store.get_task(task["id"])
+        return self._store.get_session(task["id"])
 
     async def _logged_in(self) -> bool:
         """로그아웃이면 status를 다시 보내 화면이 로그인 요청을 띄우게 한다."""
@@ -328,46 +339,46 @@ class App:
         await self._send({"type": "status", "logged_in": False})
         return False
 
-    def _start(self, task_id: int, prompt: str, resume: str | None) -> bool:
-        """세션을 띄운다. 준비하다 실패하면 작업을 실패로 끝내고 False."""
-        events = _Events(self, task_id)
+    def _start(self, session_id: int, prompt: str, resume: str | None) -> bool:
+        """Claude Code 세션을 띄운다. 준비하다 실패하면 세션을 실패로 끝내고 False."""
+        events = _Events(self, session_id)
         try:
-            run = self._new_run(task_id, events)
+            run = self._new_run(session_id, events)
             options = build_options(permission_mode=self._permission_mode(), can_use_tool=run.can_use_tool,
                                     mcp_servers={"assistant": backend_server(self._store, run)}, resume=resume)
         except Exception as e:
-            log.error("작업 %d: 세션을 준비하지 못했다 (%s)", task_id, type(e).__name__)
-            self._finish(task_id, "작업을 실행하지 못했어요", True)
+            log.error("세션 %d: Claude Code 세션을 준비하지 못했다 (%s)", session_id, type(e).__name__)
+            self._finish(session_id, "작업을 실행하지 못했어요", True)
             return False
-        job = asyncio.create_task(self._drive(task_id, run, prompt, options))
-        self._runs[task_id] = (run, events, job)
-        log.info("작업 %d: 세션 시작 (이어가기 %s)", task_id, resume is not None)
+        job = asyncio.create_task(self._drive(session_id, run, prompt, options))
+        self._runs[session_id] = (run, events, job)
+        log.info("세션 %d: Claude Code 세션 시작 (이어가기 %s)", session_id, resume is not None)
         return True
 
-    async def _drive(self, task_id: int, run, prompt: str, options) -> None:
+    async def _drive(self, session_id: int, run, prompt: str, options) -> None:
         try:
             await run.run(prompt, options)
         except Exception as e:
-            log.error("작업 %d: 세션이 예외로 끝났다 (%s)", task_id, type(e).__name__)  # 트레이스백엔 사용자 내용이 섞일 수 있다
-            if self._store.get_task(task_id)["state"] in ("working", "waiting"):  # 이미 끝났으면 실패 줄을 또 쓰지 않는다
-                self._finish(task_id, "작업을 실행하지 못했어요", True)
+            log.error("세션 %d: Claude Code 세션이 예외로 끝났다 (%s)", session_id, type(e).__name__)  # 트레이스백엔 사용자 내용이 섞일 수 있다
+            if self._store.get_session(session_id)["state"] in ("working", "waiting"):  # 이미 끝났으면 실패 줄을 또 쓰지 않는다
+                self._finish(session_id, "작업을 실행하지 못했어요", True)
         finally:
-            if self._runs.get(task_id, (None,))[0] is run:
-                del self._runs[task_id]
+            if self._runs.get(session_id, (None,))[0] is run:
+                del self._runs[session_id]
 
-    def _finish(self, task_id: int, text: str, is_error: bool) -> None:
-        if self._store.get_task(task_id)["state"] == "stopped":
+    def _finish(self, session_id: int, text: str, is_error: bool) -> None:
+        if self._store.get_session(session_id)["state"] == "stopped":
             return  # 멈춘 뒤 늦게 온 끝은 버린다
-        self._entry(task_id, "failure" if is_error else "result", text)
-        self._set(task_id, state="failed" if is_error else "done", seen=False)
+        self._entry(session_id, "failure" if is_error else "result", text)
+        self._set(session_id, state="failed" if is_error else "done", seen=False)
 
     # --- 저장과 알림 ---
-    def _entry(self, task_id: int, kind: str, text: str, **extra) -> None:
-        entry = self._store.add_entry(task_id, kind, text, **extra)
-        self._post({"type": "entry", "task_id": task_id, "entry": entry})
+    def _entry(self, session_id: int, kind: str, text: str, **extra) -> None:
+        entry = self._store.add_entry(session_id, kind, text, **extra)
+        self._post({"type": "entry", "session_id": session_id, "entry": entry})
 
-    def _set(self, task_id: int, **fields) -> None:
-        self._post({"type": "task", "task": self._store.update_task(task_id, **fields)})
+    def _set(self, session_id: int, **fields) -> None:
+        self._post({"type": "session", "session": self._store.update_session(session_id, **fields)})
 
     @staticmethod
     def _valid_rule(rule) -> bool:
@@ -386,7 +397,7 @@ class App:
             {k: v.get(k) for k in ("type", "utilization", "resets_at", "received_at")} for v in self._limits.values()]}
 
     def _schedule_view(self, s: dict) -> dict:
-        return {**{k: s[k] for k in ("task_id", "name", "rule", "instruction", "enabled", "last_run_at",
+        return {**{k: s[k] for k in ("session_id", "name", "rule", "instruction", "enabled", "last_run_at",
                                      "last_result")},
                 "label": label(s["rule"]),
                 "next_run": _iso(next_run(s["rule"], _now())) if s["enabled"] else None}

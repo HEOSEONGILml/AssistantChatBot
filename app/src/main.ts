@@ -3,7 +3,7 @@ import "./ui/styles.css";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { connectBackend } from "./backend-link";
 import { answered, pruneAnswered } from "./shared/entries";
-import type { Entry, Outgoing, Task } from "./shared/protocol";
+import type { Entry, Outgoing, Session } from "./shared/protocol";
 import {
   apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type State, type View,
 } from "./shared/state";
@@ -20,24 +20,24 @@ const dogRoot = document.getElementById("dog")!;
 const panelRoot = document.getElementById("panel")!;
 
 let state: State = initialState();
-const asked = new Set<number>(); // 질문 카드용으로 get_task를 이미 보낸 작업
-const seenSent = new Set<number>(); // seen을 보내고 답을 기다리는 작업
-let detailTaskId: number | null = null; // 상세 창이 그리는 작업
+const asked = new Set<number>(); // 질문 카드용으로 get_session을 이미 보낸 세션
+const seenSent = new Set<number>(); // seen을 보내고 답을 기다리는 세션
+let detailSessionId: number | null = null; // 상세 창이 그리는 세션
 
 const backend = connectBackend({
   onMessage: (m) => {
     state = apply(state, m);
-    pruneAnswered(answered, (id) => state.tasks.get(id)?.state === "waiting");
+    pruneAnswered(answered, (id) => state.sessions.get(id)?.state === "waiting");
     for (const out of followUps(state, m)) backend.send(out);
-    // 대화 탭을 연 채 붙으면 대화 작업을 나중에 알게 된다: 그때 대화를 받아 온다
+    // 대화 탭을 연 채 붙으면 대화 세션을 나중에 알게 된다: 그때 대화를 받아 온다
     const v = state.view;
-    if (m.type === "task" && m.task.source === "chat" && !state.entries.has(m.task.id)
-      && state.panelOpen && v.tab === "chat" && v.screen === "list") backend.send({ type: "get_task", task_id: m.task.id });
+    if (m.type === "session" && m.session.source === "chat" && !state.entries.has(m.session.id)
+      && state.panelOpen && v.tab === "chat" && v.screen === "list") backend.send({ type: "get_session", session_id: m.session.id });
     render();
   },
   onOpen: () => {
     for (const out of refreshRequests(state)) backend.send(out);
-    if (detailTaskId !== null) backend.send({ type: "get_task", task_id: detailTaskId });
+    if (detailSessionId !== null) backend.send({ type: "get_session", session_id: detailSessionId });
   },
   onClose: () => { state = disconnected(state); asked.clear(); seenSent.clear(); answered.clear(); render(); },
 });
@@ -65,64 +65,64 @@ function togglePanel() {
   render();
 }
 
-// 알림 탭의 질문 카드: 그 작업의 질문 줄이 캐시에 없으면 한 번 받아 온다
+// 알림 탭의 질문 카드: 그 세션의 질문 줄이 캐시에 없으면 한 번 받아 온다
 function fetchCardQuestion() {
-  for (const id of asked) if (state.tasks.get(id)?.state !== "waiting") asked.delete(id);
+  for (const id of asked) if (state.sessions.get(id)?.state !== "waiting") asked.delete(id);
   if (!state.panelOpen || state.view.tab !== "alerts" || state.view.screen !== "list") return;
   const t = firstWaiting(state);
   if (t && !pendingQuestion(state, t.id) && !asked.has(t.id)) {
     asked.add(t.id);
-    send({ type: "get_task", task_id: t.id });
+    send({ type: "get_session", session_id: t.id });
   }
 }
 
-// 열어 본 작업이 끝났고 안 봤으면 seen. 답(seen: true)이 올 때까지 다시 보내지 않는다
+// 열어 본 세션이 끝났고 안 봤으면 seen. 답(seen: true)이 올 때까지 다시 보내지 않는다
 function markSeen(id: number) {
   if (!needsSeen(state, id) || seenSent.has(id)) return;
-  if (send({ type: "seen", task_id: id })) seenSent.add(id);
+  if (send({ type: "seen", session_id: id })) seenSent.add(id);
 }
 function markShownSeen() {
   for (const id of seenSent) if (!needsSeen(state, id)) seenSent.delete(id);
   const v = state.view;
-  if (state.panelOpen && (v.screen === "task" || v.screen === "schedule") && v.taskId !== undefined) markSeen(v.taskId);
+  if (state.panelOpen && (v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) markSeen(v.sessionId);
 }
 
 // --- 상세 창 ---
-// 마지막으로 보낸 작업·줄·연결. 같으면 다시 보내지 않는다. 끊겨 상태에서 작업이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
-let detailSent: { task?: Task; entries?: Entry[]; connected?: boolean } = {};
+// 마지막으로 보낸 세션·줄·연결. 같으면 다시 보내지 않는다. 끊겨 상태에서 세션이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
+let detailSent: { session?: Session; entries?: Entry[]; connected?: boolean } = {};
 
 function pushDetail(force = false) {
-  if (detailTaskId === null) return;
-  const task = state.tasks.get(detailTaskId) ?? (detailSent.task?.id === detailTaskId ? detailSent.task : undefined);
-  if (!task) return;
-  const entries = state.entries.get(detailTaskId) ?? detailSent.entries ?? [];
+  if (detailSessionId === null) return;
+  const session = state.sessions.get(detailSessionId) ?? (detailSent.session?.id === detailSessionId ? detailSent.session : undefined);
+  if (!session) return;
+  const entries = state.entries.get(detailSessionId) ?? detailSent.entries ?? [];
   const connected = state.connected;
   const d = detailSent;
-  if (!force && d.task === task && d.entries === entries && d.connected === connected) return;
-  detailSent = { task, entries, connected };
-  emitTo("detail", "detail-data", { task, entries, connected }).catch((e) => console.warn("상세 창 보내기 실패", e));
+  if (!force && d.session === session && d.entries === entries && d.connected === connected) return;
+  detailSent = { session, entries, connected };
+  emitTo("detail", "detail-data", { session, entries, connected }).catch((e) => console.warn("상세 창 보내기 실패", e));
 }
 
-function openDetail(taskId: number) {
-  detailTaskId = taskId;
+function openDetail(sessionId: number) {
+  detailSessionId = sessionId;
   detailSent = {};
-  send({ type: "get_task", task_id: taskId });
-  showDetail(taskId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 열기 실패", e));
+  send({ type: "get_session", session_id: sessionId });
+  showDetail(sessionId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 열기 실패", e));
 }
 
 // 상세 창이 늦게 떠서 첫 detail-open·detail-data를 놓쳤을 수 있다: 준비됐다고 하면 다시 보낸다
 listen("detail-ready", () => {
-  if (detailTaskId === null) return;
-  emitTo("detail", "detail-open", detailTaskId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 보내기 실패", e));
+  if (detailSessionId === null) return;
+  emitTo("detail", "detail-open", detailSessionId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 보내기 실패", e));
 });
 // 못 보냈으면(그 사이 연결이 끊김) 상세 창에 알려 입력 글을 되돌리게 한다
-listen<{ taskId: number; text: string }>("detail-say", (e) => {
-  if (send({ type: "say", task_id: e.payload.taskId, text: e.payload.text })) return;
+listen<{ sessionId: number; text: string }>("detail-say", (e) => {
+  if (send({ type: "say", session_id: e.payload.sessionId, text: e.payload.text })) return;
   emitTo("detail", "detail-send-failed", e.payload.text).catch((err) => console.warn("상세 창 보내기 실패", err));
 });
-listen<{ taskId: number }>("detail-stop", (e) => send({ type: "stop", task_id: e.payload.taskId }));
-listen<{ taskId: number }>("detail-seen", (e) => { if (e.payload.taskId === detailTaskId) markSeen(e.payload.taskId); });
-// 상세 창의 작업 칩·[고치기]: 패널을 열고 그 화면으로
+listen<{ sessionId: number }>("detail-stop", (e) => send({ type: "stop", session_id: e.payload.sessionId }));
+listen<{ sessionId: number }>("detail-seen", (e) => { if (e.payload.sessionId === detailSessionId) markSeen(e.payload.sessionId); });
+// 상세 창의 세션 칩·[고치기]: 패널을 열고 그 화면으로
 listen<View>("detail-go", (e) => { state = { ...state, panelOpen: true }; go(e.payload); });
 
 // 창 크기: 패널이 열리면 패널 + 12 + 강아지, 닫히면 강아지만. 같은 크기는 다시 요청하지 않는다

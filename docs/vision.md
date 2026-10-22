@@ -34,7 +34,8 @@
 - **2단계: Claude Code 부분을 직접 설계한 에이전트로 대체한다.**
 - → [0023](decisions/0023-claude-code-first-then-own-agent.md)
 - **Claude Code의 동작 원칙은 하네스 문서(.md)가 정하고, 데이터는 데이터 계층과 주고받는다** (사용자). → [0029](decisions/0029-claude-code-harness-and-session-per-task.md)
-- **작업 하나 = 세션 하나** (Claude 제안, 사용자 수용). 지난 맥락은 Claude Code 세션이 아니라 데이터 계층에서 찾는다.
+- **세션 하나 = Claude Code 세션 하나** (Claude 제안, 사용자 수용). 지난 맥락은 Claude Code 세션이 아니라 데이터 계층에서 찾는다.
+- **상위 단위는 세션이다. 작업·대화·스케줄은 세션의 종류다** (사용자, 2026-10-22). → [0034](decisions/0034-session-as-top-level-term.md)
 - **Claude Code는 파이썬 Agent SDK로 띄운다** (Claude 제안, 사용자 수용). → [0029](decisions/0029-claude-code-harness-and-session-per-task.md), [스파이크](spikes/2026-10-21-agent-sdk-claude-code.md)
 
 ## 구조: 입력 → 에이전트 → 출력 (확정, 2026-10-21)
@@ -67,23 +68,23 @@
 - 1단계는 **기술 프로토타입**이라 빠르게 만든다 (사용자).
 - 화면 히스토리 기록은 1단계에서 **screenpipe 소스 빌드(CLI)**를 쓴다. 완성품 앱의 유료 플랜은 검토하지 않는다. 사용자는 라이선스를 무시하라고 했다. 참고로 소스 빌드의 회사 업무 사용은 평가 목적 7일까지만 무료다.
 - 공개 코드에서 확인한 것 (2026-10-21): `npx screenpipe record`로 기록, `localhost:3030`의 REST 검색 API, MCP 서버(`screenpipe-mcp`). 기록 방식은 바뀔 때만 찍기 + 접근성 트리 우선·OCR 보조로, [0024](decisions/0024-observation-common-plus-enrichment.md)와 같은 모양이다.
-- **screenpipe 기록은 이틀만 둔다** (사용자, 2026-10-21). 이틀 지난 기록은 글자·이미지·소리 모두 지운다(`--retention-days 2 --retention-mode all`). 우리 작업 기록(백엔드 SQLite)은 따로라 지워지지 않는다.
+- **screenpipe 기록은 이틀만 둔다** (사용자, 2026-10-21). 이틀 지난 기록은 글자·이미지·소리 모두 지운다(`--retention-days 2 --retention-mode all`). 우리 세션 기록(백엔드 SQLite)은 따로라 지워지지 않는다.
 - 1단계 조합: screenpipe(기억) + Claude Code(에이전트, MCP로 히스토리 검색, `--chrome`으로 브라우저 조작).
 
 ### 데이터 계층 (Claude 제안, 사용자 수용, 2026-10-21)
 
 - 데이터마다 저장소·쓰기·읽기·관리 주체를 정했다. → [0027](decisions/0027-data-layer-ownership.md)
   - 화면 기록: screenpipe가 쓰고 관리한다. 에이전트가 MCP로 읽는다.
-  - 대화·작업 기록, 스케줄 작업: 백엔드 SQLite. 백엔드가 쓰고 관리한다. 에이전트는 대화·작업 기록을 MCP로 읽는다.
+  - 세션 기록(작업·대화·스케줄과 대화 줄), 스케줄 규칙: 백엔드 SQLite. 백엔드가 쓰고 관리한다. 에이전트는 세션 기록을 MCP로 읽는다.
   - 설정(권한 모드·화면 기록): 백엔드가 저장한다. 앱에는 단축키도 API 키도 없다.
-- 데이터마다 쓰는 주체는 하나다. 에이전트는 자기 작업에만 갇히지 않고, 백엔드 도구를 불러 앱 기능을 쓸 수 있다 (사용자). → [0032](decisions/0032-schedule-creation.md)
+- 데이터마다 쓰는 주체는 하나다. 에이전트는 자기 세션에만 갇히지 않고, 백엔드 도구를 불러 앱 기능을 쓸 수 있다 (사용자). → [0032](decisions/0032-schedule-creation.md)
 
 ### 인증 (사용자, 2026-10-21)
 
 - Claude API 키는 고려하지 않는다. **Claude Code 구독 로그인**만 고려해 설계한다 (사용자).
 - 화면은 API 키 입력 대신 **로그인**을 요청한다 (사용자).
 - 로그인·로그아웃은 알림이 아니라 **설정 탭의 로그인/로그아웃 버튼**으로 한다 (사용자, 2026-10-21).
-- 백엔드는 키 저장(keyring)과 `set_key` 처리를 걷어냈다. 백엔드와 [프로토콜 문서](backend-protocol.md)는 v6로 바뀌어 `set_key`·`no_keys`가 없다. 앱(`app/src`)도 화면 계획에서 v6로 바꿔 키 입력이 없다.
+- 백엔드는 키 저장(keyring)과 `set_key` 처리를 걷어냈다. 백엔드와 [프로토콜 문서](backend-protocol.md)에 `set_key`·`no_keys`가 없다(v6부터). 앱(`app/src`)에도 키 입력이 없다.
 
 ## 스케줄 작업 (확정, 2026-10-21)
 
@@ -120,7 +121,7 @@
 - 작업마다 **사용자와 주고받은 대화 기록**이 보여야 한다 (사용자). 예: "결제할까요?"에 바로 답하지 않고 되물으면, 그 물음과 답이 작업 안에 쌓인다.
 - 화면 디자인 결과: [design/2026-10-21-output-ui](design/2026-10-21-output-ui/README.md)
 - 키 입력 요청 대신 **Claude 로그인 요청**을 보인다 (사용자). 설정 창의 키 입력칸은 뺀다 (Claude 제안, 사용자 수용).
-- 입출력 인터페이스는 작업 하나를 대화 하나로 본다 (Claude 제안, 사용자 수용). → [0030](decisions/0030-io-interface-task-as-conversation.md)
+- 입출력 인터페이스는 세션 하나를 대화 하나로 본다 (Claude 제안, 사용자 수용). → [0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)
 
 ## 기억 (확정, 2026-10-21)
 

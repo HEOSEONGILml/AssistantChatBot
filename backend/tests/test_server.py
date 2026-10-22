@@ -38,7 +38,7 @@ async def server():
         yield link, f"ws://127.0.0.1:{sock.getsockname()[1]}"
 
 
-def hello(token=TOKEN, v=6):
+def hello(token=TOKEN, v=7):
     return json.dumps({"v": v, "type": "hello", "token": token})
 
 
@@ -64,10 +64,10 @@ async def test_bad_token_is_rejected(server):
     assert link.app.events == []
 
 
-async def test_v5_is_rejected(server):
+async def test_v6_is_rejected(server):
     _, url = server
     async with connect(url) as ws:
-        await ws.send(hello(v=5))
+        await ws.send(hello(v=6))
         with pytest.raises(ConnectionClosed):
             await asyncio.wait_for(ws.recv(), 2)
         assert ws.close_code == CLOSE_VERSION
@@ -77,10 +77,10 @@ async def test_request_reaches_app_and_send_reaches_screen(server):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 6, "type": "request", "text": "안녕"}))
+        await ws.send(json.dumps({"v": 7, "type": "request", "text": "안녕"}))
         await wait_for(lambda: ("request", "안녕") in link.app.events)
         await link.send({"type": "status", "logged_in": True})
-        assert json.loads(await ws.recv()) == {"v": 6, "type": "status", "logged_in": True}
+        assert json.loads(await ws.recv()) == {"v": 7, "type": "status", "logged_in": True}
     await wait_for(lambda: link.app.events[-1] == ("connected", False))
     assert link.app.events[0] == ("connected", True)
 
@@ -107,10 +107,10 @@ async def test_garbage_and_unknown_types_are_ignored(server):
     async with connect(url) as ws:
         await ws.send(hello())
         await ws.send("{not json")
-        await ws.send(json.dumps({"v": 6, "type": "dance"}))
-        await ws.send(json.dumps({"v": 6, "type": "message", "text": "v5 메시지"}))
-        await ws.send(json.dumps({"v": 6, "type": "set_key", "provider": "x", "key": "y"}))
-        await ws.send(json.dumps({"v": 6, "type": "request", "text": "됨"}))
+        await ws.send(json.dumps({"v": 7, "type": "dance"}))
+        await ws.send(json.dumps({"v": 7, "type": "message", "text": "v5 메시지"}))
+        await ws.send(json.dumps({"v": 7, "type": "set_key", "provider": "x", "key": "y"}))
+        await ws.send(json.dumps({"v": 7, "type": "request", "text": "됨"}))
         await wait_for(lambda: ("request", "됨") in link.app.events)
     assert calls(link.app) == [("request", "됨")]
 
@@ -120,15 +120,15 @@ ROUTES = [
     ({"type": "request", "text": "메일 정리"}, ("request", "메일 정리")),
     ({"type": "add_schedule", "name": "아침", "rule": {"repeat": "daily", "time": "09:00"}, "instruction": "요약"},
      ("add_schedule", "아침", {"repeat": "daily", "time": "09:00"}, "요약")),
-    ({"type": "say", "task_id": 3, "text": "응"}, ("say", 3, "응")),
-    ({"type": "stop", "task_id": 3}, ("stop", 3)),
-    ({"type": "seen", "task_id": 3}, ("seen", 3)),
-    ({"type": "list_tasks", "page": 2, "view": "alerts"}, ("list_tasks", 2, "alerts")),
-    ({"type": "get_task", "task_id": 3}, ("get_task", 3)),
+    ({"type": "say", "session_id": 3, "text": "응"}, ("say", 3, "응")),
+    ({"type": "stop", "session_id": 3}, ("stop", 3)),
+    ({"type": "seen", "session_id": 3}, ("seen", 3)),
+    ({"type": "list_sessions", "page": 2, "view": "alerts"}, ("list_sessions", 2, "alerts")),
+    ({"type": "get_session", "session_id": 3}, ("get_session", 3)),
     ({"type": "list_schedules", "page": 1}, ("list_schedules", 1)),
-    ({"type": "set_schedule", "task_id": 3, "name": "아침", "rule": {"repeat": "weekdays", "time": "08:30"},
+    ({"type": "set_schedule", "session_id": 3, "name": "아침", "rule": {"repeat": "weekdays", "time": "08:30"},
       "instruction": "요약"}, ("set_schedule", 3, "아침", {"repeat": "weekdays", "time": "08:30"}, "요약")),
-    ({"type": "set_schedule_enabled", "task_id": 3, "enabled": False}, ("set_schedule_enabled", 3, False)),
+    ({"type": "set_schedule_enabled", "session_id": 3, "enabled": False}, ("set_schedule_enabled", 3, False)),
     ({"type": "get_settings"}, ("get_settings",)),
     ({"type": "set_permission_mode", "mode": "plan"}, ("set_permission_mode", "plan")),
     ({"type": "get_usage"}, ("get_usage",)),
@@ -142,7 +142,7 @@ async def test_each_type_calls_its_app_method(server, msg, call):
     link, url = server
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 6, **msg}))
+        await ws.send(json.dumps({"v": 7, **msg}))
         await wait_for(lambda: call in link.app.events)
 
 
@@ -154,13 +154,13 @@ def test_routes_match_app_methods():
 
 
 BAD = [
-    {"type": "say", "task_id": "3", "text": "응"},
-    {"type": "say", "task_id": 3},
-    {"type": "say", "task_id": True, "text": "응"},
+    {"type": "say", "session_id": "3", "text": "응"},
+    {"type": "say", "session_id": 3},
+    {"type": "say", "session_id": True, "text": "응"},
     {"type": "request"},
-    {"type": "list_tasks", "page": "1", "view": "user"},
+    {"type": "list_sessions", "page": "1", "view": "user"},
     {"type": "add_schedule", "name": "아침", "rule": "매일 9시", "instruction": "요약"},
-    {"type": "set_schedule_enabled", "task_id": 3, "enabled": 1},
+    {"type": "set_schedule_enabled", "session_id": 3, "enabled": 1},
     {"type": "set_permission_mode", "mode": 3},
     {"type": "set_recording", "enabled": "off"},
     {"type": "set_recording", "enabled": 0},
@@ -173,8 +173,8 @@ async def test_wrong_field_types_are_dropped(server):
     async with connect(url) as ws:
         await ws.send(hello())
         for msg in BAD:
-            await ws.send(json.dumps({"v": 6, **msg}))
-        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+            await ws.send(json.dumps({"v": 7, **msg}))
+        await ws.send(json.dumps({"v": 7, "type": "get_usage"}))
         await wait_for(lambda: ("get_usage",) in link.app.events)
     assert calls(link.app) == [("get_usage",)]
 
@@ -206,8 +206,8 @@ async def test_pending_logout_does_not_block_other_messages(server):
     link.app = SlowLogoutApp()
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 6, "type": "logout"}))
-        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        await ws.send(json.dumps({"v": 7, "type": "logout"}))
+        await ws.send(json.dumps({"v": 7, "type": "get_usage"}))
         try:
             await wait_for(lambda: ("get_usage",) in link.app.events)
         finally:
@@ -219,8 +219,8 @@ async def test_pending_login_does_not_block_other_messages(server):
     link.app = SlowLoginApp()
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 6, "type": "login"}))
-        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        await ws.send(json.dumps({"v": 7, "type": "login"}))
+        await ws.send(json.dumps({"v": 7, "type": "get_usage"}))
         try:
             await wait_for(lambda: ("get_usage",) in link.app.events)
         finally:
@@ -237,8 +237,8 @@ async def test_app_error_keeps_connection(server):
     link.app = BrokenApp()
     async with connect(url) as ws:
         await ws.send(hello())
-        await ws.send(json.dumps({"v": 6, "type": "get_settings"}))
-        await ws.send(json.dumps({"v": 6, "type": "get_usage"}))
+        await ws.send(json.dumps({"v": 7, "type": "get_settings"}))
+        await ws.send(json.dumps({"v": 7, "type": "get_usage"}))
         await wait_for(lambda: ("get_usage",) in link.app.events)
         await link.send({"type": "status", "logged_in": True})
         assert json.loads(await ws.recv())["type"] == "status"  # 예외 뒤에도 같은 연결이 살아 있다

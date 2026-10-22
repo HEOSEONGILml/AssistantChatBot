@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { answerKey, pruneAnswered, toItems } from "../src/shared/entries";
+import { answerKey, chipTarget, pruneAnswered, toItems } from "../src/shared/entries";
 import type { Entry } from "../src/shared/protocol";
 
 let n = 0;
 const e = (kind: Entry["kind"], text = "글", choices: string[] | null = null): Entry =>
-  ({ id: ++n, task_id: 1, at: "2026-10-22T09:00:00", kind, text, choices, data: null });
+  ({ id: ++n, session_id: 1, at: "2026-10-22T09:00:00", kind, text, choices, data: null });
 
 describe("toItems", () => {
   it("이어진 progress를 하나로 접는다", () => {
@@ -50,7 +50,7 @@ describe("toItems", () => {
 });
 
 describe("answerKey", () => {
-  const t = (state: "waiting" | "working") => ({ id: 7, source: "user" as const, title: "t", state, seen: false, session_id: null, created_at: "2026-10-22T09:00:00" });
+  const t = (state: "waiting" | "working") => ({ id: 7, source: "user" as const, title: "t", state, seen: false, claude_session_id: null, created_at: "2026-10-22T09:00:00" });
   it("작업 상태나 마지막 줄이 바뀌면 달라진다", () => {
     const a = e("question", "q", ["예"]);
     const k = answerKey(t("waiting"), [a]);
@@ -66,5 +66,20 @@ describe("pruneAnswered", () => {
     const keys = new Set(["7:waiting:3", "8:waiting:5", "12:waiting:1"]);
     pruneAnswered(keys, (id) => id === 8);
     expect([...keys]).toEqual(["8:waiting:5"]);
+  });
+});
+
+describe("chipTarget", () => {
+  it("만든 세션의 종류에 맞는 화면으로, 지금 탭 안에서 연다", () => {
+    expect(chipTarget({ session_id: 7, source: "user" }, "chat"))
+      .toEqual({ label: "작업", view: { tab: "chat", screen: "task", sessionId: 7, page: 1 } });
+    expect(chipTarget({ session_id: 8, source: "schedule" }, "user"))
+      .toEqual({ label: "스케줄", view: { tab: "tasks", screen: "schedule", sessionId: 8, page: 1 } });
+  });
+
+  it("종류가 없는 옛 칩은 작업으로, 세션 ID가 없으면 열지 않는다", () => {
+    expect(chipTarget({ session_id: 3 }, "schedule")?.view.screen).toBe("task");
+    expect(chipTarget({ source: "user" }, "chat")).toBeNull();
+    expect(chipTarget(null, "chat")).toBeNull();
   });
 });

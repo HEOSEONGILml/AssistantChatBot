@@ -18,10 +18,13 @@
 | **관찰 공급자** | 지금 상황의 한 부분을 만들어 주는 부품. 프로그램 지원을 늘릴 때 하나씩 더한다 |
 | **screenpipe** | 화면을 기록하고 검색하게 하는 외부 도구. 1단계 기록기로 쓴다 ([사례 조사](references/similar-products.md)) |
 | **패널** | 강아지를 누르면 강아지 위에 열리는 판. 알림·대화·작업·스케줄·사용량·설정 탭이 있다 ([디자인](design/2026-10-21-output-ui/README.md)). 강아지와 같은 창 안에 있다 |
-| **상세 창** | 작업 대화를 크게 보는 별도 창. 패널의 "창으로 크게 보기"로 연다 ([디자인](design/2026-10-21-output-ui/README.md) 12번) |
-| **대화 (탭)** | 패널의 대화 탭에서 Claude Code와 그냥 이야기하는 것. 세션 하나만 쓰고, 여기서 작업이나 스케줄을 만들 수도 있다. 세션 데이터에서 '대화'로 구분한다 ([0033](decisions/0033-chat-tab-single-session.md)). "작업 대화"와 다르다 |
-| **작업 칩** | 대화 탭에서 일을 맡겨 새 작업이 생겼을 때 대화에 남는 줄(`chip`). 새 작업 제목을 보이고, 누르면 그 작업 대화로 간다 ([0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 대화 탭") |
-| **작업 대화** | 작업 하나에서 사용자와 에이전트가 주고받은 말. 되물음과 답도 쌓인다 |
+| **세션** | 대화 하나의 단위. Claude Code 세션 하나와 묶이고 대화 줄을 담는다. 종류(`source`)는 작업(`user`)·대화(`chat`)·스케줄(`schedule`)이다. 코드·프로토콜의 `session` ([0034](decisions/0034-session-as-top-level-term.md)) |
+| **작업** | 사용자가 맡긴 일을 처리하는 세션(`source = user`). 작업 탭의 "새 작업"이나 에이전트의 `create_session`으로 생긴다 |
+| **Claude Code 세션 ID** | 세션이 이어 쓰는 Claude Code 쪽 세션의 ID(`claude_session_id`). 세션과 다른 것이다 |
+| **상세 창** | 세션 대화를 크게 보는 별도 창. 패널의 "창으로 크게 보기"로 연다 ([디자인](design/2026-10-21-output-ui/README.md) 12번) |
+| **대화 (탭)** | 패널의 대화 탭에서 Claude Code와 그냥 이야기하는 것. 대화 세션(`source = chat`) 하나만 쓰고, 여기서 작업이나 스케줄을 만들 수도 있다 ([0033](decisions/0033-chat-tab-single-session.md)). "세션 대화"와 다르다 |
+| **세션 칩** | 에이전트가 `create_session`으로 새 세션(작업·스케줄)을 만들었을 때 그 세션을 만든 대화에 남는 줄(`chip`). 종류와 제목을 보이고, 누르면 그 세션의 대화로 간다 ([0035](decisions/0035-create-session-from-any-session.md)) |
+| **세션 대화** | 세션 하나에서 사용자와 에이전트가 주고받은 말(대화 줄, `entries`). 되물음과 답도 쌓인다. 작업 세션이면 "작업 대화", 스케줄 세션이면 "스케줄 대화"라고도 한다 |
 | **배지** | 강아지에 붙는 소식 개수. 빨강은 답 필요, 노랑은 못 함, 초록은 새 소식 |
-| **작업 상태** | 일하는 중, 답 기다림, 다 함, 못 함, 멈춤 ([0030](decisions/0030-io-interface-task-as-conversation.md)) |
+| **세션 상태** | 일하는 중, 답 기다림, 다 함, 못 함, 멈춤 ([0030](decisions/0030-io-interface-task-as-conversation.md)) |
 | **Jev** | TypeSafe AI의 System One 모델. 텍스트를 생성하지 않고 구조화된 결정(선택·점수·예/아니오)의 분포만 준다. 지금은 쓰지 않는다. [상세](references/typesafe-jev.md) |

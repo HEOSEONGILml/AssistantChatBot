@@ -1,4 +1,4 @@
-"""Claude Code 세션 하나를 돌린다 (작업 하나 = 세션 하나, 0029). 질문·권한 요청은 Future 하나로 사용자 답을 기다린다."""
+"""Claude Code 세션 하나를 돌린다 (세션 하나에 Claude Code 세션 하나, 0029·0034). 질문·권한 요청은 Future 하나로 사용자 답을 기다린다."""
 import asyncio
 import logging
 import sys
@@ -42,26 +42,26 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
 
 
 class RunEvents(Protocol):
-    """세션에서 일어난 일을 앱(작업 관리)에 알린다."""
+    """세션에서 일어난 일을 앱(세션 관리)에 알린다."""
 
     def progress(self, text: str) -> None: ...
     def question(self, text: str, choices: list[str]) -> None: ...
     def confirm_request(self, kind: str, text: str, data: dict) -> None: ...
     def answered(self) -> None: ...
-    def task_changed(self) -> None: ...
+    def session_changed(self) -> None: ...
     def entry_added(self, entry: dict) -> None: ...
     def schedule_changed(self) -> None: ...
-    async def start_task(self, text: str) -> dict | None: ...
+    async def start_session(self, source: str, fields: dict) -> dict | None: ...
     def finished(self, result_text: str, is_error: bool) -> None: ...
-    def session(self, session_id: str) -> None: ...
+    def claude_session(self, claude_session_id: str) -> None: ...
     def rate_limit(self, info: dict) -> None: ...
 
 
 class AgentRun:
-    """세션 하나. 도구의 TaskContext 노릇도 한다 (confirm은 질문과 같은 기다림을 쓴다)."""
+    """세션 하나. 도구의 SessionContext 노릇도 한다 (confirm은 질문과 같은 기다림을 쓴다)."""
 
-    def __init__(self, task_id: int, events: RunEvents, make_client=ClaudeSDKClient):
-        self.task_id = task_id
+    def __init__(self, session_id: int, events: RunEvents, make_client=ClaudeSDKClient):
+        self.session_id = session_id
         self._events = events
         self._make_client = make_client
         self._client = None
@@ -88,13 +88,13 @@ class AgentRun:
                 if self._handle(m):
                     return
             if not self._stopped:
-                log.warning("작업 %d: 결과 없이 세션이 끝났다", self.task_id)
+                log.warning("세션 %d: 결과 없이 세션이 끝났다", self.session_id)
                 self._events.finished("결과 없이 끝났어요", True)
         except Exception as e:
             if self._stopped:
                 return
             # SDK 오류 글·트레이스백에는 CLI 출력(사용자 내용)이 섞일 수 있어 종류만 남긴다
-            log.error("작업 %d: Claude Code 실행 실패 (%s)", self.task_id, type(e).__name__)
+            log.error("세션 %d: Claude Code 실행 실패 (%s)", self.session_id, type(e).__name__)
             self._events.finished("Claude Code를 실행하지 못했어요", True)
         finally:
             self._client = None
@@ -107,7 +107,7 @@ class AgentRun:
                 if isinstance(b, TextBlock) and b.text.strip():
                     self._events.progress(b.text)
         elif isinstance(m, SystemMessage) and m.subtype == "init":
-            self._events.session(m.data["session_id"])
+            self._events.claude_session(m.data["session_id"])
         elif isinstance(m, RateLimitEvent):
             i = m.rate_limit_info
             self._events.rate_limit({"type": i.rate_limit_type, "utilization": i.utilization,
@@ -140,8 +140,8 @@ class AgentRun:
         async with self._ask_lock:
             return await self._ask(lambda: self._events.confirm_request(kind, text, data))
 
-    def notify(self, task: dict) -> None:
-        self._events.task_changed()
+    def notify(self, session: dict) -> None:
+        self._events.session_changed()
 
     def entry_added(self, entry: dict) -> None:
         self._events.entry_added(entry)
@@ -149,8 +149,8 @@ class AgentRun:
     def schedule_changed(self) -> None:
         self._events.schedule_changed()
 
-    async def start_task(self, text: str) -> dict | None:
-        return await self._events.start_task(text)
+    async def start_session(self, source: str, fields: dict) -> dict | None:
+        return await self._events.start_session(source, fields)
 
     def answer(self, value: str | dict) -> None:
         """기다리는 답을 푼다. 앱이 [고치기] 폼의 dict를 넘길 때도 쓴다."""
@@ -164,7 +164,7 @@ class AgentRun:
         elif self._client is not None and not self._stopped:
             await self._client.query(text)
         else:
-            log.warning("작업 %d: 세션이 없어 덧붙이지 못했다", self.task_id)
+            log.warning("세션 %d: 세션이 없어 덧붙이지 못했다", self.session_id)
 
     async def stop(self) -> None:
         """지금 질문은 "거부"로 풀고, 줄 서 있던 질문은 _ask에서 바로 "거부"로 끝난다."""
@@ -175,7 +175,7 @@ class AgentRun:
             try:
                 await client.interrupt()
             except Exception as e:
-                log.warning("작업 %d: 멈춤 요청 실패 (%s)", self.task_id, type(e).__name__)
+                log.warning("세션 %d: 멈춤 요청 실패 (%s)", self.session_id, type(e).__name__)
             await self._disconnect(client)
 
     async def _ask(self, emit) -> str | dict:
@@ -200,4 +200,4 @@ class AgentRun:
             try:
                 await client.disconnect()
             except Exception as e:
-                log.warning("작업 %d: 연결 끊기 실패 (%s)", self.task_id, type(e).__name__)
+                log.warning("세션 %d: 연결 끊기 실패 (%s)", self.session_id, type(e).__name__)

@@ -56,8 +56,8 @@ export function draftToFields(d: ScheduleDraft): { name: string; rule: Rule; ins
 
 // 지시서 수정을 마치거나 그만둔 뒤: [고치기]로 열었으면 그 작업의 대화, 아니면 스케줄 대화
 export function afterEdit(v: View): View {
-  const taskId = v.taskId;
+  const sessionId = v.sessionId;
   if (v.proposal && v.tab === "chat") return { tab: "chat", screen: "list", page: 1 };
-  if (v.tab === "schedules" || !v.proposal) return { tab: "schedules", screen: "schedule", taskId, page: v.page };
-  return { tab: v.tab, screen: "task", taskId, page: v.page };
+  if (v.tab === "schedules" || !v.proposal) return { tab: "schedules", screen: "schedule", sessionId, page: v.page };
+  return { tab: v.tab, screen: "task", sessionId, page: v.page };
 }

@@ -27,17 +27,17 @@ class Scheduler:
         for s in self._store.all_schedules():
             if not s["enabled"] or next_run(s["rule"], after) > now:
                 continue
-            task = self._store.get_task(s["task_id"])
-            if task is None:
-                log.warning("스케줄 %d: 작업이 없어 건너뜀", s["task_id"])
+            session = self._store.get_session(s["session_id"])
+            if session is None:
+                log.warning("스케줄 %d: 세션이 없어 건너뜀", s["session_id"])
                 continue
-            if task["state"] in ("working", "waiting"):
-                log.info("스케줄 %d: 아직 실행 중이라 이번 실행을 건너뜀", s["task_id"])
+            if session["state"] in ("working", "waiting"):
+                log.info("스케줄 %d: 아직 실행 중이라 이번 실행을 건너뜀", s["session_id"])
                 continue
             try:
-                await self._app.run_schedule(s["task_id"], now)
+                await self._app.run_schedule(s["session_id"], now)
             except Exception as e:
-                log.error("스케줄 %d: 실행 시작 실패 (%s)", s["task_id"], type(e).__name__)  # 내용은 쓰지 않는다
+                log.error("스케줄 %d: 실행 시작 실패 (%s)", s["session_id"], type(e).__name__)  # 내용은 쓰지 않는다
 
     async def run_forever(self, interval_s: float = 60) -> None:
         self._interval = interval_s

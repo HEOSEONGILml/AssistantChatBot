@@ -5,9 +5,9 @@ import {
 } from "../src/shared/schedules";
 
 const row = (o: Partial<ScheduleRow> = {}): ScheduleRow =>
-  ({ task_id: 3, name: "메일 요약", label: "매일 09:00", next_run: "2026-10-23T09:00:00", state: "next", ...o });
+  ({ session_id: 3, name: "메일 요약", label: "매일 09:00", next_run: "2026-10-23T09:00:00", state: "next", ...o });
 const sc = (o: Partial<Schedule> = {}): Schedule => ({
-  task_id: 3, name: "메일 요약", rule: { repeat: "weekly", time: "10:30", weekday: 0 }, instruction: "메일을 요약해 줘",
+  session_id: 3, name: "메일 요약", rule: { repeat: "weekly", time: "10:30", weekday: 0 }, instruction: "메일을 요약해 줘",
   label: "매주 월 10:30", enabled: true, next_run: "2026-10-26T10:30:00", last_run_at: null, last_result: null, ...o,
 });
 const now = new Date("2026-10-22T12:00:00");
@@ -67,13 +67,13 @@ describe("스케줄 양식", () => {
 
 describe("지시서 수정 뒤 돌아갈 화면", () => {
   it("스케줄 대화에서 열었으면 그 스케줄 대화로", () => {
-    expect(afterEdit({ tab: "schedules", screen: "editSchedule", taskId: 3, page: 2 }))
-      .toEqual({ tab: "schedules", screen: "schedule", taskId: 3, page: 2 });
+    expect(afterEdit({ tab: "schedules", screen: "editSchedule", sessionId: 3, page: 2 }))
+      .toEqual({ tab: "schedules", screen: "schedule", sessionId: 3, page: 2 });
   });
   it("[고치기]로 열었으면 그 작업의 대화로", () => {
     const p = { name: "x" };
-    expect(afterEdit({ tab: "chat", screen: "editSchedule", taskId: 1, page: 1, proposal: p })).toEqual({ tab: "chat", screen: "list", page: 1 });
-    expect(afterEdit({ tab: "tasks", screen: "editSchedule", taskId: 5, page: 1, proposal: p })).toEqual({ tab: "tasks", screen: "task", taskId: 5, page: 1 });
-    expect(afterEdit({ tab: "schedules", screen: "editSchedule", taskId: 3, page: 1, proposal: p })).toEqual({ tab: "schedules", screen: "schedule", taskId: 3, page: 1 });
+    expect(afterEdit({ tab: "chat", screen: "editSchedule", sessionId: 1, page: 1, proposal: p })).toEqual({ tab: "chat", screen: "list", page: 1 });
+    expect(afterEdit({ tab: "tasks", screen: "editSchedule", sessionId: 5, page: 1, proposal: p })).toEqual({ tab: "tasks", screen: "task", sessionId: 5, page: 1 });
+    expect(afterEdit({ tab: "schedules", screen: "editSchedule", sessionId: 3, page: 1, proposal: p })).toEqual({ tab: "schedules", screen: "schedule", sessionId: 3, page: 1 });
   });
 });

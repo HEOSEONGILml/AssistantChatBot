@@ -47,11 +47,11 @@ async function place(width: number, height: number): Promise<void> {
   applied = key;
 }
 
-// 상세 창을 보이고 어떤 작업을 그릴지 알린다. 그리는 쪽은 detail.html(Task 5)
-export async function openDetail(taskId: number): Promise<void> {
+// 상세 창을 보이고 어떤 세션을 그릴지 알린다. 그리는 쪽은 detail.html(Task 5)
+export async function openDetail(sessionId: number): Promise<void> {
   const win = await Window.getByLabel("detail");
   if (!win) return;
-  await emitTo("detail", "detail-open", taskId);
+  await emitTo("detail", "detail-open", sessionId);
   await win.show();
   await win.setFocus();
 }

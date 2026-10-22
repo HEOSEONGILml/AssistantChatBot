@@ -1,5 +1,5 @@
 // 스케줄 탭: 목록(9), 새 스케줄(15), 스케줄 대화의 머리·작업 지시서 줄(16), 지시서 수정(17). 값은 다이제스트 3절·5절.
-import type { Outgoing, Schedule, Task } from "../shared/protocol";
+import type { Outgoing, Schedule, Session } from "../shared/protocol";
 import type { State, View } from "../shared/state";
 import { REPEAT_LABELS, WEEKDAY_LABELS, type RuleForm } from "../shared/forms";
 import {
@@ -21,7 +21,7 @@ const PEN_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 
 // 양식에 적던 값. 다시 그려도(연결이 바뀌어도) 남는다. 양식을 열 때·마칠 때 비운다
 let draft: { key: string; d: ScheduleDraft } | null = null;
-const formKey = (v: View) => `${v.screen}|${v.taskId ?? ""}`;
+const formKey = (v: View) => `${v.screen}|${v.sessionId ?? ""}`;
 
 // 적던 값을 버린다
 export function clearDraft(): void {
@@ -40,9 +40,9 @@ export function schedulesBody(s: State, go: Go): Node[] {
   const v = s.view;
   const now = new Date();
   const rows = list?.items.map((r) => {
-    const icon = rowIcon(r, s.schedules.get(r.task_id));
+    const icon = rowIcon(r, s.schedules.get(r.session_id));
     return h("li", { class: r.state === "off" ? "row row-off" : "row" },
-      h("button", { type: "button", class: "row-open", onClick: () => go({ tab: "schedules", screen: "schedule", taskId: r.task_id, page: v.page }) },
+      h("button", { type: "button", class: "row-open", onClick: () => go({ tab: "schedules", screen: "schedule", sessionId: r.session_id, page: v.page }) },
         icon ? svg(ROW_ICON[icon]) : h("span", { class: "icon-gap", "aria-hidden": "true" }),
         h("span", { class: "row-text" }, h("b", {}, r.name), " ", h("span", { class: "note" }, `· ${r.label}`))),
       h("span", { class: r.state === "running" ? "row-right row-running" : "row-right" }, rowRight(r, now)));
@@ -58,7 +58,7 @@ export function schedulesBody(s: State, go: Go): Node[] {
 }
 
 // --- 스케줄 대화 (16): 머리와 작업 지시서 줄. 대화는 renderConversation이 그린다 ---
-export function scheduleHead(s: State, t: Task, send: Send, go: Go, openDetail: (id: number) => void): Node[] {
+export function scheduleHead(s: State, t: Session, send: Send, go: Go, openDetail: (id: number) => void): Node[] {
   const v = s.view;
   const sc = s.schedules.get(t.id);
   const on = sc?.enabled ?? false;
@@ -67,7 +67,7 @@ export function scheduleHead(s: State, t: Task, send: Send, go: Go, openDetail: 
     h("div", { class: "head-main" },
       h("span", { class: "head-title" }, sc?.name ?? t.title),
       h("span", { class: "head-sub src-schedule" }, "스케줄")),
-    sc ? switchButton({ on, label: "스케줄", disabled: !s.connected, onToggle: () => send({ type: "set_schedule_enabled", task_id: t.id, enabled: !on }) }) : null,
+    sc ? switchButton({ on, label: "스케줄", disabled: !s.connected, onToggle: () => send({ type: "set_schedule_enabled", session_id: t.id, enabled: !on }) }) : null,
     h("button", { type: "button", class: "icon-btn", "aria-label": "창으로 크게 보기", onClick: () => openDetail(t.id) }, svg(EXPAND_ICON)));
   return sc ? [head, instructionRow(sc, v, go)] : [head];
 }
@@ -77,7 +77,7 @@ function instructionRow(sc: Schedule, v: View, go: Go): HTMLElement {
     h("div", { class: "instr-main" },
       h("span", { class: "instr-meta" }, h("b", {}, "작업 지시서"), ` · ${instructionMeta(sc, new Date())}`),
       h("span", { class: "instr-text" }, sc.instruction)),
-    h("button", { type: "button", class: "instr-edit", onClick: () => openForm(go, { tab: v.tab, screen: "editSchedule", taskId: sc.task_id, page: v.page }) },
+    h("button", { type: "button", class: "instr-edit", onClick: () => openForm(go, { tab: v.tab, screen: "editSchedule", sessionId: sc.session_id, page: v.page }) },
       svg(PEN_ICON), "수정"));
 }
 
@@ -92,7 +92,7 @@ function startDraft(s: State): ScheduleDraft | null {
   if (draft?.key === formKey(v)) return draft.d;
   if (v.screen === "newSchedule") return emptyDraft();
   if (v.proposal) return draftOfProposal(v.proposal);
-  const sc = v.taskId !== undefined ? s.schedules.get(v.taskId) : undefined;
+  const sc = v.sessionId !== undefined ? s.schedules.get(v.sessionId) : undefined;
   return sc ? draftOf(sc) : null;
 }
 
@@ -143,7 +143,7 @@ export function scheduleForm(s: State, send: Send, go: Go): Node[] {
     e.preventDefault();
     const f = draftToFields(d);
     if (typeof f === "string") { error.textContent = f; return; }
-    const ok = isNew ? send({ type: "add_schedule", ...f }) : send({ type: "set_schedule", task_id: v.taskId!, ...f });
+    const ok = isNew ? send({ type: "add_schedule", ...f }) : send({ type: "set_schedule", session_id: v.sessionId!, ...f });
     if (ok === false) { error.textContent = "백엔드에 연결되지 않아 보내지 못했어요"; return; }
     draft = null;
     go(isNew ? { tab: "schedules", screen: "list", page: 1 } : afterEdit(v));

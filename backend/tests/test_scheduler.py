@@ -19,17 +19,17 @@ class FakeApp:
     def __init__(self):
         self.calls = []
 
-    async def run_schedule(self, task_id, now):
-        self.calls.append((task_id, now))
+    async def run_schedule(self, session_id, now):
+        self.calls.append((session_id, now))
 
 
 def setup(start, rule=RULE, enabled=True, state="done"):
     store = Store(None)
-    task = store.create_task("schedule", "메일")
-    store.update_task(task["id"], state=state)
-    store.create_schedule(task["id"], "메일", rule, "요약")
+    session = store.create_session("schedule", "메일")
+    store.update_session(session["id"], state=state)
+    store.create_schedule(session["id"], "메일", rule, "요약")
     if not enabled:
-        store.update_schedule(task["id"], enabled=False)
+        store.update_schedule(session["id"], enabled=False)
     clock = Clock(start)
     app = FakeApp()
     return Scheduler(store, app, clock), clock, app
@@ -81,10 +81,10 @@ async def test_gap_from_sleep_skips_missed_run_but_next_day_runs():
     assert app.calls == [(1, clock.t)]
 
 
-async def test_missing_task_does_not_abort_tick():
+async def test_missing_session_does_not_abort_tick():
     s, clock, app = setup(datetime(2026, 10, 22, 17, 59, tzinfo=KST))
     s._store._db.execute("PRAGMA foreign_keys = OFF")
-    s._store._db.execute("DELETE FROM tasks WHERE id = 1")
+    s._store._db.execute("DELETE FROM sessions WHERE id = 1")
     clock.t = datetime(2026, 10, 22, 18, 0, 30, tzinfo=KST)
     await s.tick()
     assert app.calls == []

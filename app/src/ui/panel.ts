@@ -1,5 +1,5 @@
 // 패널 틀: 연결 띠, 탭 바, 탭별 본문, 새 작업 화면, 대화 화면, 꼬리. 값은 다이제스트 2절, 3절 6·7·8·16번.
-import type { Entry, Outgoing, Task } from "../shared/protocol";
+import type { Entry, Outgoing, Session } from "../shared/protocol";
 import { STATE_TEXT, type State, type Tab, type View } from "../shared/state";
 import { isSendKey } from "../shared/forms";
 import { BACK_ICON, EXPAND_ICON, h, header, svg } from "./dom";
@@ -71,8 +71,8 @@ function body(s: State, send: Send, go: Go): Node[] {
   if (v.screen === "newTask") return newTask(s, send, go);
   if (v.screen === "newSchedule" || v.screen === "editSchedule") return scheduleForm(s, send, go);
   if (v.screen !== "list") {
-    // 작업 대화·스케줄 대화는 작업을 받기 전까지 "불러오는 중"
-    const title = (v.taskId !== undefined && s.tasks.get(v.taskId)?.title) || "";
+    // 작업 대화·스케줄 대화는 세션을 받기 전까지 "불러오는 중"
+    const title = (v.sessionId !== undefined && s.sessions.get(v.sessionId)?.title) || "";
     const backLabel = v.screen === "schedule" ? "스케줄 목록으로" : "목록으로";
     return [header(title, backLabel, () => go({ tab: v.tab, screen: "list", page: v.page })), loading()];
   }
@@ -85,11 +85,11 @@ function body(s: State, send: Send, go: Go): Node[] {
   return [tabBar(s, go), ...content];
 }
 
-const SOURCE_TEXT: Record<Task["source"], string> = { user: "내 요청", schedule: "스케줄", chat: "대화" };
+const SOURCE_TEXT: Record<Session["source"], string> = { user: "내 요청", schedule: "스케줄", chat: "대화" };
 const NO_ENTRIES: Entry[] = [];
 
 // 작업 대화 머리(11): 뒤로, 제목 + 부제(출처 · 상태), 창으로 크게 보기, 멈추기(일하는 중·답 기다림일 때만)
-function taskHead(s: State, t: Task, send: Send, go: Go, openDetail: (id: number) => void): HTMLElement {
+function taskHead(s: State, t: Session, send: Send, go: Go, openDetail: (id: number) => void): HTMLElement {
   const v = s.view;
   const live = t.state === "working" || t.state === "waiting";
   return h("div", { class: "head" },
@@ -100,14 +100,14 @@ function taskHead(s: State, t: Task, send: Send, go: Go, openDetail: (id: number
         h("span", { class: `src-${t.source}` }, SOURCE_TEXT[t.source]), " · ",
         h("span", { class: t.state === "waiting" ? "sub-ask" : "" }, STATE_TEXT[t.state]))),
     h("button", { type: "button", class: "icon-btn", "aria-label": "창으로 크게 보기", onClick: () => openDetail(t.id) }, svg(EXPAND_ICON)),
-    live ? h("button", { type: "button", class: "icon-btn", "aria-label": "작업 멈추기", onClick: () => send({ type: "stop", task_id: t.id }) }, svg(STOP_ICON)) : null);
+    live ? h("button", { type: "button", class: "icon-btn", "aria-label": "작업 멈추기", onClick: () => send({ type: "stop", session_id: t.id }) }, svg(STOP_ICON)) : null);
 }
 
-// 대화 화면(작업 대화·스케줄 대화·대화 탭)이면 그 작업. 아직 모르면 undefined
-function conversationTask(s: State): Task | undefined {
+// 대화 화면(작업 대화·스케줄 대화·대화 탭)이면 그 세션. 아직 모르면 undefined
+function conversationSession(s: State): Session | undefined {
   const v = s.view;
-  if ((v.screen === "task" || v.screen === "schedule") && v.taskId !== undefined) return s.tasks.get(v.taskId);
-  if (v.screen === "list" && v.tab === "chat" && s.chatTaskId !== null) return s.tasks.get(s.chatTaskId);
+  if ((v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) return s.sessions.get(v.sessionId);
+  if (v.screen === "list" && v.tab === "chat" && s.chatSessionId !== null) return s.sessions.get(s.chatSessionId);
   return undefined;
 }
 
@@ -119,7 +119,7 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
   root.classList.toggle("panel-schedule", v.screen === "schedule");
 
   // 대화 화면: 입력줄을 지키려고 대화 자리는 그대로 두고 위(연결 띠·탭 바·머리)만 바꾼다
-  const t = conversationTask(state);
+  const t = conversationSession(state);
   if (t) {
     const isChat = v.screen === "list";
     const key = `conv|${t.id}|${v.screen}`;
@@ -131,14 +131,14 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
       : v.screen === "schedule" ? scheduleHead(state, t, send, go, openDetail) : [taskHead(state, t, send, go, openDetail)];
     root.querySelector(".slot")!.replaceChildren(...conn, ...top);
     renderConversation(root.querySelector(".conv-host") as HTMLElement,
-      { task: t, entries: state.entries.get(t.id) ?? NO_ENTRIES, height: isChat ? 360 : 0, compact: true }, send, go);
+      { session: t, entries: state.entries.get(t.id) ?? NO_ENTRIES, height: isChat ? 360 : 0, compact: true }, send, go);
     return;
   }
 
   // 양식 화면(새 작업·새 스케줄·지시서 수정)은 입력 중에 다시 그리지 않는다(한글 조합·커서가 깨진다).
   // 연결이 바뀔 때, 지시서 수정은 채울 스케줄이 올 때만 다시 그린다
   const key = v.screen === "newTask" ? `newTask|${state.connected}`
-    : v.screen === "newSchedule" || v.screen === "editSchedule" ? `form|${v.screen}|${v.taskId ?? ""}|${state.connected}|${formReady(state)}`
+    : v.screen === "newSchedule" || v.screen === "editSchedule" ? `form|${v.screen}|${v.sessionId ?? ""}|${state.connected}|${formReady(state)}`
     : "";
   if (key && root.dataset.key === key) return;
   root.dataset.key = key;

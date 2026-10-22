@@ -9,8 +9,8 @@ RULE = {"repeat": "daily", "time": "09:00"}
 
 
 class FakeCtx:
-    def __init__(self, task_id, answer="등록", store=None):
-        self.task_id = task_id
+    def __init__(self, session_id, answer="등록", store=None):
+        self.session_id = session_id
         self.started = []
         self.logged_in = True
         self.answer = answer
@@ -22,12 +22,12 @@ class FakeCtx:
         self.saved_before_confirm = None
 
     async def confirm(self, kind, text, data):
-        self.saved_before_confirm = self.store.get_schedule(self.task_id) if self.store else None
+        self.saved_before_confirm = self.store.get_schedule(self.session_id) if self.store else None
         self.confirms.append((kind, text, data))
         return self.answer
 
-    def notify(self, task):
-        self.notified.append(task)
+    def notify(self, session):
+        self.notified.append(session)
 
     def entry_added(self, entry):
         self.added.append(entry)
@@ -35,22 +35,26 @@ class FakeCtx:
     def schedule_changed(self):
         self.schedule_changes += 1
 
-    async def start_task(self, text):
+    async def start_session(self, source, fields):
         if not self.logged_in:
             return None
-        self.started.append(text)
-        return self.store.create_task("user", text[:30])
+        self.started.append((source, fields))
+        if source == "user":
+            return self.store.create_session("user", fields["text"][:30])
+        session = self.store.create_session("schedule", fields["name"])
+        self.store.create_schedule(session["id"], fields["name"], fields["rule"], fields["instruction"])
+        return session
 
 
 @pytest.fixture
 def setup():
     store = Store(None)
-    task = store.create_task("user", "임시")
+    session = store.create_session("user", "임시")
 
     def make(answer="등록"):
-        ctx = FakeCtx(task["id"], answer, store)
+        ctx = FakeCtx(session["id"], answer, store)
         tools = {t.name: t for t in build_tools(store, ctx)}
-        return store, ctx, tools, task["id"]
+        return store, ctx, tools, session["id"]
 
     return make
 
@@ -62,27 +66,27 @@ def payload(result):
 def test_server_and_prefix(setup):
     store, ctx, tools, _ = setup()
     assert MCP_PREFIX == "mcp__assistant__"
-    assert set(tools) == {"recent_tasks", "search_tasks", "get_task", "get_schedule",
-                          "set_task_title", "create_schedule", "update_schedule", "create_task"}
+    assert set(tools) == {"recent_sessions", "search_sessions", "get_session", "get_schedule",
+                          "set_session_title", "create_session", "update_schedule"}
     assert backend_server(store, ctx)["name"] == "assistant"
 
 
-async def test_search_tasks_returns_matches(setup):
+async def test_search_sessions_returns_matches(setup):
     store, ctx, tools, tid = setup()
-    store.update_task(tid, title="견적서 정리")
-    other = store.create_task("user", "점심 메뉴")
-    res = await tools["search_tasks"].handler({"query": "견적서"})
+    store.update_session(tid, title="견적서 정리")
+    other = store.create_session("user", "점심 메뉴")
+    res = await tools["search_sessions"].handler({"query": "견적서"})
     assert [t["id"] for t in payload(res)] == [tid]
     assert other["id"] not in [t["id"] for t in payload(res)]
 
 
-async def test_recent_and_get_task(setup):
+async def test_recent_and_get_session(setup):
     store, ctx, tools, tid = setup()
-    assert payload(await tools["recent_tasks"].handler({}))[0]["id"] == tid
+    assert payload(await tools["recent_sessions"].handler({}))[0]["id"] == tid
     store.add_entry(tid, "user", "안녕")
-    got = payload(await tools["get_task"].handler({"task_id": tid}))
-    assert got["task"]["id"] == tid and got["entries"][0]["text"] == "안녕"
-    assert (await tools["get_task"].handler({"task_id": 999}))["is_error"]
+    got = payload(await tools["get_session"].handler({"session_id": tid}))
+    assert got["session"]["id"] == tid and got["entries"][0]["text"] == "안녕"
+    assert (await tools["get_session"].handler({"session_id": 999}))["is_error"]
 
 
 async def test_get_schedule_missing_is_error(setup):
@@ -90,49 +94,73 @@ async def test_get_schedule_missing_is_error(setup):
     assert (await tools["get_schedule"].handler({}))["is_error"]
 
 
-async def test_set_task_title_notifies(setup):
+async def test_set_session_title_notifies(setup):
     store, ctx, tools, tid = setup()
-    await tools["set_task_title"].handler({"title": "새 제목"})
-    assert store.get_task(tid)["title"] == "새 제목"
+    await tools["set_session_title"].handler({"title": "새 제목"})
+    assert store.get_session(tid)["title"] == "새 제목"
     assert ctx.notified[0]["title"] == "새 제목"
 
 
-async def test_create_schedule_waits_for_confirmation(setup):
+async def test_create_session_schedule_confirms_then_makes_new_session(setup):
     store, ctx, tools, tid = setup("등록")
-    res = await tools["create_schedule"].handler({"name": "아침", "rule": RULE, "instruction": "메일 요약"})
+    res = await tools["create_session"].handler(
+        {"source": "schedule", "name": "아침", "rule": RULE, "instruction": "메일 요약"})
     assert not res.get("is_error")
-    assert ctx.saved_before_confirm is None
     kind, text, data = ctx.confirms[0]
     assert kind == "proposal" and text == "이렇게 등록할까요?"
     assert data["label"] == "매일 09:00" and data["first_run"]
-    sch = store.get_schedule(tid)
+    new = payload(res)
+    assert new["session_id"] != tid and new["source"] == "schedule"
+    sch = store.get_schedule(new["session_id"])
     assert sch["name"] == "아침" and sch["instruction"] == "메일 요약"
-    assert store.get_task(tid)["source"] == "schedule"
-    assert ctx.notified
-    assert ctx.schedule_changes == 1  # 화면이 새 스케줄을 받게 한다
+    # 지금 세션은 그대로다
+    assert store.get_session(tid)["source"] == "user" and store.get_schedule(tid) is None
+    [chip] = store.entries(tid)
+    assert (chip["kind"], chip["text"], chip["data"]) == (
+        "chip", "아침", {"session_id": new["session_id"], "source": "schedule"})
+    assert ctx.added == [chip]
 
 
-async def test_create_schedule_with_edited_values(setup):
+async def test_create_session_schedule_with_edited_values(setup):
     store, ctx, tools, tid = setup({"name": "저녁", "rule": {"repeat": "weekdays", "time": "18:00"},
                                     "instruction": "정리"})
-    await tools["create_schedule"].handler({"name": "아침", "rule": RULE, "instruction": "메일 요약"})
-    sch = store.get_schedule(tid)
+    res = await tools["create_session"].handler(
+        {"source": "schedule", "name": "아침", "rule": RULE, "instruction": "메일 요약"})
+    sch = store.get_schedule(payload(res)["session_id"])
     assert sch["name"] == "저녁" and sch["rule"]["repeat"] == "weekdays" and sch["instruction"] == "정리"
 
 
-async def test_create_schedule_declined_saves_nothing(setup):
+async def test_create_session_schedule_declined_makes_nothing(setup):
     store, ctx, tools, tid = setup("아니 9시 말고 10시")
-    res = await tools["create_schedule"].handler({"name": "아침", "rule": RULE, "instruction": "x"})
-    assert store.get_schedule(tid) is None
-    assert store.get_task(tid)["source"] == "user"
+    res = await tools["create_session"].handler(
+        {"source": "schedule", "name": "아침", "rule": RULE, "instruction": "x"})
+    assert ctx.started == [] and store.entries(tid) == []
     assert "아니 9시 말고 10시" in res["content"][0]["text"]
 
 
-async def test_create_schedule_rejects_bad_rule(setup):
+async def test_create_session_schedule_rejects_bad_rule(setup):
     store, ctx, tools, tid = setup()
-    res = await tools["create_schedule"].handler(
-        {"name": "a", "rule": {"repeat": "daily", "time": "25:00"}, "instruction": "x"})
-    assert res["is_error"] and ctx.confirms == []
+    for rule in ({"repeat": "daily", "time": "25:00"}, "매일"):
+        res = await tools["create_session"].handler({"source": "schedule", "name": "a", "rule": rule, "instruction": "x"})
+        assert res["is_error"]
+    assert ctx.confirms == [] and ctx.started == []
+
+
+async def test_create_session_from_schedule_session(setup):
+    """종류와 상관없이 어느 세션에서든 만든다: 스케줄 세션에서 스케줄·작업을 만든다."""
+    store, ctx, tools, tid = setup("등록")
+    store.create_schedule(tid, "아침", RULE, "i")
+    a = await tools["create_session"].handler({"source": "schedule", "name": "저녁", "rule": RULE, "instruction": "x"})
+    b = await tools["create_session"].handler({"source": "user", "text": "회의 자료 모아 줘"})
+    assert not a.get("is_error") and not b.get("is_error")
+    assert [e["data"]["source"] for e in store.entries(tid) if e["kind"] == "chip"] == ["schedule", "user"]
+
+
+async def test_create_session_missing_fields_or_chat_is_error(setup):
+    store, ctx, tools, tid = setup()
+    for args in ({"source": "user"}, {"source": "schedule", "name": "a"}, {"source": "chat", "text": "x"}, {"text": "x"}):
+        assert (await tools["create_session"].handler(args))["is_error"]
+    assert ctx.started == [] and ctx.confirms == []
 
 
 async def test_update_schedule_leaves_edit_entry(setup):
@@ -158,18 +186,8 @@ async def test_update_schedule_declined_or_missing(setup):
     assert ctx.added == [] and ctx.schedule_changes == 0
 
 
-async def test_create_schedule_when_already_schedule(setup):
-    store, ctx, tools, tid = setup()
-    store.create_schedule(tid, "아침", RULE, "i")
-    res = await tools["create_schedule"].handler({"name": "b", "rule": RULE, "instruction": "x"})
-    assert res["is_error"] and "update_schedule" in res["content"][0]["text"]
-    assert ctx.confirms == []
-
-
 async def test_non_dict_rule_is_error(setup):
     store, ctx, tools, tid = setup()
-    res = await tools["create_schedule"].handler({"name": "b", "rule": "매일", "instruction": "x"})
-    assert res["is_error"] and ctx.confirms == []
     store.create_schedule(tid, "아침", RULE, "i")
     res = await tools["update_schedule"].handler({"rule": "매일"})
     assert res["is_error"] and ctx.confirms == []
@@ -183,32 +201,33 @@ async def test_update_schedule_no_change_writes_nothing(setup):
     assert [e for e in store.entries(tid) if e["kind"] == "edit"] == []
 
 
-async def test_create_task_tool_starts_task_and_leaves_chip(setup):
+async def test_create_session_user_starts_task_and_leaves_chip(setup):
     store, ctx, tools, tid = setup()
-    res = await tools["create_task"].handler({"text": "다음 주 회의 자료 모아 줘"})
+    res = await tools["create_session"].handler({"source": "user", "text": "다음 주 회의 자료 모아 줘"})
     assert not res.get("is_error")
     new = payload(res)
-    assert ctx.started == ["다음 주 회의 자료 모아 줘"]
-    assert new["task_id"] != tid and new["title"] == "다음 주 회의 자료 모아 줘"
+    assert ctx.started == [("user", {"text": "다음 주 회의 자료 모아 줘"})]
+    assert new["session_id"] != tid and new["title"] == "다음 주 회의 자료 모아 줘"
     [chip] = store.entries(tid)
-    assert (chip["kind"], chip["text"], chip["data"]) == ("chip", "다음 주 회의 자료 모아 줘", {"task_id": new["task_id"]})
+    assert (chip["kind"], chip["text"], chip["data"]) == (
+        "chip", "다음 주 회의 자료 모아 줘", {"session_id": new["session_id"], "source": "user"})
     assert ctx.added == [chip]
-    assert store.entries(new["task_id"]) == []  # 칩은 지금 작업(대화)에만 남는다
+    assert store.entries(new["session_id"]) == []  # 칩은 지금 세션에만 남는다
 
 
-async def test_create_task_when_logged_out_is_error(setup):
+async def test_create_session_when_logged_out_is_error(setup):
     store, ctx, tools, tid = setup()
     ctx.logged_in = False
-    res = await tools["create_task"].handler({"text": "일"})
+    res = await tools["create_session"].handler({"source": "user", "text": "일"})
     assert res["is_error"]
     assert store.entries(tid) == [] and ctx.added == []
 
 
-async def test_set_task_title_refused_in_chat():
+async def test_set_session_title_refused_in_chat():
     store = Store(None)
-    chat = store.create_task("chat", "대화")
+    chat = store.create_session("chat", "대화")
     ctx = FakeCtx(chat["id"], store=store)
     tools = {t.name: t for t in build_tools(store, ctx)}
-    res = await tools["set_task_title"].handler({"title": "회의 자료"})
+    res = await tools["set_session_title"].handler({"title": "회의 자료"})
     assert res["is_error"]
-    assert store.get_task(chat["id"])["title"] == "대화" and ctx.notified == []
+    assert store.get_session(chat["id"])["title"] == "대화" and ctx.notified == []

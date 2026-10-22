@@ -96,7 +96,7 @@ async def test_text_becomes_progress_and_result_finishes():
     await run.run("이어폰 찾아 줘", "OPTS")
     assert client.options == "OPTS"
     assert client.queries == ["이어폰 찾아 줘"]
-    assert events.of("session") == [("s1",)]
+    assert events.of("claude_session") == [("s1",)]
     assert events.of("progress") == [("검색 중",)]
     assert events.of("rate_limit") == [({"type": "five_hour", "utilization": 0.3, "resets_at": 100},)]
     assert events.of("finished") == [("찾았어요", False)]
@@ -177,7 +177,7 @@ async def test_stop_while_waiting_releases_question():
 async def test_confirm_uses_same_wait_and_accepts_dict():
     events = FakeEvents()
     run = AgentRun(3, events)
-    assert run.task_id == 3
+    assert run.session_id == 3
     pending = asyncio.ensure_future(run.confirm("proposal", "이렇게 등록할까요?", {"name": "뉴스"}))
     await until(lambda: run.waiting)
     assert events.of("confirm_request") == [("proposal", "이렇게 등록할까요?", {"name": "뉴스"})]
@@ -191,7 +191,7 @@ async def test_confirm_uses_same_wait_and_accepts_dict():
     assert await pending == "등록"
 
     run.notify({"id": 3})
-    assert events.of("task_changed") == [()]
+    assert events.of("session_changed") == [()]
     run.entry_added({"id": 9, "kind": "edit"})
     run.schedule_changed()
     assert events.of("entry_added") == [({"id": 9, "kind": "edit"},)]
@@ -238,7 +238,7 @@ def test_claude_env_blanks_api_key(monkeypatch):
 
 def test_harness_has_tool_names():
     for name in ("mcp__screenpipe__activity-summary", "search-content", "frame-context",
-                 "recent_tasks", "search_tasks", "get_task", "set_task_title", "get_schedule", "AskUserQuestion"):
+                 "recent_sessions", "search_sessions", "get_session", "set_session_title", "get_schedule", "AskUserQuestion"):
         assert name in HARNESS
     assert agent.HARNESS.startswith("#")
 
