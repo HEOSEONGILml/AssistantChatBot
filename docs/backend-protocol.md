@@ -2,8 +2,6 @@
 
 화면과 백엔드는 이 문서로만 이어진다. v6은 [0030](decisions/0030-io-interface-task-as-conversation.md)의 "작업 하나 = 대화 하나"를 그대로 옮긴 것이다. 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
 
-> 현재 앱(`app/src`)은 아직 v5(`message`, `set_key`)를 보낸다. 백엔드가 v6만 받으므로 화면 계획을 마치기 전까지 앱은 접속하지 못한다(닫힘 코드 4003).
-
 ## 연결
 
 - 백엔드는 `127.0.0.1`의 빈 포트에서 WebSocket을 연다. 포트와 토큰을 `%APPDATA%\TamagotchiChatBot\backend\backend.json`에 쓴다 (`{"port", "token", "pid"}`). 끝날 때 지운다.

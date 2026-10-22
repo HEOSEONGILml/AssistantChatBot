@@ -2,13 +2,34 @@
 
 TamagotchiChatBot의 구조와 동작 원리다. 지금 코드가 **어떻게 동작하는지**만 적는다.
 
-> 기준: 브랜치 `feat/assistant`. 백엔드는 프로토콜 v6, 화면은 아직 v5다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로 다시 만들었고, 화면은 화면 계획에서 v6으로 바꾼다. 그 전까지 앱은 백엔드에 접속하지 못한다(버전이 달라 끊긴다).
+> 기준: 브랜치 `feat/assistant`. 화면과 백엔드 모두 프로토콜 v6이다. 프로젝트를 조수로 바꾸면서 다마고치 기능을 모두 지웠다 ([0022](docs/decisions/0022-pivot-to-assistant.md)). 백엔드는 [조수 1단계 스펙](docs/superpowers/specs/2026-10-21-assistant-phase1-design.md)대로, 화면은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md)과 [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)대로 다시 만들었다.
 
 ## 1. 한눈에 보기
 
 ```mermaid
+flowchart TB
+  subgraph REQ["요청 흐름"]
+    direction LR
+    IN["입력 계층<br>Tauri 2"] --> AG["에이전트 계층<br>Python 3.11 · Claude Agent SDK"] --> OUT["출력 계층<br>Tauri 2"]
+  end
+  AG <-->|"찾기·저장"| DATA[("데이터 계층<br>SQLite")]
+  REC["화면 기록<br>screenpipe"] -.->|"쓰기"| DATA
+  style REC stroke-dasharray: 5 5
+```
+
+| 계층 | 위치 | 하는 일 | 하지 않는 일 | 근거 |
+|---|---|---|---|---|
+| 입력 | 프론트 | 사용자 요청을 받아 그대로 넘긴다 | 맥락 모으기 | [0026](docs/decisions/0026-input-layer-passes-request-only.md) |
+| 출력 | 프론트 | 진행·질문·결과·실패를 보여 준다 | 컴퓨터에 행동하기 | [0028](docs/decisions/0028-output-layer-is-ui.md) |
+| 에이전트 | 백엔드 → Claude Code | 작업을 수행하고, 필요한 맥락을 데이터 계층에서 직접 찾는다 | — | [0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md) |
+| 데이터 | 백엔드 SQLite + screenpipe DB | 작업·대화·스케줄 기록, 화면 기록을 담는다 | — | [0027](docs/decisions/0027-data-layer-ownership.md) |
+| 화면 기록 (계층 아님) | screenpipe (백그라운드) | 요청과 상관없이 화면을 기록해 데이터 계층에 쓴다 | 요청 처리 | [0026](docs/decisions/0026-input-layer-passes-request-only.md) |
+
+### 구성 요소로 보기
+
+```mermaid
 flowchart LR
-  U["사용자"] -->|"단축키, 입력"| APP["화면 (Tauri, app/)<br>아직 v5"]
+  U["사용자"] -->|"마우스: 강아지·패널"| APP["화면 (Tauri, app/)<br>강아지·패널·상세 창"]
   APP <-->|"WebSocket v6"| SRV["server.py<br>hello·분배"]
   subgraph B["백엔드 (backend/)"]
     SRV --> CORE["core.py App<br>작업 관리"]
@@ -31,22 +52,86 @@ flowchart LR
 - 작업 하나 = 대화 하나 = Claude Code 세션 하나다 ([0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0030](docs/decisions/0030-io-interface-task-as-conversation.md)). 스케줄도 작업 하나다 ([0032](docs/decisions/0032-schedule-creation.md)). 대화 탭은 출처 `chat`인 작업 하나로, 처음 시작할 때 만들고 그 세션을 계속 이어 쓴다. 작업 목록·알림에는 넣지 않는다 ([0033](docs/decisions/0033-chat-tab-single-session.md)). 대화에서 일을 맡기면 에이전트가 `create_task`로 새 작업을 만들고 대화에 작업 칩 줄을 남긴다.
 - 여러 작업이 동시에 돈다. 질문·권한 요청은 대화의 질문 줄이 되고, 사용자의 `say`가 답이 된다.
 
+## 1.1 프로세스와 통신
+
+실제로 뜨는 프로그램과 그 사이의 통신이다. 실선은 통신, 점선은 "띄운다"다.
+
+```mermaid
+flowchart LR
+  APP["Tauri 앱"] <-->|"WebSocket v6<br>localhost"| BE["Python 백엔드"]
+  BE <-->|"Agent SDK<br>stdio"| CC["Claude Code CLI<br>작업마다 1개"]
+  CC <-->|"MCP stdio"| SPM["screenpipe MCP"]
+  SPM -->|"HTTP localhost:3030"| SP["screenpipe record"]
+  CC <-->|"--chrome"| CH["크롬 + Claude 확장"]
+
+  APP -.-> BE
+  BE -.-> CC
+  BE -.-> SP
+  CC -.-> SPM
+```
+
+| 프로세스 | 띄우는 쪽 | 언제 뜨나 | 언제 끄나 | 코드 |
+|---|---|---|---|---|
+| Tauri 앱 | 사용자 | 앱 실행 | 트레이 → 종료 | `app/src-tauri/src/lib.rs` |
+| Python 백엔드 | Tauri 앱 | 접속이 안 되면 띄우고 2초 뒤 다시 접속. 이미 떠 있으면 그대로 | 앱이 끝날 때 `taskkill /T /F`로 트리째 | `src-tauri/src/backend.rs`, `src/backend-link.ts` |
+| Claude Code CLI | 백엔드 (Agent SDK) | 작업이 돌 때. 작업 하나에 하나 | 작업이 끝나거나 멈출 때 | `backend/agent.py` |
+| screenpipe MCP | Claude Code | Claude Code 세션마다 (`cmd /c npx -y screenpipe-mcp@latest`) | 세션과 함께 | `backend/agent.py` `SCREENPIPE` |
+| screenpipe record | 백엔드 | 시작 때 화면 기록 설정이 켜져 있으면. 설정을 켜도 뜬다 | 설정을 끄거나 백엔드가 끝날 때 | `backend/clients.py`, `config.screenpipe_cmd` |
+| 크롬 + Claude 확장 | 사용자 | 사용자가 띄운 크롬 | — | — |
+
+| 통신 | 방식 | 근거 |
+|---|---|---|
+| 앱 ↔ 백엔드 | WebSocket. 포트·토큰은 `backend.json`에서 읽고 `hello`로 인증 | [프로토콜](docs/backend-protocol.md) |
+| 백엔드 ↔ Claude Code | Agent SDK (`ClaudeSDKClient`). 질문·권한 요청은 `can_use_tool` 콜백으로 온다 | [스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
+| Claude Code → 백엔드 도구 | 백엔드 프로세스 안의 MCP 서버 `assistant` (`create_sdk_mcp_server`). 별도 프로세스가 아니다 | [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md), `backend/tools.py` |
+| Claude Code ↔ 크롬 | `--chrome` 옵션. 구독 로그인일 때만 켜진다 | [스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
+| screenpipe MCP → screenpipe | localhost:3030 REST | [비슷한 제품 조사](docs/references/similar-products.md) |
+
 ## 2. 화면 (`app/`)
 
-> 아래는 v5 시절 그대로다. 입력창의 `message`, 설정 창의 키 저장(`set_key`)은 v6 백엔드가 받지 않는다. 화면 계획에서 다시 쓴다.
+마우스로만 쓴다. 전역 단축키·입력창·키 설정 창은 없다 (스펙 3절, 사용자). 모양과 문구는 [디자인 다이제스트](docs/design/2026-10-21-output-ui/digest.md)를, 다이제스트에 없던 값은 [화면 계획](docs/superpowers/plans/2026-10-22-assistant-frontend.md)의 "정한 값"을 따른다.
+
+```mermaid
+flowchart LR
+  BE["백엔드<br>WebSocket v6"] <--> LINK["backend-link.ts"]
+  subgraph MAIN["주 창 main (index.html)"]
+    LINK --> M["main.ts"]
+    M -->|"apply"| ST["shared/state.ts<br>상태"]
+    ST --> UI["ui/*<br>강아지·패널 그리기"]
+    UI -->|"send, go"| M
+    M --> W["window.ts<br>창 크기·위치"]
+  end
+  M <-->|"Tauri 이벤트"| D["상세 창 detail<br>detail.html, detail.ts"]
+```
 
 | 창 | 파일 | 하는 일 |
 |---|---|---|
-| 주 창 `main` | `index.html`, `src/main.ts` | 보이지 않는다. 백엔드 연결을 들고, 입력창·설정 창과 백엔드 사이를 잇는다. 입력창 단축키를 등록한다 |
-| 입력창 `input` | `input.html`, `src/input.ts` | 단축키(기본 `Ctrl+Shift+Space`)로 화면 가운데에 열고 닫는다. Enter로 보낸다 |
-| 설정 창 `settings` | `settings.html`, `src/settings-page.ts` | 트레이 메뉴로 연다. 단축키와 API 키를 저장한다 |
+| 주 창 `main` | `index.html`, `src/main.ts` | 투명·테두리 없음·항상 위·작업 표시줄에 안 보임. 강아지(128x96)와 패널(너비 340px)을 그린다. 백엔드 연결을 들고 상태를 쌓는다 |
+| 상세 창 `detail` | `detail.html`, `src/detail.ts` | 작업 하나의 대화를 크게(880x544) 본다. 패널의 "창으로 크게 보기"로 연다. 백엔드에 직접 붙지 않고 주 창과 Tauri 이벤트로 주고받는다(`detail-open`·`detail-data`를 받고, `detail-say`·`detail-stop`·`detail-seen`·`detail-go`를 보낸다). 닫기를 누르면 숨기기만 한다 |
 
-- `src/backend-link.ts`: 백엔드에 접속한다. 끊기거나 접속하지 못하면 2초 뒤 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다.
-- `src/shared/backend-protocol.ts`: 프로토콜 메시지 해석과 생성.
-- `src/shared/settings.ts`: 화면 설정(단축키) 저장. 저장본에 예전 설정이 있어도 지금 쓰는 값만 꺼낸다.
-- `src-tauri/src/backend.rs`: 접속 정보 파일 읽기, 개발 환경에서 `backend/.venv`의 파이썬으로 백엔드 띄우기, 앱이 끝날 때 함께 끄기.
-- `src-tauri/src/lib.rs`: 트레이(설정, 종료)와 창 관리.
-- `public/sprites/dog/`: 강아지 스프라이트. 지금은 쓰는 코드가 없다. 강아지가 화면 한 자리에 있다는 컨셉([vision](docs/vision.md))에 따라 둔다.
+- **창 크기와 위치** (`src/window.ts`): 패널이 닫히면 창은 강아지 크기, 열리면 패널 + 12px + 강아지 크기다. 늘 주 모니터 작업 영역의 오른쪽 아래(오른쪽 끝 − 20px, 아래 끝)에 붙인다. 패널 높이가 바뀌면(`ResizeObserver`) 다시 맞춘다. 겹친 요청은 차례로 하고 가장 최근 것만 적용한다.
+- **강아지**: 누르면 패널을 열고 닫는다. 자세·배지·툴팁(브라우저 기본 `title`)은 상태에서 계산한다. 로그아웃이면 잠자고, 패널을 열면 설정 탭부터 보인다. 연결이 끊기면 앉고, 패널 맨 위에 `백엔드에 연결하는 중…` 띠가 뜬다.
+- **패널**: 탭 여섯(알림·대화·작업·스케줄·사용량·설정)과 그 안의 화면(새 작업, 작업 대화, 새 스케줄, 스케줄 대화, 지시서 수정). 그림자는 없다(창 끝에서 잘린다). 목록은 한 쪽 4줄이고 페이저를 늘 보인다.
+- **대화 화면** (`src/ui/conversation.ts`): 작업 대화·스케줄 대화·대화 탭·상세 창이 함께 쓴다. 이어진 진행 줄은 칩 하나로 접는다. 에이전트 글은 작은 마크다운(굵게, 인라인 코드, 목록, 줄바꿈)을 DOM으로 그린다(`innerHTML`을 쓰지 않는다). 입력은 늘어나는 textarea, Enter 보내기, Shift+Enter 줄바꿈, 한글 조합 중 Enter는 무시. 질문·제안 카드의 선택지는 보낸 뒤에만 막는다.
+- **다시 붙기** (`src/backend-link.ts`): 접속하지 못하거나 끊기면 2초 뒤 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다. 끊기면 백엔드에서 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 목록을 다시 받는다.
+- **트레이**: `종료` 하나. 주 창이 닫혀도(Alt+F4 등) 앱이 끝난다.
+- **앱 종료** (`src-tauri/src/backend.rs`): 이 앱이 띄운 백엔드를 `taskkill /PID <pid> /T /F`로 프로세스 트리째 끈다. 백엔드가 띄운 screenpipe·Claude Code가 남지 않게 하려는 것이다. 다른 곳에서 띄운 백엔드는 건드리지 않는다.
+
+| 모듈 | 하는 일 |
+|---|---|
+| `src/shared/protocol.ts` | 프로토콜 v6 메시지 타입, 해석과 생성 |
+| `src/shared/state.ts` | 화면 상태. 백엔드 메시지 쌓기(`apply`), 강아지 자세·배지·툴팁, 다시 붙거나 화면을 열 때 보낼 요청, 배지를 세려고 알림 뒤쪽을 훑는 요청(`followUps`) |
+| `src/shared/entries.ts` | 대화 줄을 그릴 항목으로 묶기(진행 줄 접기, 질문·제안 카드, 답한 카드 기억) |
+| `src/shared/markdown.ts` | 에이전트 글의 작은 마크다운 해석 |
+| `src/shared/forms.ts` | 스케줄 양식 ↔ 규칙, 보내기 키 판정, 시각·남은 시간 글, 사용량 줄 |
+| `src/shared/schedules.ts` | 스케줄 목록 행·지시서 줄의 글, 양식 채우기·검사 |
+| `src/shared/settings.ts` | 권한 모드 선택지 문구 |
+| `src/ui/*.ts`, `src/ui/styles.css` | DOM 그리기: `dog`, `panel`(틀·탭·새 작업), `lists`(알림·작업 목록), `conversation`, `schedule`, `usage`, `settings`, `dom`(작은 도우미) |
+| `src-tauri/src/lib.rs` | 트레이(종료), 창 이벤트(상세 창은 숨기기, 주 창은 앱 종료), 앱이 끝날 때 백엔드 끄기 |
+| `src-tauri/src/backend.rs` | 접속 정보 파일 읽기, 개발 환경에서 `backend/.venv`의 파이썬으로 백엔드 띄우기, 트리째 끄기 |
+| `public/sprites/dog/` | 강아지 스프라이트 시트(프레임 64x48을 2배로 그린다) |
+
+`src/shared/*.ts`는 Vitest로 단위 시험한다(`app/tests/`). 창·실제 백엔드에 기대는 동작은 [화면 수동 확인](docs/manual-checks/frontend.md)으로 본다.
 
 ## 3. 백엔드 (`backend/`)
 
@@ -74,7 +159,6 @@ flowchart LR
 | 백엔드 접속 정보 | `%APPDATA%\TamagotchiChatBot\backend\backend.json` |
 | 화면 기록 (screenpipe) | `%USERPROFILE%\.screenpipe` (screenpipe가 관리) |
 | Claude Code 로그인 | Claude Code가 관리 (`claude auth login`, 구독) |
-| 화면 설정 | `%APPDATA%\com.tamagotchi.app\settings.json` |
 
 ## 5. 문서 지도
 
@@ -84,6 +168,7 @@ flowchart LR
 | [`docs/glossary.md`](docs/glossary.md) | 용어집 |
 | [`docs/backend-protocol.md`](docs/backend-protocol.md) | 화면 ↔ 백엔드 프로토콜 (v6) |
 | [`docs/manual-checks/backend.md`](docs/manual-checks/backend.md) | 백엔드 수동 확인 목록: 실제 Claude Code·screenpipe로만 확인할 수 있는 것 |
+| [`docs/manual-checks/frontend.md`](docs/manual-checks/frontend.md) | 화면 수동 확인 목록: 디자인 18개 화면을 실제 앱에서 보기, 한글 입력, 다시 붙기, 상세 창, 앱 종료 뒤 프로세스 |
 | [`docs/decisions/`](docs/decisions/) | 결정 기록. 결정 하나에 파일 하나 |
 | [`docs/design/`](docs/design/) | 디자인 요청서와 결과. [출력 계층 요청서](docs/design/2026-10-21-output-ui-brief.md), [출력 계층 화면 디자인](docs/design/2026-10-21-output-ui/README.md), [구현 다이제스트](docs/design/2026-10-21-output-ui/digest.md) |
 | [`docs/spikes/`](docs/spikes/) | 기술 확인 시험. [Agent SDK로 띄운 Claude Code의 크롬 조작·질문·권한](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |

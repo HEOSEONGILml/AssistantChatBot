@@ -5,7 +5,7 @@
 ## 준비
 
 - [README](../../README.md)의 "필요한 것"을 갖춘다: Claude Code, 구독 로그인, Claude in Chrome 확장, Node.js(`npx`).
-- 화면 앱은 아직 v5라 붙지 않는다. 백엔드만 띄우고(`cd backend && uv run python -m backend`), `backend.json`의 포트·토큰으로 WebSocket 클라이언트를 붙여 v6 메시지를 직접 보낸다 ([프로토콜](../backend-protocol.md)).
+- 화면 앱으로 확인해도 되지만([화면 수동 확인](frontend.md)), 메시지를 직접 보고 싶으면 백엔드만 띄우고(`cd backend && uv run python -m backend`), `backend.json`의 포트·토큰으로 WebSocket 클라이언트를 붙여 v6 메시지를 직접 보낸다 ([프로토콜](../backend-protocol.md)).
 - 로그: `%APPDATA%\TamagotchiChatBot\backend\logs\backend.log`. 작업 기록: 같은 폴더의 `assistant.db`.
 
 ```mermaid
@@ -36,6 +36,7 @@ flowchart LR
 ## 화면 계획에 넘기는 주의
 
 - Tauri가 백엔드를 강제로 끄면(`backend.rs`의 `child.kill`) 파이썬의 정리 코드가 돌지 않는다. 그러면 백엔드가 띄운 screenpipe와 `claude` 세션 프로세스(그 밑의 MCP·크롬 연결까지)가 고아로 남는다. 화면 계획에서는 백엔드를 정상 종료시키거나(종료 신호 → 정리 대기), 그게 안 되면 프로세스 트리째(`taskkill /T`) 끈다.
+  - 반영: 화면은 앱이 끝날 때 백엔드를 `taskkill /PID <pid> /T /F`로 트리째 끈다(`backend.rs`의 `stop`). 실제로 남는 것이 없는지는 [화면 수동 확인](frontend.md)에서 본다.
 
 ## 지금까지 본 것
 
