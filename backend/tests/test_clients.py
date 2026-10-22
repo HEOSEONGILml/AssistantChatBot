@@ -175,3 +175,67 @@ async def test_run_kills_process_when_cancelled(monkeypatch):
         raise AssertionError("cancel expected")
     [proc] = killed
     assert proc.returncode is not None
+
+
+def _make_recording_dir(root):
+    (root / "data" / "a").mkdir(parents=True)
+    (root / "db.sqlite").write_bytes(b"x" * 10)
+    (root / "db.sqlite-wal").write_bytes(b"x" * 5)
+    (root / "data" / "a" / "b.jpg").write_bytes(b"x" * 7)
+    (root / "secrets.sqlite").write_bytes(b"x" * 100)
+    (root / "machine_id").write_text("id")
+
+
+def test_size_counts_only_recordings(tmp_path):
+    _make_recording_dir(tmp_path)
+    assert clients.recording_bytes(tmp_path) == 22
+
+
+def test_size_of_missing_dir_is_zero(tmp_path):
+    assert clients.recording_bytes(tmp_path / "none") == 0
+
+
+def test_clear_files_keeps_config(tmp_path):
+    _make_recording_dir(tmp_path)
+    clients.clear_recording_files(tmp_path)
+    assert (tmp_path / "secrets.sqlite").exists() and (tmp_path / "machine_id").exists()
+    assert not (tmp_path / "db.sqlite").exists() and not (tmp_path / "db.sqlite-wal").exists()
+    assert not (tmp_path / "data").exists()
+    assert clients.recording_bytes(tmp_path) == 0
+
+
+def test_clear_missing_dir_is_noop(tmp_path):
+    clients.clear_recording_files(tmp_path / "none")
+
+
+def test_clear_continues_when_a_file_is_locked(tmp_path):
+    _make_recording_dir(tmp_path)
+    locked = tmp_path / "db.sqlite"
+
+    def remove(p):
+        if p == locked:
+            raise PermissionError("locked")
+        p.unlink()
+    clients.clear_recording_files(tmp_path, remove=remove)
+    assert locked.exists()
+    assert not (tmp_path / "db.sqlite-wal").exists() and not (tmp_path / "data").exists()
+
+
+async def test_recorder_owns_and_stop_and_wait(monkeypatch):
+    monkeypatch.setattr(clients.shutil, "which", lambda name: None)
+    up = [False]
+
+    async def health():
+        return up[0]
+
+    async def sleep(s):
+        up[0] = False  # 한 번 기다리면 내려간다
+    killed = []
+    rec = Recorder(spawn=lambda argv, env: FakeProc(), health=health, kill=killed.append, sleep=sleep)
+    assert rec.owns() is False
+    await rec.start()
+    assert rec.owns() is True
+    up[0] = True
+    await rec.stop_and_wait()
+    assert killed and rec.owns() is False and up[0] is False
+    assert await rec.is_up() is False

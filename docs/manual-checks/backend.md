@@ -41,6 +41,7 @@ flowchart LR
 | 19 | 먼저 말 걸기: 5분 뒤 꺼짐 | 18번처럼 배지를 띄우고 누르지 않는다 | 5분~5분 30초 뒤 `nudge {active: false}`가 온다 | [ ] |
 | 20 | 먼저 말 걸기: [도와줘]·[괜찮아] | 배지가 뜨면 `nudge_open`, `nudge_answer {help: true}`를 보낸다. 다음 배지에는 `nudge_answer {help: false}`를 보내고 같은 작업을 계속한다 | [도와줘]: 대화 세션에 `nudge`·`user(도와줘)` 줄 뒤 두세 문장의 `result`가 온다(숨은 지시 글은 줄에 없다). [괜찮아]: 같은 작업에서는 배지가 더 드물게 뜨고, 다른 작업으로 옮기면 다시 뜰 수 있다 | [ ] |
 | 21 | 먼저 말 걸기: screenpipe DB가 잠김 | screenpipe가 기록하는 중에 판단이 돈다(18번과 함께) | `화면 기록 읽기 실패`가 가끔 찍혀도 고리는 계속 돌고 백엔드가 멈추지 않는다 | [ ] |
+| 22 | 화면 기록 비우기 | 백엔드가 띄운 screenpipe가 도는 중에 `clear_recording`을 보낸다. 화면 기록을 끄고 한 번 더 보낸다. 따로 띄운 screenpipe가 떠 있을 때도 보낸다 | 매번 `settings`가 온다. 첫째: screenpipe가 꺼졌다 다시 뜨고 `~/.screenpipe`의 `db.sqlite*`·`data/`가 비며 `recording_bytes`가 거의 0이 된다. `secrets.sqlite`·`machine_id`는 남고 screenpipe가 다시 로그인 없이 기록한다. 둘째: 지운 뒤 다시 뜨지 않는다. 셋째: 지우지 않고 용량이 그대로다. 로그에 경로·파일명이 없다 | [ ] |
 
 ## 화면 계획에 넘기는 주의
 

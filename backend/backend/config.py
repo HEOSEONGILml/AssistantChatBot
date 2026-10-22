@@ -35,6 +35,11 @@ def screenpipe_cmd() -> list[str]:
     return ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all", "--language", "korean", "--language", "english"]
 
 
+def screenpipe_dir() -> Path:
+    """screenpipe가 기록과 자기 설정을 두는 폴더."""
+    return Path.home() / ".screenpipe"
+
+
 def screenpipe_db() -> Path:
     """screenpipe가 화면 기록을 쌓는 DB. 그 HTTP API는 토큰이 필요해 DB를 읽기 전용으로 직접 읽는다 (2026-10-22 확인)."""
-    return Path.home() / ".screenpipe" / "db.sqlite"
+    return screenpipe_dir() / "db.sqlite"

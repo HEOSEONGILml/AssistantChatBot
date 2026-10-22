@@ -17,3 +17,9 @@ def test_db_path_and_work_dir(tmp_path, monkeypatch):
 
 def test_screenpipe_cmd():
     assert config.screenpipe_cmd() == ["npx", "-y", "screenpipe", "record", "--retention-days", "2", "--retention-mode", "all", "--language", "korean", "--language", "english"]
+
+
+def test_screenpipe_dir_and_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
+    assert config.screenpipe_dir() == tmp_path / ".screenpipe"
+    assert config.screenpipe_db() == tmp_path / ".screenpipe" / "db.sqlite"

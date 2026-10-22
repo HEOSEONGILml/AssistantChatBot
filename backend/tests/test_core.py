@@ -3,11 +3,19 @@ import json
 
 import pytest
 
-from backend import core
+from backend import config, core
 from backend.agent import AgentRun
 from backend.core import App
 from backend.store import Store
 from backend.tools import build_tools
+
+@pytest.fixture(autouse=True)
+def rec_dir(tmp_path, monkeypatch):
+    """실제 ~/.screenpipe를 건드리지 않는다."""
+    d = tmp_path / "screenpipe"
+    monkeypatch.setattr(config, "screenpipe_dir", lambda: d)
+    return d
+
 
 RULE = {"repeat": "daily", "time": "09:00"}
 
@@ -37,8 +45,18 @@ class FakeAuth:
 
 
 class FakeRecorder:
-    def __init__(self):
+    def __init__(self, owned=True, up=False):
         self.calls = []
+        self._owned, self._up = owned, up
+
+    def owns(self):
+        return self._owned
+
+    async def is_up(self):
+        return self._up
+
+    async def stop_and_wait(self):
+        self.calls.append("stop_and_wait")
 
     async def start(self):
         self.calls.append("start")
@@ -395,9 +413,9 @@ async def test_usage_keeps_latest_per_type():
 async def test_permission_mode_saved_and_used_for_new_runs():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
     await app.set_permission_mode("acceptEdits")
-    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
     await app.set_permission_mode("nonsense")
     assert store.get_setting("permission_mode", "default") == "acceptEdits"
     await app.request("일")
@@ -630,7 +648,7 @@ async def test_logout_sends_status():
 async def test_settings_includes_recording():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
     assert app.recording_enabled() is True
 
 
@@ -639,7 +657,7 @@ async def test_set_recording_starts_and_stops():
     app, store, out, runs = make(recorder=rec)
     await app.set_recording(False)
     assert rec.calls == ["stop"] and store.get_setting("recording", "on") == "off"
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
     await app.set_recording(True)
     assert rec.calls == ["stop", "start"] and store.get_setting("recording", "on") == "on"
     assert out[-1]["recording"] is True and app.recording_enabled() is True
@@ -918,7 +936,7 @@ async def test_set_jev_key():
     app, store, out, runs = make()
     await app.set_jev_key("  secret-jev  ")
     assert store.get_setting("jev_key", "") == "secret-jev"
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "jev_key_set": True}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": True}
     assert "secret-jev" not in json.dumps(out, ensure_ascii=False)
     await app.set_jev_key("")
     assert store.get_setting("jev_key", "x") == "" and out[-1]["jev_key_set"] is False
@@ -1053,3 +1071,44 @@ async def test_pending_help_dropped_when_chat_stopped():
     await app.stop(chat_id)
     await settle()
     assert len(runs) == 1 and app._runs == {} and store.get_session(chat_id)["state"] == "stopped"
+
+
+async def test_settings_has_recording_dir_and_bytes(rec_dir):
+    (rec_dir / "data").mkdir(parents=True)
+    (rec_dir / "data" / "a.jpg").write_bytes(b"x" * 7)
+    app, store, out, runs = make()
+    await app.get_settings()
+    assert out[-1]["recording_dir"] == str(rec_dir) and out[-1]["recording_bytes"] == 7
+
+
+async def test_clear_recording_stops_clears_restarts(monkeypatch, rec_dir):
+    rec = FakeRecorder(owned=True)
+    app, store, out, runs = make(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append(("clear", d)))
+    await app.clear_recording()
+    assert rec.calls == ["stop_and_wait", ("clear", rec_dir), "start"]
+    assert out[-1]["type"] == "settings"
+
+
+async def test_clear_when_recording_off_does_not_restart(monkeypatch, rec_dir):
+    rec = FakeRecorder(owned=False, up=False)
+    app, store, out, runs = make(recorder=rec)
+    await app.set_recording(False)
+    rec.calls.clear()
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
+    await app.clear_recording()
+    assert rec.calls == ["clear"] and out[-1]["type"] == "settings"
+
+
+async def test_clear_skips_foreign_screenpipe(monkeypatch):
+    rec = FakeRecorder(owned=False, up=True)
+    app, store, out, runs = make(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
+    await app.clear_recording()
+    assert rec.calls == [] and out[-1]["type"] == "settings"
+
+
+async def test_clear_with_missing_dir_just_finishes(rec_dir):
+    app, store, out, runs = make(recorder=FakeRecorder(owned=False))
+    await app.clear_recording()
+    assert out[-1]["recording_bytes"] == 0

@@ -6,7 +6,9 @@ from collections import deque
 from datetime import datetime
 from typing import Awaitable, Callable, Protocol
 
+from . import config
 from .agent import AgentRun, build_options
+from .clients import clear_recording_files, recording_bytes
 from .schedule_rule import label, next_run, validate
 from .store import Store
 from .tools import backend_server, edit_text
@@ -36,6 +38,9 @@ class Auth(Protocol):
 class Recorder(Protocol):
     async def start(self) -> None: ...
     def stop(self) -> None: ...
+    def owns(self) -> bool: ...
+    async def is_up(self) -> bool: ...
+    async def stop_and_wait(self) -> None: ...
 
 
 class Proactive(Protocol):
@@ -308,8 +313,11 @@ class App:
         self._post({"type": "schedule", "schedule": self._schedule_view(schedule)})
 
     async def get_settings(self) -> None:
+        rec_dir = config.screenpipe_dir()
+        size = await asyncio.to_thread(recording_bytes, rec_dir)
         await self._send({"type": "settings", "permission_mode": self._permission_mode(),
-                          "recording": self.recording_enabled(), "jev_key_set": bool(self.jev_key())})
+                          "recording": self.recording_enabled(), "recording_dir": str(rec_dir),
+                          "recording_bytes": size, "jev_key_set": bool(self.jev_key())})
 
     async def set_permission_mode(self, mode: str) -> None:
         if mode not in PERMISSION_MODES:
@@ -324,6 +332,20 @@ class App:
             await self._recorder.start()
         else:
             self._recorder.stop()
+        await self.get_settings()
+
+    async def clear_recording(self) -> None:
+        """화면 기록을 지운다. 쓰는 중에 지우지 않게 내가 띄운 screenpipe를 끄고 내려간 뒤 지운다 (0030).
+        남이 띄운 screenpipe가 떠 있으면 지우지 않는다."""
+        owned = self._recorder.owns()
+        if not owned and await self._recorder.is_up():
+            log.info("남이 띄운 screenpipe가 떠 있어 기록을 지우지 않음")
+        else:
+            if owned:
+                await self._recorder.stop_and_wait()
+            await asyncio.to_thread(clear_recording_files, config.screenpipe_dir())
+            if self.recording_enabled():
+                await self._recorder.start()
         await self.get_settings()
 
     def recording_enabled(self) -> bool:

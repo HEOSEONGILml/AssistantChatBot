@@ -144,6 +144,19 @@ class Recorder:
             return
         log.info("screenpipe 시작")
 
+    def owns(self) -> bool:
+        """내가 띄운 screenpipe가 아직 살아 있다."""
+        return self._proc is not None and self._proc.poll() is None
+
+    async def is_up(self) -> bool:
+        return await self._health()
+
+    async def stop_and_wait(self) -> None:
+        """내가 띄운 것을 끄고 health가 내려갈 때까지 기다린다 (파일 잠금이 풀리게)."""
+        self.stop()
+        await self._wait_down()
+        self._just_stopped = False
+
     def stop(self) -> None:
         proc, self._proc = self._proc, None
         if proc is not None:
@@ -156,6 +169,42 @@ class Recorder:
             if not await self._health():
                 return
             await self._sleep(DOWN_WAIT_S)
+
+
+RECORDING_DB_FILES = ("db.sqlite", "db.sqlite-shm", "db.sqlite-wal")
+
+
+def _recording_files(root: Path) -> list[Path]:
+    """지울 기록 파일: DB 파일들과 data/ 아래 모든 파일. screenpipe 설정·로그는 넣지 않는다."""
+    files = [root / n for n in RECORDING_DB_FILES if (root / n).is_file()]
+    files += [p for p in (root / "data").rglob("*") if p.is_file()]
+    return files
+
+
+def recording_bytes(root: Path) -> int:
+    """기록 폴더에서 지울 수 있는 파일의 바이트 합. 폴더가 없으면 0."""
+    total = 0
+    for p in _recording_files(root):
+        try:
+            total += p.stat().st_size
+        except OSError:
+            pass  # 그 사이 사라졌거나 잠김: 센 값에서 뺀다
+    return total
+
+
+def clear_recording_files(root: Path, remove=Path.unlink) -> None:
+    """기록 파일을 지운다. 파일 하나를 못 지워도 나머지는 계속 지운다. 실패는 종류만 로그."""
+    for p in _recording_files(root):
+        try:
+            remove(p)
+        except OSError as e:
+            log.warning("기록 파일 삭제 실패: %s", type(e).__name__)
+    data = root / "data"
+    for d in sorted((p for p in data.rglob("*") if p.is_dir()), reverse=True) + [data]:
+        try:
+            d.rmdir()  # 비어 있을 때만 지워진다
+        except OSError:
+            pass
 
 
 class ScreenHistory:

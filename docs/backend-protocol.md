@@ -33,6 +33,7 @@
 | `set_schedule_enabled` | `session_id`: 정수, `enabled`: 참거짓 | 스케줄 스위치 |
 | `get_settings` | 없음 | 설정 탭 |
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새로 띄우는 세션부터 적용 |
+| `clear_recording` | 없음 | 설정 탭 [비우기]. 백엔드가 띄운 screenpipe를 끄고 내려갈 때까지 기다린 뒤 기록(`db.sqlite*`, `data/`)을 지우고, 화면 기록이 켜 있으면 다시 띄운 다음 `settings`를 보낸다. screenpipe 자체 설정(`secrets.sqlite`, `machine_id` 등)은 남긴다. 사용자가 따로 띄운 screenpipe가 떠 있으면 지우지 않고 `settings`만 보낸다. 파일 하나를 못 지워도 나머지는 지운다. 폴더가 없으면 아무 일 없이 끝난다. ([0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 화면 기록 폴더와 비우기") |
 | `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
 | `nudge_open` | 없음 | 배지(`nudge {active: true}`)가 뜬 강아지를 누름. 대화 세션에 `nudge` 줄을 남기고 `nudge {active: false}`를 보낸다. 그새 배지가 꺼졌으면 무시한다. 아래 [먼저 말 걸기](#먼저-말-걸기) |
@@ -55,7 +56,7 @@
 | `session_detail` | `session`: 세션, `entries`: 대화 줄 전체, `schedule`: 스케줄 또는 `null` | `get_session`의 답 |
 | `schedules` | `page`, `pages`, `items`: `{session_id, name, label, next_run, state}` 목록 | `list_schedules`의 답 |
 | `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
-| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬), `jev_key_set`: 참거짓(Jev 키가 있음. 키 원문은 보내지 않는다) | `get_settings`의 답, 바뀌었을 때 |
+| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬), `recording_dir`: 문자열(screenpipe 기록 폴더 전체 경로), `recording_bytes`: 정수(지울 수 있는 기록의 바이트 합. 폴더가 없으면 0), `jev_key_set`: 참거짓(Jev 키가 있음. 키 원문은 보내지 않는다) | `get_settings`의 답, 바뀌었을 때 |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
 | `session_deleted` | `session_id` | `delete_session`의 답. `get_session`에 없는 세션이 왔을 때 |
 | `activity` | `session_id`, `kind`, `text` | 돌고 있는 세션이 하는 일이 바뀔 때. 대화 기록에 남기지 않는다. 아래 [지금 하는 일](#지금-하는-일-activity) |

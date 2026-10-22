@@ -31,6 +31,7 @@ ROUTES: dict[str, tuple[tuple[str, type], ...]] = {
     "get_usage": (),
     "logout": (),
     "set_recording": (("enabled", bool),),
+    "clear_recording": (),
     "delete_session": (("session_id", int),),
     "nudge_open": (),
     "nudge_answer": (("help", bool),),

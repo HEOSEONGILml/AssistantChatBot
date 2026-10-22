@@ -98,6 +98,7 @@ flowchart LR
 | 스케줄 대화 | 스케줄 스위치 | `set_schedule_enabled` | 켬·끔 저장 | `ui/schedule.ts` |
 | 설정 탭 | [로그인]·[로그아웃] | `login` / `logout` | `claude auth login/logout` | `ui/settings.ts` |
 | 설정 탭 | 화면 기록 스위치 | `set_recording` | screenpipe 띄우기·끄기 | `ui/settings.ts` |
+| 설정 탭 | 화면 기록 [비우기] | `clear_recording` | 내가 띄운 screenpipe를 끄고 내려간 뒤 기록 파일만 지우고(설정은 남김) 다시 띄움. 남이 띄운 것이면 지우지 않음. 폴더·용량은 `settings`의 `recording_dir`·`recording_bytes` | `core.py` `clear_recording` |
 | 설정 탭 | 권한 모드 고르기 | `set_permission_mode` | 다음 세션부터 쓸 권한 모드 저장 | `ui/settings.ts` |
 | 설정 탭 → 먼저 말 걸기 | Jev 키를 넣고 [저장] (빈 값이면 지움) | `set_jev_key` | 키 저장. 화면에는 `jev_key_set`만 돌려준다 | `ui/settings.ts` |
 | 강아지 ("!" 배지가 떠 있을 때) | 강아지 누름 | `nudge_open` | 대화 세션에 `nudge` 줄을 남기고 배지를 끈다. 화면은 패널을 대화 탭으로 연다 | `main.ts` `dogClick` |
@@ -688,6 +689,7 @@ flowchart TB
 |---|---|---|
 | 백엔드 시작 | 화면 기록 설정이 켜져 있으면(기본 켬) `start()` | `core.py` `startup` |
 | 설정 탭 스위치 켬 | 설정 저장 후 `start()` | `core.py` `set_recording` |
+| 설정 탭 [비우기] | 내가 띄운 것이면 `stop_and_wait()`(health가 내려갈 때까지) → 스레드에서 `clear_recording_files` → 화면 기록이 켜 있으면 `start()` | `core.py` `clear_recording`, `clients.py` |
 | 설정 탭 스위치 끔 | 설정 저장 후 `stop()`. 내가 띄운 것만 `taskkill /T`로 트리째 끈다 | `core.py` `set_recording`, `clients.py` `_kill` |
 | 백엔드 종료 | `stop()` | `__main__.py` |
 | 앱 종료 | 백엔드 트리째 종료에 함께 꺼진다 | `src-tauri/src/backend.rs` |
