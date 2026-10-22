@@ -73,7 +73,7 @@ flowchart LR
 | 프로세스 | 띄우는 쪽 | 언제 뜨나 | 언제 끄나 | 코드 |
 |---|---|---|---|---|
 | Tauri 앱 | 사용자 | 앱 실행 | 트레이 → 종료 | `app/src-tauri/src/lib.rs` |
-| Python 백엔드 | Tauri 앱 | 접속이 안 되면 띄우고 2초 뒤 다시 접속. 이미 떠 있으면 그대로 | 앱이 끝날 때 `taskkill /T /F`로 트리째 | `src-tauri/src/backend.rs`, `src/backend-link.ts` |
+| Python 백엔드 | Tauri 앱 | 접속이 안 되면 띄우고 다시 접속(2초에서 두 배씩 30초까지). 이미 떠 있으면 그대로 | 앱이 끝날 때 `taskkill /T /F`로 트리째 | `src-tauri/src/backend.rs`, `src/backend-link.ts` |
 | Claude Code CLI | 백엔드 (Agent SDK) | 작업이 돌 때. 작업 하나에 하나 | 작업이 끝나거나 멈출 때 | `backend/agent.py` |
 | screenpipe MCP | Claude Code | Claude Code 세션마다 (`cmd /c npx -y screenpipe-mcp@latest`) | 세션과 함께 | `backend/agent.py` `SCREENPIPE` |
 | screenpipe record | 백엔드 | 시작 때 화면 기록 설정이 켜져 있으면. 설정을 켜도 뜬다 | 설정을 끄거나 백엔드가 끝날 때 | `backend/clients.py`, `config.screenpipe_cmd` |
@@ -107,13 +107,13 @@ flowchart LR
 | 창 | 파일 | 하는 일 |
 |---|---|---|
 | 주 창 `main` | `index.html`, `src/main.ts` | 투명·테두리 없음·항상 위·작업 표시줄에 안 보임. 강아지(128x96)와 패널(너비 340px)을 그린다. 백엔드 연결을 들고 상태를 쌓는다 |
-| 상세 창 `detail` | `detail.html`, `src/detail.ts` | 작업 하나의 대화를 크게(880x544) 본다. 패널의 "창으로 크게 보기"로 연다. 백엔드에 직접 붙지 않고 주 창과 Tauri 이벤트로 주고받는다(`detail-open`·`detail-data`를 받고, `detail-say`·`detail-stop`·`detail-seen`·`detail-go`를 보낸다). 닫기를 누르면 숨기기만 한다 |
+| 상세 창 `detail` | `detail.html`, `src/detail.ts` | 작업 하나의 대화를 크게(880x544) 본다. 패널의 "창으로 크게 보기"로 연다. 백엔드에 직접 붙지 않고 주 창과 Tauri 이벤트로 주고받는다(`detail-open`·`detail-data`·`detail-send-failed`를 받고, `detail-say`·`detail-stop`·`detail-seen`·`detail-go`를 보낸다). 닫기를 누르면 숨기기만 한다 |
 
 - **창 크기와 위치** (`src/window.ts`): 패널이 닫히면 창은 강아지 크기, 열리면 패널 + 12px + 강아지 크기다. 늘 주 모니터 작업 영역의 오른쪽 아래(오른쪽 끝 − 20px, 아래 끝)에 붙인다. 패널 높이가 바뀌면(`ResizeObserver`) 다시 맞춘다. 겹친 요청은 차례로 하고 가장 최근 것만 적용한다.
 - **강아지**: 누르면 패널을 열고 닫는다. 자세·배지·툴팁(브라우저 기본 `title`)은 상태에서 계산한다. 로그아웃이면 잠자고, 패널을 열면 설정 탭부터 보인다. 연결이 끊기면 앉고, 패널 맨 위에 `백엔드에 연결하는 중…` 띠가 뜬다.
 - **패널**: 탭 여섯(알림·대화·작업·스케줄·사용량·설정)과 그 안의 화면(새 작업, 작업 대화, 새 스케줄, 스케줄 대화, 지시서 수정). 그림자는 없다(창 끝에서 잘린다). 목록은 한 쪽 4줄이고 페이저를 늘 보인다.
 - **대화 화면** (`src/ui/conversation.ts`): 작업 대화·스케줄 대화·대화 탭·상세 창이 함께 쓴다. 이어진 진행 줄은 칩 하나로 접는다. 에이전트 글은 작은 마크다운(굵게, 인라인 코드, 목록, 줄바꿈)을 DOM으로 그린다(`innerHTML`을 쓰지 않는다). 입력은 늘어나는 textarea, Enter 보내기, Shift+Enter 줄바꿈, 한글 조합 중 Enter는 무시. 질문·제안 카드의 선택지는 보낸 뒤에만 막는다.
-- **다시 붙기** (`src/backend-link.ts`): 접속하지 못하거나 끊기면 2초 뒤 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다. 끊기면 백엔드에서 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 목록을 다시 받는다.
+- **다시 붙기** (`src/backend-link.ts`): 접속하지 못하거나 끊기면 백엔드를 띄우고(이미 떠 있으면 그대로) 다시 접속한다. 간격은 2초에서 두 배씩 30초까지 늘고 붙으면 2초로 돌아간다(잠정값). 백엔드가 닫은 코드 4001~4003이면 다시 띄우지 않고 로그만 남긴다. 끊기면 백엔드에서 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 목록을 다시 받는다.
 - **트레이**: `종료` 하나. 주 창이 닫혀도(Alt+F4 등) 앱이 끝난다.
 - **앱 종료** (`src-tauri/src/backend.rs`): 이 앱이 띄운 백엔드를 `taskkill /PID <pid> /T /F`로 프로세스 트리째 끈다. 백엔드가 띄운 screenpipe·Claude Code가 남지 않게 하려는 것이다. 다른 곳에서 띄운 백엔드는 건드리지 않는다.
 

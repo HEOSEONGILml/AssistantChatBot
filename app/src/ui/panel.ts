@@ -48,7 +48,7 @@ function newTask(s: State, send: Send, go: Go): Node[] {
     e?.preventDefault();
     const text = area.value.trim();
     if (!text || !s.connected) return;
-    send({ type: "request", text });
+    if (send({ type: "request", text }) === false) return; // 못 보냈으면 글을 두고 이 화면에 남는다
     draft = "";
     toTasks();
   };

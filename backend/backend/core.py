@@ -123,6 +123,9 @@ class App:
         self._logging_in = True
         try:
             ok = await self._auth.login()
+        except Exception as e:
+            log.warning("로그인 실패: %s", type(e).__name__)  # 메시지에 사용자 정보가 있을 수 있어 종류만 적는다
+            ok = False
         finally:
             self._logging_in = False
         await self._send({"type": "status", "logged_in": ok})

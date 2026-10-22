@@ -639,3 +639,17 @@ async def test_recording_off_persists_across_start():
     app3, _, _, _ = make(recorder=rec_on)
     await app3.startup()
     assert rec_on.calls == ["start"]
+
+
+async def test_login_failure_still_sends_status_and_unlocks():
+    class BrokenAuth(FakeAuth):
+        async def login(self):
+            self.login_calls += 1
+            raise OSError("claude 없음")
+
+    auth = BrokenAuth(ok=False)
+    app, store, out, runs = make(auth)
+    await app.login()
+    assert out == [{"type": "status", "logged_in": False}]
+    await app.login()  # 잠금이 풀려 다시 할 수 있다
+    assert auth.login_calls == 2

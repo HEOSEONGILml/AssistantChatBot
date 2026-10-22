@@ -71,6 +71,11 @@ Promise.all([
     headSlot.replaceChildren();
     convHost.replaceChildren(h("p", { class: "empty" }, "불러오는 중…"));
   }),
+  // 주 창이 못 보냈다고 알리면 입력칸이 비어 있을 때 글을 되돌린다
+  listen<string>("detail-send-failed", (e) => {
+    const area = convHost.querySelector("textarea");
+    if (area && !area.value) { area.value = e.payload; area.dispatchEvent(new Event("input")); }
+  }),
   listen<{ task: Task; entries: Entry[]; connected: boolean }>("detail-data", (e) => {
     const { task, entries } = e.payload;
     connected = e.payload.connected;

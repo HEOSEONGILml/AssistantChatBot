@@ -115,7 +115,11 @@ listen("detail-ready", () => {
   if (detailTaskId === null) return;
   emitTo("detail", "detail-open", detailTaskId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 보내기 실패", e));
 });
-listen<{ taskId: number; text: string }>("detail-say", (e) => send({ type: "say", task_id: e.payload.taskId, text: e.payload.text }));
+// 못 보냈으면(그 사이 연결이 끊김) 상세 창에 알려 입력 글을 되돌리게 한다
+listen<{ taskId: number; text: string }>("detail-say", (e) => {
+  if (send({ type: "say", task_id: e.payload.taskId, text: e.payload.text })) return;
+  emitTo("detail", "detail-send-failed", e.payload.text).catch((err) => console.warn("상세 창 보내기 실패", err));
+});
 listen<{ taskId: number }>("detail-stop", (e) => send({ type: "stop", task_id: e.payload.taskId }));
 listen<{ taskId: number }>("detail-seen", (e) => { if (e.payload.taskId === detailTaskId) markSeen(e.payload.taskId); });
 // 상세 창의 작업 칩·[고치기]: 패널을 열고 그 화면으로

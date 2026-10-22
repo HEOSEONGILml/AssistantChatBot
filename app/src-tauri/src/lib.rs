@@ -9,7 +9,6 @@ mod backend;
 pub fn run() {
     tauri::Builder::default()
         .manage(backend::BackendProcess(std::sync::Mutex::new(None)))
-        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&quit_i])?;

@@ -19,7 +19,7 @@
 | type | 필드 | 뜻 |
 |---|---|---|
 | `hello` | `token`: 문자열 | 접속 인증 |
-| `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다. 로그인이 이미 진행 중이면 무시한다 |
+| `login` | 없음 | 로그인 버튼. `claude auth login`을 띄우고 끝나면 `status`를 보낸다(실패하거나 오류가 나도 보낸다). 로그인이 이미 진행 중이면 무시한다 |
 | `logout` | 없음 | 설정 탭 로그아웃 버튼. `claude auth logout`(20초 제한)을 부르고 `status {logged_in: false}`를 보낸다. 이미 돌고 있는 작업은 멈추지 않고 계속 돈다 |
 | `request` | `text`: 문자열 | 작업 탭 입력칸. 새 작업을 만든다 |
 | `add_schedule` | `name`: 문자열, `rule`: 규칙, `instruction`: 문자열 | 새 스케줄 양식의 [등록]. 확인 없이 바로 저장한다 |

@@ -36,7 +36,7 @@ cd backend && uv sync && cd ..      # 백엔드 의존성 (backend/.venv)
 cd app && npm install && cd ..    # 화면 의존성
 ```
 
-백엔드 의존성: `claude-agent-sdk`, `websockets` (개발: `pytest`, `pytest-asyncio`). 화면 의존성: `@tauri-apps/api`와 opener 플러그인, Vite, Vitest. 정확한 버전은 `backend/uv.lock`, `app/package-lock.json`, `app/src-tauri/Cargo.lock`.
+백엔드 의존성: `claude-agent-sdk`, `websockets` (개발: `pytest`, `pytest-asyncio`). 화면 의존성: `@tauri-apps/api`, Vite, Vitest. 정확한 버전은 `backend/uv.lock`, `app/package-lock.json`, `app/src-tauri/Cargo.lock`.
 
 ## 실행
 
