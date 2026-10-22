@@ -15,7 +15,8 @@ export type Item = {
 const kindOf = (k: Entry["kind"]): Item["kind"] => (k === "result" || k === "edit" ? "agent" : k);
 
 // 대화 탭(chat) 세션은 진행을 그리지 않는다 (설계 18번에 진행 칩이 없다)
-export function toItems(entries: Entry[], sessionState: Session["state"], source: Session["source"] = "user"): Item[] {
+// statusShown: 준비 중 줄이 보이는 중. 그동안 진행 칩의 스피너는 그리지 않는다(돌고 있다는 표시가 둘이 되지 않게)
+export function toItems(entries: Entry[], sessionState: Session["state"], source: Session["source"] = "user", statusShown = false): Item[] {
   const items: Item[] = [];
   for (const en of entries) {
     if (source === "chat" && en.kind === "progress") continue;
@@ -32,7 +33,7 @@ export function toItems(entries: Entry[], sessionState: Session["state"], source
     items.push(item);
   }
   const tail = items[items.length - 1];
-  if (tail?.kind === "progress" && sessionState === "working") tail.spinning = true;
+  if (tail?.kind === "progress" && sessionState === "working" && !statusShown) tail.spinning = true;
 
   if (sessionState === "waiting") {
     for (let i = items.length - 1; i >= 0; i--) {

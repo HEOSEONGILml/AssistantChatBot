@@ -5,7 +5,7 @@ import { REPEAT_LABELS, WEEKDAY_LABELS, type RuleForm } from "../shared/forms";
 import {
   afterEdit, draftOf, draftOfProposal, draftToFields, emptyDraft, instructionMeta, rowIcon, rowRight, type RowIcon, type ScheduleDraft,
 } from "../shared/schedules";
-import { BACK_ICON, EXPAND_ICON, h, header, svg, switchButton } from "./dom";
+import { BACK_ICON, deleteButton, expandButton, h, header, svg, switchButton } from "./dom";
 import { ICON, pager } from "./lists";
 
 type Send = (m: Outgoing) => unknown; // false면 못 보냄
@@ -58,7 +58,8 @@ export function schedulesBody(s: State, go: Go): Node[] {
 }
 
 // --- 스케줄 대화 (16): 머리와 작업 지시서 줄. 대화는 renderConversation이 그린다 ---
-export function scheduleHead(s: State, t: Session, send: Send, go: Go, openDetail: (id: number) => void): Node[] {
+// 머리: 뒤로, 이름 + 부제, 켜짐 스위치, 지우기(→ 확인), 크게 보기
+export function scheduleHead(s: State, t: Session, send: Send, go: Go, openBig: (v: View) => void, askDelete: () => void): Node[] {
   const v = s.view;
   const sc = s.schedules.get(t.id);
   const on = sc?.enabled ?? false;
@@ -68,7 +69,8 @@ export function scheduleHead(s: State, t: Session, send: Send, go: Go, openDetai
       h("span", { class: "head-title" }, sc?.name ?? t.title),
       h("span", { class: "head-sub src-schedule" }, "스케줄")),
     sc ? switchButton({ on, label: "스케줄", disabled: !s.connected, onToggle: () => send({ type: "set_schedule_enabled", session_id: t.id, enabled: !on }) }) : null,
-    h("button", { type: "button", class: "icon-btn", "aria-label": "창으로 크게 보기", onClick: () => openDetail(t.id) }, svg(EXPAND_ICON)));
+    deleteButton("스케줄 지우기", askDelete),
+    expandButton("icon-btn", () => openBig(v)));
   return sc ? [head, instructionRow(sc, v, go)] : [head];
 }
 

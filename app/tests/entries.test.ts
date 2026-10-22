@@ -35,6 +35,11 @@ describe("toItems", () => {
     expect(toItems([e("progress"), e("result")], "working").some((i) => i.spinning)).toBe(false);
   });
 
+  it("준비 중 줄이 보이면 진행 칩의 스피너를 그리지 않는다", () => {
+    expect(toItems([e("progress")], "working", "user", true)[0].spinning).toBeFalsy();
+    expect(toItems([e("progress")], "working", "user", false)[0].spinning).toBe(true);
+  });
+
   it("답할 수 있는 카드는 waiting에서 뒤에 user 줄이 없는 마지막 하나", () => {
     const items = toItems([e("question", "1", ["A"]), e("user"), e("question", "2", ["B"]), e("proposal", "3")], "waiting");
     expect(items.map((i) => i.answerable)).toEqual([false, false, false, true]);

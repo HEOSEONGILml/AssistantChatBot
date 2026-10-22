@@ -5,7 +5,7 @@ import { connectBackend } from "./backend-link";
 import { answered, pruneAnswered } from "./shared/entries";
 import type { Entry, Outgoing, Session } from "./shared/protocol";
 import {
-  apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type State, type View,
+  apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type Activity, type State, type View,
 } from "./shared/state";
 import { bindDogDrag, renderDog } from "./ui/dog";
 import { renderPanel } from "./ui/panel";
@@ -86,8 +86,8 @@ function markShownSeen() {
 }
 
 // --- 상세 창 ---
-// 마지막으로 보낸 세션·줄·연결. 같으면 다시 보내지 않는다. 끊겨 상태에서 세션이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
-let detailSent: { session?: Session; entries?: Entry[]; connected?: boolean } = {};
+// 마지막으로 보낸 세션·줄·연결·하는 일. 같으면 다시 보내지 않는다. 끊겨 상태에서 세션이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
+let detailSent: { session?: Session; entries?: Entry[]; connected?: boolean; activity?: Activity } = {};
 
 function pushDetail(force = false) {
   if (detailSessionId === null) return;
@@ -95,10 +95,11 @@ function pushDetail(force = false) {
   if (!session) return;
   const entries = state.entries.get(detailSessionId) ?? detailSent.entries ?? [];
   const connected = state.connected;
+  const activity = state.activity.get(detailSessionId);
   const d = detailSent;
-  if (!force && d.session === session && d.entries === entries && d.connected === connected) return;
-  detailSent = { session, entries, connected };
-  emitTo("detail", "detail-data", { session, entries, connected }).catch((e) => console.warn("상세 창 보내기 실패", e));
+  if (!force && d.session === session && d.entries === entries && d.connected === connected && d.activity === activity) return;
+  detailSent = { session, entries, connected, activity };
+  emitTo("detail", "detail-data", { session, entries, connected, activity }).catch((e) => console.warn("상세 창 보내기 실패", e));
 }
 
 function openDetail(sessionId: number) {
@@ -106,6 +107,12 @@ function openDetail(sessionId: number) {
   detailSent = {};
   send({ type: "get_session", session_id: sessionId });
   showDetail(sessionId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 열기 실패", e));
+}
+
+// 크게 보기(탭 바·작업 대화·스케줄 대화 머리): 지금은 세션 대화만 상세 창으로 연다. 목록 화면은 아직 아무것도 안 한다.
+// 큰 창(Task 5)이 생기면 이 함수가 그 창을 보던 화면 그대로 연다
+function openBig(v: View) {
+  if ((v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) openDetail(v.sessionId);
 }
 
 // 상세 창이 늦게 떠서 첫 detail-open·detail-data를 놓쳤을 수 있다: 준비됐다고 하면 다시 보낸다
@@ -158,7 +165,7 @@ bindDogDrag(dogRoot, {
 function render() {
   renderDog(dogRoot, state, togglePanel);
   panelRoot.hidden = !state.panelOpen;
-  if (state.panelOpen) renderPanel(panelRoot, state, send, go, openDetail);
+  if (state.panelOpen) renderPanel(panelRoot, state, send, go, openBig);
   else { panelRoot.replaceChildren(); panelRoot.dataset.key = ""; }
   fetchCardQuestion();
   markShownSeen();

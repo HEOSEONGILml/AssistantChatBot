@@ -1,7 +1,8 @@
 // 대화 화면: 줄 목록과 입력줄. 작업 대화(11)·대화 탭(18)·상세 창(12)이 같이 쓴다. 값은 다이제스트 2~4절.
 // 같은 세션을 다시 그릴 때는 입력줄을 그대로 두고(글·커서 보호) 줄 목록만 바꾼다.
+// 맨 아래 준비 중 줄(22)은 걸린 시간만 1초마다 바꾼다(대화 전체를 다시 그리지 않는다).
 import type { Entry, Outgoing, Session } from "../shared/protocol";
-import type { View } from "../shared/state";
+import { elapsedText, type Activity, type View } from "../shared/state";
 import { answered, answerKey, chipTarget, TAB_OF, toItems, type Item } from "../shared/entries";
 import { clockText, dateTimeText, isSendKey } from "../shared/forms";
 import { h, markdown, svg } from "./dom";
@@ -10,7 +11,8 @@ type Send = (m: Outgoing) => unknown; // false를 돌려주면 못 보낸 것(�
 type Go = (v: View) => void;
 // compact: 패널(13px, 진행 줄 접기). 아니면 상세 창(14px, 진행 줄 펼침, 날짜 줄)
 // height: 줄 목록 높이(px). 0이면 대화 화면이 부모 높이를 채운다
-export type ConversationOpts = { session: Session; entries: Entry[]; height: number; compact: boolean };
+// activity: 그 세션이 지금 하는 일. 있으면 맨 아래 준비 중 줄을 그린다
+export type ConversationOpts = { session: Session; entries: Entry[]; activity?: Activity; height: number; compact: boolean };
 
 const PLACEHOLDER: Record<Session["source"], string> = { user: "답하거나 되묻기", schedule: "이 스케줄에 말하기", chat: "Claude에게 말하기" };
 
@@ -27,7 +29,8 @@ type Ctl = {
   sessionId: number; compact: boolean; log: HTMLElement; area: HTMLTextAreaElement;
   expanded: Set<number>; // 펼친 진행 묶음(첫 줄 id)
   opts: ConversationOpts; send: Send; go: Go;
-  drawn?: [Session, Entry[]];
+  drawn?: [Session, Entry[], boolean]; // 그린 세션·줄·준비 중 줄 여부
+  status?: { li: HTMLElement; text: HTMLElement; time: HTMLElement; timer: number }; // 준비 중 줄
 };
 const ctls = new WeakMap<HTMLElement, Ctl>();
 
@@ -38,9 +41,42 @@ export function renderConversation(root: HTMLElement, opts: ConversationOpts, se
     ctls.set(root, c);
   }
   c.opts = opts; c.send = send; c.go = go;
-  if (c.drawn && c.drawn[0] === opts.session && c.drawn[1] === opts.entries) return;
-  c.drawn = [opts.session, opts.entries];
+  syncStatus(c);
+  const busy = !!opts.activity;
+  if (c.drawn && c.drawn[0] === opts.session && c.drawn[1] === opts.entries && c.drawn[2] === busy) return;
+  c.drawn = [opts.session, opts.entries, busy];
   drawLog(c);
+}
+
+// 준비 중 줄(22): 점 3개 + 굵은 하는 일 + "· <걸린 시간>". 줄을 만들고 글을 맞춘다. 하는 일이 없으면 줄과 시계를 치운다.
+// 줄을 목록에 넣고 빼는 것은 drawLog가 한다(준비 중 줄 여부가 바뀌면 다시 그린다)
+function syncStatus(c: Ctl): void {
+  const a = c.opts.activity;
+  if (!a) { stopStatus(c); return; }
+  if (!c.status) {
+    const text = h("b", {});
+    const time = h("span", { class: "status-time" });
+    const li = h("li", { class: "status-line", role: "status", "aria-live": "polite" },
+      h("span", { class: "status-dots", "aria-hidden": "true" }, h("span"), h("span"), h("span")),
+      h("span", {}, text, " ", time));
+    c.status = { li, text, time, timer: window.setInterval(() => tick(c), 1000) };
+  }
+  c.status.text.textContent = a.text;
+  tick(c);
+}
+
+// 걸린 시간 글만 바꾼다. 대화 화면이 사라졌으면(다른 세션으로 바뀜·패널 닫힘) 시계를 멈춘다
+function tick(c: Ctl): void {
+  const a = c.opts.activity;
+  if (!a || !c.log.isConnected) { stopStatus(c); return; }
+  c.status!.time.textContent = `· ${elapsedText(Date.now() - a.since)}`;
+}
+
+function stopStatus(c: Ctl): void {
+  if (!c.status) return;
+  window.clearInterval(c.status.timer);
+  c.status.li.remove();
+  c.status = undefined;
 }
 
 function build(root: HTMLElement, opts: ConversationOpts, send: Send, go: Go): Ctl {
@@ -82,11 +118,12 @@ function drawLog(c: Ctl): void {
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 8;
   const top = log.scrollTop;
   const { session, entries } = c.opts;
-  const items = toItems(entries, session.state, session.source);
+  const items = toItems(entries, session.state, session.source, !!c.status);
   const key = answerKey(session, entries);
   log.replaceChildren(h("ol", { class: "conv-list" },
     ...(c.compact ? [] : [h("li", { class: "run-line" }, dateTimeText(session.created_at))]),
-    ...items.map((it) => itemEl(c, it, key))));
+    ...items.map((it) => itemEl(c, it, key)),
+    c.status?.li));
   log.scrollTop = atBottom ? log.scrollHeight : top;
 }
 

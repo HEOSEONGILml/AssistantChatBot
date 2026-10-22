@@ -3,7 +3,7 @@ import "./ui/styles.css";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Entry, Outgoing, Session } from "./shared/protocol";
-import { STATE_TEXT, type View } from "./shared/state";
+import { STATE_TEXT, type Activity, type View } from "./shared/state";
 import { clockText } from "./shared/forms";
 import { renderConversation } from "./ui/conversation";
 import { h, svg } from "./ui/dom";
@@ -54,10 +54,10 @@ function seenIfFocused() {
   if (sessionId !== null && document.hasFocus()) toMain("detail-seen", { sessionId });
 }
 
-function draw(session: Session, entries: Entry[]) {
+function draw(session: Session, entries: Entry[], activity: Activity | undefined) {
   setTitle(`작업 — ${session.title}`);
   headSlot.replaceChildren(head(session));
-  renderConversation(convHost, { session, entries, height: 0, compact: false }, send, go);
+  renderConversation(convHost, { session, entries, activity, height: 0, compact: false }, send, go);
   seenIfFocused();
 }
 
@@ -76,11 +76,11 @@ Promise.all([
     const area = convHost.querySelector("textarea");
     if (area && !area.value) { area.value = e.payload; area.dispatchEvent(new Event("input")); }
   }),
-  listen<{ session: Session; entries: Entry[]; connected: boolean }>("detail-data", (e) => {
-    const { session, entries } = e.payload;
+  listen<{ session: Session; entries: Entry[]; connected: boolean; activity?: Activity }>("detail-data", (e) => {
+    const { session, entries, activity } = e.payload;
     connected = e.payload.connected;
     if (sessionId !== null && session.id !== sessionId) return;
     sessionId = session.id;
-    draw(session, entries);
+    draw(session, entries, activity);
   }),
 ]).then(() => toMain("detail-ready", null));

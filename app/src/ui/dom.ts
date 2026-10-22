@@ -31,7 +31,17 @@ export function markdown(text: string): HTMLElement {
 
 // 패널 머리 아이콘(고정 SVG)
 export const BACK_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
-export const EXPAND_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`;
+// 크게 보기: 대각 화살표 둘 (다이제스트 2절, 탭 바·작업 대화·스케줄 대화 머리 공통)
+export const EXPAND_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`;
+// 휴지통 (다이제스트 3절 "지우기 버튼 위치"). 머리 아이콘은 15px, 대화 탭 줄은 13px
+export const trashIcon = (size: number) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
+
+// 크게 보기 버튼(aria-label·title "크게 보기")
+export const expandButton = (cls: string, onClick: () => void) =>
+  h("button", { type: "button", class: cls, "aria-label": "크게 보기", title: "크게 보기", onClick }, svg(EXPAND_ICON));
+// 대화 머리의 지우기 버튼(휴지통 44x44). label: "작업 지우기" | "스케줄 지우기"
+export const deleteButton = (label: string, onClick: () => void) =>
+  h("button", { type: "button", class: "icon-btn", "aria-label": label, title: label, onClick }, svg(trashIcon(15)));
 
 // 켜짐·꺼짐 스위치(스케줄 대화 머리, 설정 탭 화면 기록). aria-label은 "<label> 켜짐|꺼짐"
 export function switchButton(o: { on: boolean; label: string; disabled: boolean; onToggle: () => void }): HTMLElement {
