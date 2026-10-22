@@ -7,14 +7,12 @@ import type { Entry, Outgoing, Session } from "./shared/protocol";
 import {
   apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type State, type View,
 } from "./shared/state";
-import { renderDog } from "./ui/dog";
+import { bindDogDrag, renderDog } from "./ui/dog";
 import { renderPanel } from "./ui/panel";
 import { clearDraft } from "./ui/schedule";
-import { openDetail as showDetail, placeWindow } from "./window";
+import { beginDrag, dragBy, endDrag, onPlaced, openDetail as showDetail, placeWindow } from "./window";
 
-const DOG = { width: 128, height: 96 };
 const PANEL_WIDTH = 340;
-const PANEL_GAP = 12; // 패널은 강아지 위 12px
 
 const dogRoot = document.getElementById("dog")!;
 const panelRoot = document.getElementById("panel")!;
@@ -125,16 +123,37 @@ listen<{ sessionId: number }>("detail-seen", (e) => { if (e.payload.sessionId ==
 // 상세 창의 세션 칩·[고치기]: 패널을 열고 그 화면으로
 listen<View>("detail-go", (e) => { state = { ...state, panelOpen: true }; go(e.payload); });
 
-// 창 크기: 패널이 열리면 패널 + 12 + 강아지, 닫히면 강아지만. 같은 크기는 다시 요청하지 않는다
-let lastSize = "";
+// 창 자리: 패널이 열리면 패널 크기를 넘겨 강아지 위나 옆에 놓는다(shared/placement.ts). 같은 크기는 다시 요청하지 않는다
+let lastSize: string | null = null;
 function fit() {
-  const [w, hh] = state.panelOpen ? [PANEL_WIDTH, panelRoot.offsetHeight + PANEL_GAP + DOG.height] : [DOG.width, DOG.height];
-  const key = `${w}x${hh}`;
+  const key = state.panelOpen ? `${PANEL_WIDTH}x${panelRoot.offsetHeight}` : "";
   if (key === lastSize) return;
   lastSize = key;
-  placeWindow(w, hh);
+  placeWindow(state.panelOpen ? { width: PANEL_WIDTH, height: panelRoot.offsetHeight } : null);
 }
 new ResizeObserver(fit).observe(panelRoot);
+
+// 창을 놓은 뒤 창 안 강아지·패널 자리와 꼬리를 맞춘다. 꼬리는 위 모양일 때만
+onPlaced((l) => {
+  dogRoot.style.left = `${l.dog.x}px`;
+  dogRoot.style.top = `${l.dog.y}px`;
+  if (l.panel) {
+    panelRoot.style.left = `${l.panel.x}px`;
+    panelRoot.style.top = `${l.panel.y}px`;
+  }
+  panelRoot.classList.toggle("side", l.tail === null);
+  if (l.tail !== null) panelRoot.style.setProperty("--tail-left", `${l.tail}px`);
+});
+
+// 끌기: 시작하면 패널을 닫고, 놓으면 그 자리에 둔다(window.ts가 당기고 저장한다)
+bindDogDrag(dogRoot, {
+  start: () => {
+    if (state.panelOpen) { state = { ...state, panelOpen: false }; render(); }
+    beginDrag();
+  },
+  move: dragBy,
+  end: () => { endDrag().catch((e) => console.warn("강아지 놓기 실패", e)); },
+});
 
 function render() {
   renderDog(dogRoot, state, togglePanel);

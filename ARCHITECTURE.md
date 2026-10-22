@@ -379,6 +379,7 @@ flowchart LR
 | 설정 (권한 모드, 화면 기록 켬·끔) | 백엔드 | 화면, 백엔드 | 같은 DB | 영구 |
 | 화면 기록 | screenpipe | 에이전트 | `%USERPROFILE%\.screenpipe\` | 2일 |
 | Claude Code 세션 원본 | Claude Code | Claude Code (`resume`) | `~/.claude/projects/`. 백엔드는 `claude_session_id`만 갖는다 | Claude Code가 정함 |
+| 강아지 자리 | 화면 (`window.ts`, 끌어 놓을 때) | 화면 (켤 때) | 주 창 웹뷰 `localStorage`의 `dogPosition`: 강아지 왼쪽 위의 화면 좌표(물리 px) | 영구. 켤 때 어느 모니터 작업 영역에도 없으면 처음 자리(주 모니터 오른쪽 아래) |
 
 ### 4.3 데이터 명세
 
@@ -540,7 +541,9 @@ erDiagram
 | `limits` | `Limit[]` | 사용량 |
 | `panelOpen`, `view` | bool, `{tab, screen, sessionId?, page, proposal?}` | 보는 화면 |
 
-연결이 끊기면 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 것을 다시 받는다. 화면은 아무것도 디스크에 저장하지 않는다.
+연결이 끊기면 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 것을 다시 받는다. 화면이 디스크에 남기는 것은 강아지 자리 하나다(4.2 표).
+
+주 창은 강아지와 패널을 함께 담는 창 하나다. 창 사각형과 창 안 강아지·패널 자리, 꼬리 위치는 순수 함수 `shared/placement.ts`의 `layout()`이 강아지가 놓인 모니터의 작업 영역(논리 px)으로 계산하고, `window.ts`가 그 모니터 배율로 물리 px로 바꿔 창을 놓는다. 패널은 강아지 위에 들어가면 위(꼬리 있음), 아니면 옆(꼬리 없음)이다.
 
 #### 4.3.5 파일
 
