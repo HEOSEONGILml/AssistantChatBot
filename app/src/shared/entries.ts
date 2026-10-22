@@ -40,3 +40,7 @@ export function toItems(entries: Entry[], taskState: Task["state"]): Item[] {
   }
   return items;
 }
+
+// 선택지 버튼을 한 번 누른 뒤 막아 둘 때 쓰는 열쇠: 작업 상태나 마지막 줄이 바뀌면 달라진다
+export const answerKey = (t: Task, entries: Entry[]): string =>
+  `${t.id}:${t.state}:${entries[entries.length - 1]?.id ?? 0}`;

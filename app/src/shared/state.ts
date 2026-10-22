@@ -3,7 +3,8 @@ import type { BackendMessage, Entry, Limit, Outgoing, Page, PermissionMode, Sche
 
 export type Tab = "alerts" | "chat" | "tasks" | "schedules" | "usage" | "settings";
 export type Screen = "list" | "task" | "newTask" | "newSchedule" | "schedule" | "editSchedule";
-export type View = { tab: Tab; screen: Screen; taskId?: number; page: number };
+// proposal: [고치기]로 지시서 수정 화면을 열 때 채울 등록 확인의 `data`
+export type View = { tab: Tab; screen: Screen; taskId?: number; page: number; proposal?: Record<string, unknown> };
 export type Pose = "sleep" | "beg" | "walk" | "lay" | "stand" | "sit";
 
 export type State = {
@@ -62,8 +63,12 @@ export function disconnected(s: State): State {
 }
 
 // 메시지를 받은 뒤 이어서 보낼 요청: 알림 목록에 뒤쪽이 있으면 다음 쪽 (배지 훑기)
-export function followUps(_s: State, m: BackendMessage): Outgoing[] {
-  if (m.type === "tasks" && m.view === "alerts" && m.pages > m.page) return [{ type: "list_tasks", page: m.page + 1, view: "alerts" }];
+// 작업 탭에서 보던 쪽이 없어져 마지막 쪽으로 당겼으면 그 쪽
+export function followUps(s: State, m: BackendMessage): Outgoing[] {
+  if (m.type !== "tasks") return [];
+  if (m.view === "alerts" && m.pages > m.page) return [{ type: "list_tasks", page: m.page + 1, view: "alerts" }];
+  const last = Math.max(m.pages, 1);
+  if (m.view === "user" && s.view.tab === "tasks" && m.page > last && s.view.page === last) return [{ type: "list_tasks", page: last, view: "user" }];
   return [];
 }
 
@@ -80,10 +85,14 @@ export function apply(s: State, m: BackendMessage): State {
       // 그래야 끊긴 사이 알림에서 빠진 작업이 배지에 남지 않는다
       const base = m.view === "alerts" && m.page === 1 ? { ...s, tasks: withoutAlerts(s.tasks, m.items) } : s;
       const next = withTasks(base, m.items);
-      // 훑기로 온 쪽이 보고 있는 쪽을 덮지 않게, 보고 있는 쪽(알림 탭이 아니면 1쪽)만 목록에 둔다
-      const shown = m.view === "user" || m.page === (s.view.tab === "alerts" ? s.view.page : 1);
+      // 이 목록을 보이는 탭에서 보던 쪽이 쪽 수보다 크면 마지막 쪽으로 당긴다
+      const own = m.view === "alerts" ? "alerts" : "tasks";
+      const last = Math.max(m.pages, 1);
+      const view = s.view.tab === own && s.view.page > last ? { ...s.view, page: last } : s.view;
+      // 훑기·최근 작업 요청으로 온 쪽이 보고 있는 쪽을 덮지 않게, 보고 있는 쪽(그 탭이 아니면 1쪽)만 목록에 둔다
+      const shown = m.page === (view.tab === own ? view.page : 1);
       const lists = shown ? { ...next.lists, [m.view]: { page: m.page, pages: m.pages, items: m.items } } : next.lists;
-      return { ...s, ...next, lists };
+      return { ...s, ...next, lists, view };
     }
     case "task_detail": {
       const entries = new Map(s.entries).set(m.task.id, mergeEntries(s.entries.get(m.task.id), m.entries));
@@ -182,11 +191,17 @@ export function pendingQuestion(s: State, taskId: number): Entry | undefined {
   return undefined;
 }
 
-const STATE_TEXT: Record<Task["state"], string> = {
+export const STATE_TEXT: Record<Task["state"], string> = {
   working: "일하는 중", waiting: "답을 기다려요", done: "다 했어요", failed: "못 했어요", stopped: "멈췄어요",
 };
 
 // 목록 행의 부가 글: 질문을 기다리면 그 질문 글(캐시에 있으면), 아니면 상태 글
 export function rowNote(s: State, t: Task): string {
   return (t.state === "waiting" && pendingQuestion(s, t.id)?.text) || STATE_TEXT[t.state];
+}
+
+// 열어 본 것으로 알릴 작업: 끝났고 아직 안 봤다 (대화 작업은 알림에 없으니 뺀다)
+export function needsSeen(s: State, taskId: number): boolean {
+  const t = s.tasks.get(taskId);
+  return !!t && t.source !== "chat" && !t.seen && (t.state === "done" || t.state === "failed" || t.state === "stopped");
 }

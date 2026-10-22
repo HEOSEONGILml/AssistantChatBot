@@ -2,6 +2,8 @@
 import type { Outgoing, Task } from "../shared/protocol";
 import { alertRows, badges, firstWaiting, pendingQuestion, rowNote, type State, type View } from "../shared/state";
 import { timeText } from "../shared/forms";
+import { answerKey } from "../shared/entries";
+import { answered } from "./conversation";
 import { h, svg } from "./dom";
 
 type Send = (m: Outgoing) => void;
@@ -50,8 +52,15 @@ function taskRow(s: State, t: Task, send: Send, go: Go): HTMLElement {
 // 첫 질문 카드: 이름 · 출처 | 시각, 질문 글, [선택지…] 대화 보기 ›
 function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
   const q = pendingQuestion(s, t.id);
+  // 한 번 누르면 작업·줄이 바뀔 때까지 막는다 (두 번 답하지 않게)
+  const key = answerKey(t, s.entries.get(t.id) ?? []);
+  const pick = (c: string) => () => {
+    answered.add(key);
+    for (const b of choices) (b as HTMLButtonElement).disabled = true;
+    send({ type: "say", task_id: t.id, text: c });
+  };
   const choices = (q?.choices ?? []).map((c, i) =>
-    h("button", { type: "button", class: i === 0 ? "btn-primary btn-sm" : "btn-secondary btn-sm", onClick: () => send({ type: "say", task_id: t.id, text: c }) }, c));
+    h("button", { type: "button", class: i === 0 ? "btn-primary btn-sm" : "btn-secondary btn-sm", disabled: answered.has(key), onClick: pick(c) }, c));
   return h("div", { class: "card-wrap" },
     h("div", { class: "card" },
       h("div", { class: "card-head" },

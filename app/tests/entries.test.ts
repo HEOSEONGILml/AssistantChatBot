@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toItems } from "../src/shared/entries";
+import { answerKey, toItems } from "../src/shared/entries";
 import type { Entry } from "../src/shared/protocol";
 
 let n = 0;
@@ -46,5 +46,17 @@ describe("toItems", () => {
 
   it("run과 chip은 그대로 둔다", () => {
     expect(toItems([e("run"), e("chip")], "done").map((i) => i.kind)).toEqual(["run", "chip"]);
+  });
+});
+
+describe("answerKey", () => {
+  const t = (state: "waiting" | "working") => ({ id: 7, source: "user" as const, title: "t", state, seen: false, session_id: null, created_at: "2026-10-22T09:00:00" });
+  it("작업 상태나 마지막 줄이 바뀌면 달라진다", () => {
+    const a = e("question", "q", ["예"]);
+    const k = answerKey(t("waiting"), [a]);
+    expect(answerKey(t("waiting"), [a])).toBe(k);
+    expect(answerKey(t("working"), [a])).not.toBe(k);
+    expect(answerKey(t("waiting"), [a, e("user")])).not.toBe(k);
+    expect(answerKey(t("waiting"), [])).not.toBe(k);
   });
 });

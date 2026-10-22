@@ -240,7 +240,7 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .btn-primary { border: 0; background: #1D4ED8; color: #FFFFFF; font-weight: 700; }
-.btn-primary:disabled { opacity: 0.5; cursor: default; }
+.btn-primary:disabled, .btn-secondary:disabled { opacity: 0.5; cursor: default; }
 .btn-secondary { border: 1px solid #C4CAD3; background: #FFFFFF; color: #1B1F27; font-weight: 500; }
 .btn-sm { min-height: 36px; border-radius: 8px; }
 
@@ -297,3 +297,196 @@ button { font: inherit; color: inherit; }
 .newreq::placeholder { color: #6B7280; }
 .form-actions { display: flex; align-items: center; gap: 6px; }
 .hint { flex: 1; font-size: 11px; color: #5B6472; }
+
+/* --- 대화 화면 (다이제스트 3절 11·12·18, 4절) --- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.slot { display: contents; }
+.panel-task { height: 440px; } /* 작업 대화(11)는 패널 높이 고정, 대화 기록만 스크롤 */
+.conv-host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.conv { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.conv-log { flex: 1; min-height: 0; overflow-y: auto; outline: none; }
+.conv-list {
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.msg { max-width: 85%; padding: 8px 12px; box-sizing: border-box; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-user { align-self: flex-end; max-width: 80%; border-radius: 12px 12px 4px 12px; background: #E3ECFF; }
+.msg-agent { align-self: flex-start; border-radius: 12px 12px 12px 4px; background: #F3F4F6; }
+.msg-failure { display: flex; gap: 6px; align-items: flex-start; }
+.msg-failure .warn { flex: none; margin-top: 2px; }
+.msg-card {
+  align-self: flex-start;
+  border-radius: 12px 12px 12px 4px;
+  background: #FFFFFF;
+  border: 2px solid #C81E1E;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msg-proposal { padding: 10px 12px; }
+.msg-closed { border-color: #D5DAE1; }
+.proposal-title { font-size: 12px; font-weight: 700; color: #B42318; }
+.msg-closed .proposal-title { color: #5B6472; }
+.msg-proposal b { font-weight: 500; }
+.proposal-label { color: #3D4552; }
+.choices { display: flex; gap: 6px; white-space: normal; }
+.choice {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid #C4CAD3;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #1B1F27;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.choice-primary { border: 0; background: #1D4ED8; color: #FFFFFF; font-weight: 700; }
+.choice:disabled { opacity: 0.5; cursor: default; }
+.run-line { align-self: center; font-size: 12px; color: #5B6472; }
+.prog-chip, .prog-head {
+  min-height: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: #F3F4F6;
+  color: #5B6472;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.prog-chip { max-width: 100%; }
+.prog-chip svg, .prog-head svg { flex: none; }
+.prog-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prog-box {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #F7F8FA;
+  border: 1px solid #E6E9EE;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #3D4552;
+  overflow-wrap: anywhere;
+}
+.prog-box .prog-head { align-self: flex-start; min-height: 0; padding: 0; background: transparent; font-weight: 700; }
+.prog-time { color: #5B6472; }
+.chip {
+  min-height: 36px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #D5DAE1;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #1B1F27;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip b { font-weight: 500; }
+.chip-kind { color: #1D4ED8; font-weight: 700; font-size: 12px; }
+.chip-go { color: #5B6472; }
+.conv-form { flex: none; padding: 8px; border-top: 1px solid #E6E9EE; }
+.conv-form-inner { display: flex; align-items: flex-end; gap: 6px; }
+.conv-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  max-height: 120px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid #C4CAD3;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: #1B1F27;
+  resize: none;
+  overflow-y: auto;
+}
+.conv-input::placeholder { color: #6B7280; }
+.conv-input:focus { outline: none; border-color: #1D4ED8; } /* 포커스 테두리 #1D4ED8 (다이제스트 1절) */
+.conv-send {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: #1D4ED8;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* 작업 대화 머리 (11) */
+.head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.head-main .head-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head-sub { font-size: 12px; color: #5B6472; }
+.src-user { color: #1D4ED8; font-weight: 500; }
+.src-schedule { color: #0F5F52; font-weight: 500; }
+.src-chat { color: #5B6472; font-weight: 500; }
+.sub-ask { color: #B42318; font-weight: 500; }
+.icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #5B6472;
+  cursor: pointer;
+}
+
+/* --- 상세 창 (12). 제목줄은 OS 창 틀이 그린다 --- */
+html:has(.detail-body), .detail-body { height: 100%; background: #FFFFFF; }
+.detail { height: 100vh; display: flex; flex-direction: column; }
+.detail-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #E6E9EE; }
+.detail-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.detail-head h1 { margin: 0; font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.detail-sub { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6472; }
+.detail-src { padding: 1px 8px; border-radius: 999px; background: #E3ECFF; font-size: 12px; font-weight: 700; }
+.detail-src.src-schedule { background: #E6F4F1; }
+.detail-src.src-chat { background: #F3F4F6; }
+.detail-stop {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #C4CAD3;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #1B1F27;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.conv-big .conv-list { margin: 0 auto; width: 100%; max-width: 680px; box-sizing: border-box; padding: 20px 24px; gap: 12px; font-size: 14px; line-height: 1.6; }
+.conv-big .msg { max-width: 75%; padding: 10px 14px; }
+.conv-big .msg-user { border-radius: 14px 14px 4px 14px; }
+.conv-big .msg-agent, .conv-big .msg-card { border-radius: 14px 14px 14px 4px; }
+.conv-big .msg-card { gap: 10px; }
+.conv-big .choices { gap: 8px; }
+.conv-big .choice { flex: none; min-height: 40px; padding: 0 20px; border-radius: 10px; font-size: 14px; }
+.conv-big .prog-box .prog-head { font-size: 12px; }
+.conv-big .conv-form { padding: 12px 24px; }
+.conv-big .conv-form-inner { margin: 0 auto; max-width: 632px; gap: 8px; }
+.conv-big .conv-input { height: 44px; padding: 11px 14px; font-size: 14px; }
+.conv-big .conv-send { width: 44px; height: 44px; }
+.conv-big .conv-send svg { width: 18px; height: 18px; }

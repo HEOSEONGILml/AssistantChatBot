@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  formToRule, isSendKey, limitRows, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
+  clockText, dateTimeText, formToRule, isSendKey, limitRows, nextRunText, resetText, ruleToForm, timeText, REPEAT_LABELS, WEEKDAY_LABELS,
   type RuleForm,
 } from "../src/shared/forms";
 
@@ -72,5 +72,12 @@ describe("limitRows", () => {
   });
   it("빈 목록", () => {
     expect(limitRows([])).toEqual({ common: [], models: [] });
+  });
+});
+
+describe("clockText, dateTimeText", () => {
+  it("시각과 날짜 시각", () => {
+    expect(clockText("2026-10-21T09:05:00")).toBe("09:05");
+    expect(dateTimeText("2026-10-21T09:10:00")).toBe("10월 21일 09:10");
   });
 });

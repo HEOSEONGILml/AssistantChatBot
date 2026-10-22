@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackendMessage, Entry, Schedule, Task } from "../src/shared/protocol";
-import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, pendingQuestion, pose, refreshRequests, rowNote, tooltip, type State } from "../src/shared/state";
+import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, pose, refreshRequests, rowNote, tooltip, type State } from "../src/shared/state";
 
 const task = (id: number, o: Partial<Task> = {}): Task => ({
   id, source: "user", title: `작업 ${id}`, state: "done", seen: true, session_id: null, created_at: "2026-10-22T09:00:00", ...o,
@@ -40,8 +40,8 @@ describe("apply", () => {
     const s = run(online(), { type: "tasks", view: "alerts", page: 1, pages: 3, items: [task(4, { state: "waiting" })] });
     expect(s.lists.alerts).toEqual({ page: 1, pages: 3, items: [task(4, { state: "waiting" })] });
     expect(s.tasks.get(4)?.state).toBe("waiting");
-    const s2 = run(s, { type: "tasks", view: "user", page: 2, pages: 2, items: [task(5)] });
-    expect(s2.lists.user?.page).toBe(2);
+    const s2 = run(s, { type: "tasks", view: "user", page: 1, pages: 2, items: [task(5)] });
+    expect(s2.lists.user?.page).toBe(1);
     expect(s2.lists.alerts?.items[0].id).toBe(4);
   });
 
@@ -239,5 +239,59 @@ describe("알림 카드와 행 부가 글", () => {
     expect(rowNote(s, task(5, { state: "done" }))).toBe("다 했어요");
     expect(rowNote(s, task(5, { state: "failed" }))).toBe("못 했어요");
     expect(rowNote(s, task(5, { state: "stopped" }))).toBe("멈췄어요");
+  });
+});
+
+describe("목록 쪽 맞추기", () => {
+  const user = (page: number, pages: number, items: Task[] = []): BackendMessage => ({ type: "tasks", view: "user", page, pages, items });
+  const at = (view: State["view"]): State => ({ ...online(), view });
+
+  it("작업 탭 N쪽을 보는 중에는 작업 1쪽 답을 목록으로 삼지 않는다", () => {
+    const s = run(at({ tab: "tasks", screen: "list", page: 2 }), user(1, 3, [task(1)]));
+    expect(s.lists.user).toBeUndefined();
+    const s2 = run(s, user(2, 3, [task(5)]));
+    expect(s2.lists.user?.page).toBe(2);
+    // 다른 탭에서는 작업 1쪽이 목록이다
+    expect(run(at({ tab: "alerts", screen: "list", page: 2 }), user(1, 3)).lists.user?.page).toBe(1);
+  });
+
+  it("작업 쪽 수가 줄면 보던 쪽을 마지막 쪽으로 당기고 그 쪽을 요청한다", () => {
+    const m = user(3, 2);
+    const s = run(at({ tab: "tasks", screen: "list", page: 3 }), m);
+    expect(s.view.page).toBe(2);
+    expect(followUps(s, m)).toEqual([{ type: "list_tasks", page: 2, view: "user" }]);
+    // 빈 목록(쪽 0)은 1쪽으로
+    const e = user(2, 0);
+    const s0 = run(at({ tab: "tasks", screen: "list", page: 2 }), e);
+    expect(s0.view.page).toBe(1);
+    expect(followUps(s0, e)).toEqual([{ type: "list_tasks", page: 1, view: "user" }]);
+    // 알림 탭을 보는 중이면 작업 쪽 수로 당기지 않는다
+    expect(run(at({ tab: "alerts", screen: "list", page: 3 }), user(1, 1)).view.page).toBe(3);
+  });
+
+  it("알림 쪽 수가 줄면 보던 쪽을 당기고, 훑기로 오는 그 쪽을 보인다", () => {
+    const a = (page: number, pages: number, items: Task[] = []): BackendMessage => ({ type: "tasks", view: "alerts", page, pages, items });
+    let s = run(at({ tab: "alerts", screen: "list", page: 3 }), a(1, 2, [task(11, { state: "waiting" })]));
+    expect(s.view.page).toBe(2);
+    s = run(s, a(2, 2, [task(15, { state: "waiting" })]));
+    expect(s.lists.alerts?.page).toBe(2);
+    // 1쪽만 남으면 1쪽을 바로 보인다
+    const s1 = run(at({ tab: "alerts", screen: "list", page: 2 }), a(1, 1, [task(11, { state: "waiting" })]));
+    expect(s1.view.page).toBe(1);
+    expect(s1.lists.alerts?.page).toBe(1);
+  });
+});
+
+describe("needsSeen", () => {
+  it("끝났고 안 본 작업만 (대화 작업 빼고)", () => {
+    const s = run(online(),
+      { type: "task", task: task(1, { state: "done", seen: false }) },
+      { type: "task", task: task(2, { state: "failed", seen: false }) },
+      { type: "task", task: task(3, { state: "stopped", seen: false }) },
+      { type: "task", task: task(4, { state: "done", seen: true }) },
+      { type: "task", task: task(5, { state: "working", seen: false }) },
+      { type: "task", task: task(6, { state: "done", seen: false, source: "chat" }) },
+    );
+    expect([1, 2, 3, 4, 5, 6, 7].filter((id) => needsSeen(s, id))).toEqual([1, 2, 3]);
   });
 });
