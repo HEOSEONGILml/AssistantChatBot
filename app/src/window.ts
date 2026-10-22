@@ -1,5 +1,4 @@
-// 주 창 자리(강아지 위치·끌기·패널 자리)와 상세 창 열기. 자리 계산은 shared/placement.ts.
-import { emitTo } from "@tauri-apps/api/event";
+// 주 창 자리(강아지 위치·끌기·패널 자리)와 큰 창 열기. 자리 계산은 shared/placement.ts.
 import {
   PhysicalPosition, PhysicalSize, Window, availableMonitors, getCurrentWindow, primaryMonitor, type Monitor,
 } from "@tauri-apps/api/window";
@@ -139,11 +138,10 @@ export async function endDrag(): Promise<void> {
   await schedule();
 }
 
-// 상세 창을 보이고 어떤 세션을 그릴지 알린다. 그리는 쪽은 detail.html(Task 5)
-export async function openDetail(sessionId: number): Promise<void> {
-  const win = await Window.getByLabel("detail");
+// 큰 창을 보이고 앞으로 가져온다. 그릴 상태는 주 창이 big-state로 넘긴다
+export async function showBig(): Promise<void> {
+  const win = await Window.getByLabel("big");
   if (!win) return;
-  await emitTo("detail", "detail-open", sessionId);
   await win.show();
   await win.setFocus();
 }

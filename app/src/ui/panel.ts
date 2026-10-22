@@ -40,7 +40,7 @@ function tabBar(s: State, go: Go, openBig: OpenBig): HTMLElement {
 const loading = () => h("p", { class: "empty" }, "불러오는 중…");
 
 // 새 작업 화면(6 Input): [취소]·뒤로 → 작업 탭, [맡기기]·Enter → request 후 작업 탭
-function newTask(s: State, send: Send, go: Go): Node[] {
+export function newTask(s: State, send: Send, go: Go): Node[] {
   const toTasks = () => go({ tab: "tasks", screen: "list", page: 1 });
   const area = h("textarea", {
     id: "newreq", class: "newreq", placeholder: "예: 아까 슬랙에서 본 링크, 카톡으로 민지한테 보내 줘",
@@ -88,7 +88,7 @@ function body(s: State, send: Send, go: Go, openBig: OpenBig): Node[] {
   return [tabBar(s, go, openBig), ...content];
 }
 
-const SOURCE_TEXT: Record<Session["source"], string> = { user: "내 요청", schedule: "스케줄", chat: "대화" };
+export const SOURCE_TEXT: Record<Session["source"], string> = { user: "내 요청", schedule: "스케줄", chat: "대화" };
 const NO_ENTRIES: Entry[] = [];
 
 // 작업 대화 머리(11): 뒤로, 제목 + 부제(출처 · 상태), 크게 보기, 지우기(→ 확인), 멈추기(일하는 중·답 기다림일 때만)
@@ -108,7 +108,7 @@ function taskHead(s: State, t: Session, send: Send, go: Go, openBig: OpenBig, as
 }
 
 // 대화 화면(작업 대화·스케줄 대화·대화 탭)이면 그 세션. 아직 모르면 undefined
-function conversationSession(s: State): Session | undefined {
+export function conversationSession(s: State): Session | undefined {
   const v = s.view;
   if ((v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) return s.sessions.get(v.sessionId);
   if (v.screen === "list" && v.tab === "chat" && s.chatSessionId !== null) return s.sessions.get(s.chatSessionId);
@@ -116,7 +116,7 @@ function conversationSession(s: State): Session | undefined {
 }
 
 // 대화 탭 머리 아래 얇은 줄(18): "Claude와 나눈 대화" + [대화 지우기](→ 확인)
-function chatStrip(askDelete: () => void): HTMLElement {
+export function chatStrip(askDelete: () => void): HTMLElement {
   return h("div", { class: "chat-strip" },
     h("span", { class: "chat-strip-title" }, "Claude와 나눈 대화"),
     h("button", { type: "button", class: "chat-clear", onClick: askDelete }, svg(trashIcon(13)), "대화 지우기"));
@@ -137,8 +137,13 @@ function closeConfirm(): void {
   confirming = null;
 }
 
+// 다시 그릴 때: 확인 상자를 연 세션의 대화 화면이 아니면 닫는다
+export function syncConfirm(root: HTMLElement, sessionId: number | undefined): void {
+  if (confirming && (confirming.sessionId !== sessionId || !root.contains(confirming.el))) closeConfirm();
+}
+
 // [취소]·Esc는 닫기. [지우기]는 delete_session을 보내고 닫는다. 못 보냈으면(끊김) 상자를 둔다
-function openConfirm(root: HTMLElement, t: Session, name: string, send: Send): void {
+export function openConfirm(root: HTMLElement, t: Session, name: string, send: Send): void {
   closeConfirm();
   const text = DELETE_TEXT[t.source];
   const cancel = h("button", { type: "button", class: "btn-secondary", onClick: closeConfirm }, "취소");
@@ -155,6 +160,14 @@ function openConfirm(root: HTMLElement, t: Session, name: string, send: Send): v
   cancel.focus();
 }
 
+// 양식 화면(새 작업·새 스케줄·지시서 수정)을 다시 그릴지 정하는 열쇠. 양식이 아니면 ""
+export function formKey(s: State): string {
+  const v = s.view;
+  return v.screen === "newTask" ? `newTask|${s.connected}`
+    : v.screen === "newSchedule" || v.screen === "editSchedule" ? `form|${v.screen}|${v.sessionId ?? ""}|${s.connected}|${formReady(s)}`
+    : "";
+}
+
 export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go, openBig: OpenBig): void {
   const conn = state.connected ? [] : [h("div", { class: "conn" }, "백엔드에 연결하는 중…")];
   const tail = () => h("div", { class: "tail", "aria-hidden": "true" });
@@ -164,7 +177,7 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
 
   // 대화 화면: 입력줄을 지키려고 대화 자리는 그대로 두고 위(연결 띠·탭 바·머리)만 바꾼다
   const t = conversationSession(state);
-  if (confirming && (confirming.sessionId !== t?.id || !root.contains(confirming.el))) closeConfirm();
+  syncConfirm(root, t?.id);
   if (t) {
     const isChat = v.screen === "list";
     const key = `conv|${t.id}|${v.screen}`;
@@ -185,9 +198,7 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
 
   // 양식 화면(새 작업·새 스케줄·지시서 수정)은 입력 중에 다시 그리지 않는다(한글 조합·커서가 깨진다).
   // 연결이 바뀔 때, 지시서 수정은 채울 스케줄이 올 때만 다시 그린다
-  const key = v.screen === "newTask" ? `newTask|${state.connected}`
-    : v.screen === "newSchedule" || v.screen === "editSchedule" ? `form|${v.screen}|${v.sessionId ?? ""}|${state.connected}|${formReady(state)}`
-    : "";
+  const key = formKey(state);
   if (key && root.dataset.key === key) return;
   root.dataset.key = key;
   root.replaceChildren(...conn, ...body(state, send, go, openBig), tail());

@@ -536,23 +536,41 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 
-/* --- 상세 창 (12). 제목줄은 OS 창 틀이 그린다 --- */
-html:has(.detail-body), .detail-body { height: 100%; background: #FFFFFF; }
-.detail { height: 100vh; display: flex; flex-direction: column; }
-.detail-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #E6E9EE; }
-.detail-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.detail-head h1 { margin: 0; font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
-.detail-sub { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6472; }
-.detail-src { padding: 1px 8px; border-radius: 999px; background: #E3ECFF; font-size: 12px; font-weight: 700; }
-.detail-src.src-schedule { background: #E6F4F1; }
-.detail-src.src-chat { background: #F3F4F6; }
-.detail-stop {
+/* --- 큰 창 (12). 제목줄(`패널`)은 OS 창 틀이 그린다. 값은 다이제스트 2절 "큰 창(12번)", 3절 12·19번, 4절 --- */
+html:has(.big-body), .big-body { height: 100%; background: #FFFFFF; }
+.big { position: relative; height: 100vh; display: flex; flex-direction: column; } /* 지우기 확인 덮개의 기준 */
+.big-top { flex: none; display: flex; flex-direction: column; }
+.big .conn { border-radius: 0; }
+.big-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid #E6E9EE; }
+.big-tabs .tab { gap: 4px; padding: 0 10px; font-size: 14px; }
+.big-tabs .mini { min-width: 14px; padding: 0 4px; font-size: 11px; line-height: 16px; }
+.big-tabs .mini + .mini { margin-left: 0; }
+.big-main { flex: 1; min-height: 0; display: flex; }
+/* 왼쪽 목록 300px: 행 48px, 고른 행은 파란 바탕 + 굵게, 페이저와 [새 작업]은 아래 */
+.big-list { flex: none; width: 300px; box-sizing: border-box; border-right: 1px solid #E6E9EE; display: flex; flex-direction: column; min-height: 0; }
+.big-list[hidden] { display: none; }
+.big-list .rows { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: 0 8px 0 16px; }
+.big-list .row { min-height: 48px; }
+.big-list .row:last-child { border-bottom: 1px solid #E6E9EE; }
+.big-list .row-sel { margin: 0 -8px 0 -16px; padding: 0 8px 0 16px; background: #E3ECFF; }
+.big-list .row-sel .row-text b { font-weight: 700; }
+.big-list .pager { margin-top: auto; }
+.big-list .add { padding: 8px 12px 12px; border-top: 0; }
+.big-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.big-content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.big-none { margin: auto; color: #5B6472; font-size: 13px; }
+/* 오른쪽 대화 머리: 제목 16px/700 + 부제 12px, [지우기]·[멈추기] 글자 버튼 */
+.big-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid #E6E9EE; }
+.big-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.big-title { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.big-sub { font-size: 12px; color: #5B6472; }
+.big-btn {
   flex: none;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid #C4CAD3;
   border-radius: 10px;
   background: #FFFFFF;
@@ -561,16 +579,21 @@ html:has(.detail-body), .detail-body { height: 100%; background: #FFFFFF; }
   font-weight: 500;
   cursor: pointer;
 }
-.conv-big .conv-list { margin: 0 auto; width: 100%; max-width: 680px; box-sizing: border-box; padding: 20px 24px; gap: 12px; font-size: 14px; line-height: 1.6; }
-.conv-big .msg { max-width: 75%; padding: 10px 14px; }
+.big-stop { gap: 8px; }
+/* 지우기 확인(19): 패널과 같은 상자(패널 안 너비 306px). 덮개는 창 전체 */
+.big .confirm { border-radius: 0; }
+.big .confirm-box { max-width: 306px; }
+/* 대화: 기록 padding 16px 20px, gap 10, 14px/1.6, 말풍선 75% / 입력줄 padding 10px 20px, 44px 시작 */
+.conv-big .conv-list { padding: 16px 20px; gap: 10px; font-size: 14px; line-height: 1.6; }
+.conv-big .msg { max-width: 75%; padding: 8px 14px; }
 .conv-big .msg-user { border-radius: 14px 14px 4px 14px; }
 .conv-big .msg-agent, .conv-big .msg-card { border-radius: 14px 14px 14px 4px; }
-.conv-big .msg-card { gap: 10px; }
+.conv-big .msg-card { padding: 10px 14px; }
 .conv-big .choices { gap: 8px; }
 .conv-big .choice { flex: none; min-height: 40px; padding: 0 20px; border-radius: 10px; font-size: 14px; }
 .conv-big .prog-box .prog-head { font-size: 12px; }
-.conv-big .conv-form { padding: 12px 24px; }
-.conv-big .conv-form-inner { margin: 0 auto; max-width: 632px; gap: 8px; }
+.conv-big .conv-form { padding: 10px 20px; }
+.conv-big .conv-form-inner { gap: 8px; }
 .conv-big .conv-input { height: 44px; padding: 11px 14px; font-size: 14px; }
 .conv-big .conv-send { width: 44px; height: 44px; }
 .conv-big .conv-send svg { width: 18px; height: 18px; }

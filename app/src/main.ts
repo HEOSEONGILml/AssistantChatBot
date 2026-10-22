@@ -1,16 +1,18 @@
-// 주 창: 강아지와 패널. 백엔드 메시지를 상태에 쌓고 다시 그린다. 상세 창에 그릴 거리를 보내고, 상세 창의 말을 백엔드로 넘긴다.
+// 주 창: 강아지와 패널. 백엔드 메시지를 상태에 쌓고 다시 그린다.
+// 큰 창이 보이는 동안 큰 창 몫의 상태(따로 고른 화면)도 들고, 바뀌면 통째로 넘긴다. 큰 창이 보낸 메시지는 대신 보낸다.
 import "./ui/styles.css";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { connectBackend } from "./backend-link";
 import { answered, pruneAnswered } from "./shared/entries";
-import type { Entry, Outgoing, Session } from "./shared/protocol";
+import type { Outgoing } from "./shared/protocol";
 import {
-  apply, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, refreshRequests, type Activity, type State, type View,
+  apply, bigFollowUps, bigRequests, disconnected, firstWaiting, followUps, initialState, mergeRequests, needsSeen, pendingQuestion,
+  refreshRequests, toSnapshot, type State, type View,
 } from "./shared/state";
 import { bindDogDrag, renderDog } from "./ui/dog";
 import { renderPanel } from "./ui/panel";
 import { clearDraft } from "./ui/schedule";
-import { beginDrag, dragBy, endDrag, onPlaced, openDetail as showDetail, placeWindow } from "./window";
+import { beginDrag, dragBy, endDrag, onPlaced, placeWindow, showBig } from "./window";
 
 const PANEL_WIDTH = 340;
 
@@ -18,31 +20,37 @@ const dogRoot = document.getElementById("dog")!;
 const panelRoot = document.getElementById("panel")!;
 
 let state: State = initialState();
+let big: State | null = null; // 큰 창 몫 상태: 데이터는 state와 같고 화면(view)만 따로다. 큰 창이 보이는 동안만 있다
 const asked = new Set<number>(); // 질문 카드용으로 get_session을 이미 보낸 세션
 const seenSent = new Set<number>(); // seen을 보내고 답을 기다리는 세션
-let detailSessionId: number | null = null; // 상세 창이 그리는 세션
+
+// 백엔드에서 온 변화는 두 상태에 똑같이 준다(apply가 보던 화면에 따라 목록 쪽을 고르므로 상태를 둘 둔다)
+function update(f: (s: State) => State) {
+  state = f(state);
+  if (big) big = f(big);
+}
+
+const chatShown = (s: State) => s.view.tab === "chat" && s.view.screen === "list";
 
 const backend = connectBackend({
   onMessage: (m) => {
-    state = apply(state, m);
+    update((s) => apply(s, m));
     pruneAnswered(answered, (id) => state.sessions.get(id)?.state === "waiting");
-    for (const out of followUps(state, m)) backend.send(out);
+    for (const out of mergeRequests(followUps(state, m), big ? bigFollowUps(big, m) : [])) backend.send(out);
     // 대화 탭을 연 채 붙으면 대화 세션을 나중에 알게 된다: 그때 대화를 받아 온다
-    const v = state.view;
     if (m.type === "session" && m.session.source === "chat" && !state.entries.has(m.session.id)
-      && state.panelOpen && v.tab === "chat" && v.screen === "list") backend.send({ type: "get_session", session_id: m.session.id });
+      && ((state.panelOpen && chatShown(state)) || (big && chatShown(big)))) backend.send({ type: "get_session", session_id: m.session.id });
     render();
   },
   onOpen: () => {
-    for (const out of refreshRequests(state)) backend.send(out);
-    if (detailSessionId !== null) backend.send({ type: "get_session", session_id: detailSessionId });
+    for (const out of mergeRequests(refreshRequests(state), big ? bigRequests(big) : [])) backend.send(out);
   },
-  onClose: () => { state = disconnected(state); asked.clear(); seenSent.clear(); answered.clear(); render(); },
+  onClose: () => { update(disconnected); asked.clear(); seenSent.clear(); answered.clear(); render(); },
 });
 const send = (m: Outgoing): boolean => {
   const ok = backend.send(m);
   // [로그인]을 누르면 status가 올 때까지 버튼을 막는다
-  if (ok && m.type === "login") { state = { ...state, loggingIn: true }; render(); }
+  if (ok && m.type === "login") { update((s) => ({ ...s, loggingIn: true })); render(); }
   return ok;
 };
 
@@ -63,14 +71,19 @@ function togglePanel() {
   render();
 }
 
-// 알림 탭의 질문 카드: 그 세션의 질문 줄이 캐시에 없으면 한 번 받아 온다
+// 알림 탭의 질문 카드: 그 세션의 질문 줄이 캐시에 없으면 한 번 받아 온다. 패널과 큰 창(알림 탭이면 왼쪽에 늘 목록)
 function fetchCardQuestion() {
   for (const id of asked) if (state.sessions.get(id)?.state !== "waiting") asked.delete(id);
-  if (!state.panelOpen || state.view.tab !== "alerts" || state.view.screen !== "list") return;
-  const t = firstWaiting(state);
-  if (t && !pendingQuestion(state, t.id) && !asked.has(t.id)) {
-    asked.add(t.id);
-    send({ type: "get_session", session_id: t.id });
+  const shown = [
+    state.panelOpen && state.view.tab === "alerts" && state.view.screen === "list" ? state : null,
+    big?.view.tab === "alerts" ? big : null,
+  ];
+  for (const s of shown) {
+    const t = s && firstWaiting(s);
+    if (t && !pendingQuestion(s, t.id) && !asked.has(t.id)) {
+      asked.add(t.id);
+      send({ type: "get_session", session_id: t.id });
+    }
   }
 }
 
@@ -85,50 +98,42 @@ function markShownSeen() {
   if (state.panelOpen && (v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) markSeen(v.sessionId);
 }
 
-// --- 상세 창 ---
-// 마지막으로 보낸 세션·줄·연결·하는 일. 같으면 다시 보내지 않는다. 끊겨 상태에서 세션이 지워져도 마지막 것을 연결 끊김과 함께 보낸다
-let detailSent: { session?: Session; entries?: Entry[]; connected?: boolean; activity?: Activity } = {};
+// --- 큰 창 ---
+let bigSent: State | null = null; // 마지막으로 넘긴 상태. 같으면 다시 넘기지 않는다
 
-function pushDetail(force = false) {
-  if (detailSessionId === null) return;
-  const session = state.sessions.get(detailSessionId) ?? (detailSent.session?.id === detailSessionId ? detailSent.session : undefined);
-  if (!session) return;
-  const entries = state.entries.get(detailSessionId) ?? detailSent.entries ?? [];
-  const connected = state.connected;
-  const activity = state.activity.get(detailSessionId);
-  const d = detailSent;
-  if (!force && d.session === session && d.entries === entries && d.connected === connected && d.activity === activity) return;
-  detailSent = { session, entries, connected, activity };
-  emitTo("detail", "detail-data", { session, entries, connected, activity }).catch((e) => console.warn("상세 창 보내기 실패", e));
+function pushBig(force = false) {
+  if (!big || (!force && big === bigSent)) return;
+  bigSent = big;
+  emitTo("big", "big-state", toSnapshot(big)).catch((e) => console.warn("큰 창 보내기 실패", e));
 }
 
-function openDetail(sessionId: number) {
-  detailSessionId = sessionId;
-  detailSent = {};
-  send({ type: "get_session", session_id: sessionId });
-  showDetail(sessionId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 열기 실패", e));
+function goBig(view: View) {
+  if (!big) return;
+  big = { ...big, view };
+  for (const out of bigRequests(big)) send(out);
+  render();
 }
 
-// 크게 보기(탭 바·작업 대화·스케줄 대화 머리): 지금은 세션 대화만 상세 창으로 연다. 목록 화면은 아직 아무것도 안 한다.
-// 큰 창(Task 5)이 생기면 이 함수가 그 창을 보던 화면 그대로 연다
+// 크게 보기(탭 바·작업 대화·스케줄 대화 머리): 작은 패널을 닫고, 패널이 보던 화면 그대로 큰 창을 보인다
 function openBig(v: View) {
-  if ((v.screen === "task" || v.screen === "schedule") && v.sessionId !== undefined) openDetail(v.sessionId);
+  big = { ...state, view: v };
+  state = { ...state, panelOpen: false };
+  goBig(v);
+  showBig().then(() => pushBig(true)).catch((e) => console.warn("큰 창 열기 실패", e));
 }
 
-// 상세 창이 늦게 떠서 첫 detail-open·detail-data를 놓쳤을 수 있다: 준비됐다고 하면 다시 보낸다
-listen("detail-ready", () => {
-  if (detailSessionId === null) return;
-  emitTo("detail", "detail-open", detailSessionId).then(() => pushDetail(true)).catch((e) => console.warn("상세 창 보내기 실패", e));
+// 큰 창이 늦게 떠서 첫 상태를 놓쳤을 수 있다: 준비됐다고 하면 다시 넘긴다
+listen("big-ready", () => pushBig(true));
+listen<View>("big-go", (e) => goBig(e.payload));
+// seen은 같은 세션을 두 번 보내지 않게 markSeen으로. 그 밖은 못 보냈으면 큰 창에 알려 입력 글을 되돌리게 한다
+listen<Outgoing>("big-send", (e) => {
+  const m = e.payload;
+  if (m.type === "seen") { markSeen(m.session_id); return; }
+  if (send(m)) return;
+  emitTo("big", "big-send-failed", m).catch((err) => console.warn("큰 창 보내기 실패", err));
 });
-// 못 보냈으면(그 사이 연결이 끊김) 상세 창에 알려 입력 글을 되돌리게 한다
-listen<{ sessionId: number; text: string }>("detail-say", (e) => {
-  if (send({ type: "say", session_id: e.payload.sessionId, text: e.payload.text })) return;
-  emitTo("detail", "detail-send-failed", e.payload.text).catch((err) => console.warn("상세 창 보내기 실패", err));
-});
-listen<{ sessionId: number }>("detail-stop", (e) => send({ type: "stop", session_id: e.payload.sessionId }));
-listen<{ sessionId: number }>("detail-seen", (e) => { if (e.payload.sessionId === detailSessionId) markSeen(e.payload.sessionId); });
-// 상세 창의 세션 칩·[고치기]: 패널을 열고 그 화면으로
-listen<View>("detail-go", (e) => { state = { ...state, panelOpen: true }; go(e.payload); });
+// 큰 창을 닫으면(숨김, lib.rs) 큰 창 몫 상태를 버린다. 작은 패널은 다시 열지 않는다
+listen("big-closed", () => { big = null; bigSent = null; });
 
 // 창 자리: 패널이 열리면 패널 크기를 넘겨 강아지 위나 옆에 놓는다(shared/placement.ts). 같은 크기는 다시 요청하지 않는다
 let lastSize: string | null = null;
@@ -169,7 +174,7 @@ function render() {
   else { panelRoot.replaceChildren(); panelRoot.dataset.key = ""; }
   fetchCardQuestion();
   markShownSeen();
-  pushDetail();
+  pushBig();
   fit();
 }
 

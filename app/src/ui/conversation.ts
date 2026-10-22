@@ -1,4 +1,4 @@
-// 대화 화면: 줄 목록과 입력줄. 작업 대화(11)·대화 탭(18)·상세 창(12)이 같이 쓴다. 값은 다이제스트 2~4절.
+// 대화 화면: 줄 목록과 입력줄. 작업 대화(11)·대화 탭(18)·큰 창(12)이 같이 쓴다. 값은 다이제스트 2~4절.
 // 같은 세션을 다시 그릴 때는 입력줄을 그대로 두고(글·커서 보호) 줄 목록만 바꾼다.
 // 맨 아래 준비 중 줄(22)은 걸린 시간만 1초마다 바꾼다(대화 전체를 다시 그리지 않는다).
 import type { Entry, Outgoing, Session } from "../shared/protocol";
@@ -9,7 +9,7 @@ import { h, markdown, svg } from "./dom";
 
 type Send = (m: Outgoing) => unknown; // false를 돌려주면 못 보낸 것(입력 글을 지우지 않는다)
 type Go = (v: View) => void;
-// compact: 패널(13px, 진행 줄 접기). 아니면 상세 창(14px, 진행 줄 펼침, 날짜 줄)
+// compact: 패널(13px, 진행 줄 접기). 아니면 큰 창(14px, 진행 줄 펼침, 날짜 줄)
 // height: 줄 목록 높이(px). 0이면 대화 화면이 부모 높이를 채운다
 // activity: 그 세션이 지금 하는 일. 있으면 맨 아래 준비 중 줄을 그린다
 export type ConversationOpts = { session: Session; entries: Entry[]; activity?: Activity; height: number; compact: boolean };
@@ -80,17 +80,17 @@ function stopStatus(c: Ctl): void {
 }
 
 function build(root: HTMLElement, opts: ConversationOpts, send: Send, go: Go): Ctl {
-  const min = opts.compact ? 40 : 44;
+  const [min, max] = opts.compact ? [40, 120] : [44, 140];
   const log = h("div", {
     class: "conv-log", tabindex: 0, "aria-label": "대화 기록",
     style: opts.height > 0 ? `flex: none; height: ${opts.height}px` : null,
   });
   const placeholder = PLACEHOLDER[opts.session.source];
   const area = h("textarea", { id: `msg-${opts.session.id}`, class: "conv-input", rows: 1, placeholder }) as HTMLTextAreaElement;
-  // 한 줄 40px(상세 창 44px)에서 120px까지 늘어난다
+  // 한 줄 40px에서 120px까지(큰 창은 44px에서 140px까지) 늘어난다
   const grow = () => {
     area.style.height = "auto";
-    area.style.height = `${Math.min(Math.max(area.scrollHeight + 2, min), 120)}px`;
+    area.style.height = `${Math.min(Math.max(area.scrollHeight + 2, min), max)}px`;
   };
   const c: Ctl = { sessionId: opts.session.id, compact: opts.compact, log, area, expanded: new Set(), opts, send, go };
   const submit = (e: Event) => {
@@ -188,7 +188,7 @@ function chip(c: Ctl, it: Item): HTMLElement {
       h("span", { class: "chip-kind" }, target?.label ?? "작업"), h("b", {}, it.text), h("span", { class: "chip-go", "aria-hidden": "true" }, "›")));
 }
 
-// 진행 묶음: 패널에서는 한 줄 칩(누르면 펼침), 상세 창에서는 늘 펼친 박스
+// 진행 묶음: 패널에서는 한 줄 칩(누르면 펼침), 큰 창에서는 늘 펼친 박스
 function progress(c: Ctl, it: Item): HTMLElement {
   const first = it.entries[0].id;
   const toggle = () => {

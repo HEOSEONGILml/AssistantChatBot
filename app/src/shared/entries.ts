@@ -50,7 +50,7 @@ export const answerKey = (t: Session, entries: Entry[]): string =>
   `${t.id}:${t.state}:${entries[entries.length - 1]?.id ?? 0}`;
 
 // 선택지를 눌러 답을 보낸 세션 상태(answerKey). 세션·줄이 바뀌기 전에는 버튼을 막아 두 번 답하지 않게 한다.
-// 창마다 하나(주 창·상세 창). 끊기면 비우고, 답을 기다리지 않는 세션의 열쇠는 지운다
+// 창마다 하나(주 창·큰 창). 끊기면 비우고, 답을 기다리지 않는 세션의 열쇠는 지운다
 export const answered = new Set<string>();
 
 export function pruneAnswered(keys: Set<string>, isWaiting: (sessionId: number) => boolean): void {

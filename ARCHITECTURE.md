@@ -69,26 +69,26 @@ flowchart LR
 ```mermaid
 flowchart LR
   P["패널<br>(main 창)"] --> S["send()<br>main.ts"]
-  D["상세 창<br>(detail 창)"] -->|"Tauri 이벤트"| S
+  D["큰 창<br>(big 창)"] -->|"Tauri 이벤트 big-send"| S
   S --> L["backend-link.ts"] -->|"WebSocket"| B["백엔드"]
   L -.->|"끊겨 있으면 false"| P
 ```
 
 | 단계 | 하는 일 | 코드 |
 |---|---|---|
-| 입력 지점 | 사용자 행동을 메시지 하나로 만든다 | `src/ui/*.ts`, `src/detail.ts` |
-| 상세 창 → 주 창 | 상세 창은 연결이 없다. `detail-say`·`detail-stop` 이벤트로 주 창에 맡긴다 | `src/detail.ts`, `src/main.ts` |
+| 입력 지점 | 사용자 행동을 메시지 하나로 만든다 | `src/ui/*.ts`, `src/big.ts` |
+| 큰 창 → 주 창 | 큰 창은 연결이 없다. 보낼 메시지(`Outgoing`)를 `big-send` 이벤트로 주 창에 맡긴다. `seen`은 주 창이 같은 세션을 두 번 보내지 않게 거른다 | `src/big.ts`, `src/main.ts` |
 | `send()` | 연결이 열려 있으면 보내고 `true`, 아니면 `false` | `src/backend-link.ts` |
-| 못 보냈을 때 | 입력 글을 지우지 않고 화면에 남긴다. 상세 창에는 `detail-send-failed`로 알려 글을 되돌린다 | `panel.ts`, `conversation.ts`, `main.ts` |
+| 못 보냈을 때 | 입력 글을 지우지 않고 화면에 남긴다. 큰 창에는 `big-send-failed`(못 보낸 메시지)로 알려 `say` 글을 되돌린다 | `panel.ts`, `conversation.ts`, `main.ts` |
 
 ### 2.2 입력 메시지
 
 | UI 위치 | 사용자 동작 | 메시지 | 백엔드 처리 | 코드 |
 |---|---|---|---|---|
 | 작업 탭 → 새 작업 | 글을 쓰고 [맡기기] | `request` | 새 작업 세션 | `ui/panel.ts` |
-| 대화 입력창 (대화 탭, 작업 대화, 스케줄 대화, 상세 창) | 글을 쓰고 Enter | `say` | 돌고 있으면 덧붙이고, 질문 대기면 답, 끝났으면 그 Claude Code 세션을 이어 다시 돌린다 | `ui/conversation.ts` |
+| 대화 입력창 (대화 탭, 작업 대화, 스케줄 대화, 큰 창) | 글을 쓰고 Enter | `say` | 돌고 있으면 덧붙이고, 질문 대기면 답, 끝났으면 그 Claude Code 세션을 이어 다시 돌린다 | `ui/conversation.ts` |
 | 질문 선택지 (대화 안, 알림 탭 질문 카드) | 선택지를 누름 | `say` (선택지 글) | 질문의 답 | `ui/conversation.ts`, `ui/lists.ts` |
-| 멈추기 (목록 행, 작업 화면, 상세 창) | ■ 누름 | `stop` | 세션을 멈추고 상태를 `stopped`로 | `ui/lists.ts`, `ui/panel.ts`, `detail.ts` |
+| 멈추기 (목록 행, 작업 화면, 큰 창) | ■ 누름 | `stop` | 세션을 멈추고 상태를 `stopped`로 | `ui/lists.ts`, `ui/panel.ts`, `ui/big.ts` |
 | 스케줄 탭 → 새 스케줄 / 지시서 수정 | 양식을 채우고 [등록]·[저장] | `add_schedule` / `set_schedule` | 확인 없이 바로 저장. Claude Code 세션은 첫 실행 때 연다 | `ui/schedule.ts` |
 | 스케줄 대화 | 스케줄 스위치 | `set_schedule_enabled` | 켬·끔 저장 | `ui/schedule.ts` |
 | 설정 탭 | [로그인]·[로그아웃] | `login` / `logout` | `claude auth login/logout` | `ui/settings.ts` |
@@ -544,6 +544,22 @@ erDiagram
 연결이 끊기면 받은 것을 모두 버리고, 다시 붙으면 보던 화면에 필요한 것을 다시 받는다. 화면이 디스크에 남기는 것은 강아지 자리 하나다(4.2 표).
 
 주 창은 강아지와 패널을 함께 담는 창 하나다. 창 사각형과 창 안 강아지·패널 자리, 꼬리 위치는 순수 함수 `shared/placement.ts`의 `layout()`이 강아지가 놓인 모니터의 작업 영역(논리 px)으로 계산하고, `window.ts`가 그 모니터 배율로 물리 px로 바꿔 창을 놓는다. 패널은 강아지 위에 들어가면 위(꼬리 있음), 아니면 옆(꼬리 없음)이다.
+
+큰 창(`big` 창, 880x544, 제목줄 `패널`)은 패널 전체를 넓게 그리는 창이다. 백엔드는 화면 연결을 하나만 받으므로 큰 창은 백엔드에 붙지 않고, 주 창이 상태를 넘기고 메시지를 대신 보낸다. 큰 창의 화면(`view`)은 패널과 따로다. `apply`가 보던 화면에 따라 목록 쪽을 고르므로, 주 창은 큰 창이 보이는 동안 큰 창 몫의 `State`를 하나 더 들고 같은 메시지를 둘 다에 `apply`한다. 지운 세션을 보던 큰 창이 그 탭 목록으로 돌아가는 것도 이 `apply`가 한다. 알림·작업·스케줄 탭은 두 칸(왼쪽 300px 목록)이라 요청·이어 받기는 왼쪽 목록까지 계산한다(`bigRequests`·`bigFollowUps`).
+
+```mermaid
+sequenceDiagram
+  participant P as 패널(주 창)
+  participant M as main.ts
+  participant B as 큰 창(big.ts)
+  P->>M: 크게 보기(보던 화면)
+  M->>M: 패널 닫기, 큰 창 몫 State = 패널 State + 그 화면
+  M->>B: 창 보이기, big-state(Map은 배열로)
+  B->>M: big-ready (늦게 떴으면 다시 big-state)
+  B->>M: big-go(화면) / big-send(메시지)
+  M->>B: 상태가 바뀔 때마다 big-state, 못 보냈으면 big-send-failed
+  B--xM: 닫기 → 숨김(lib.rs), big-closed → 큰 창 몫 State 버림
+```
 
 #### 4.3.5 파일
 

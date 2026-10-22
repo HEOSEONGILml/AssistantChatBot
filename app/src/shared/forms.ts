@@ -76,7 +76,7 @@ export const limitRight = (r: LimitRow, now: Date): { percent: string; reset: st
 
 export const clockText = (iso: string): string => hhmm(new Date(iso));
 
-// 상세 창 날짜 줄: "10월 21일 09:10"
+// 큰 창 날짜 줄: "10월 21일 09:10"
 export function dateTimeText(iso: string): string {
   const d = new Date(iso);
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${hhmm(d)}`;

@@ -244,6 +244,42 @@ export function refreshRequests(s: State): Outgoing[] {
   return out;
 }
 
+// --- 큰 창 (12): 패널과 따로 화면을 갖는다. 주 창이 큰 창 몫의 State를 하나 더 들고 같은 메시지를 apply한다 ---
+// 알림·작업·스케줄 탭은 두 칸이다: 대화·양식을 열어도 왼쪽에 그 탭 목록이 늘 보인다
+export const TWO_COLUMN = new Set<Tab>(["alerts", "tasks", "schedules"]);
+
+// 왼쪽 목록이 보이는 상태: 두 칸 탭이면 같은 탭·쪽의 목록 화면으로 본다
+function withListView(s: State): State {
+  const v = s.view;
+  return TWO_COLUMN.has(v.tab) && v.screen !== "list" ? { ...s, view: { tab: v.tab, screen: "list", page: v.page } } : s;
+}
+
+const unique = (xs: Outgoing[]): Outgoing[] => {
+  const seen = new Set<string>();
+  return xs.filter((x) => { const k = JSON.stringify(x); return !seen.has(k) && !!seen.add(k); });
+};
+
+// 큰 창 화면에 필요한 요청: 오른쪽(대화·양식)과 왼쪽 목록
+export const bigRequests = (s: State): Outgoing[] => unique([...refreshRequests(s), ...refreshRequests(withListView(s))]);
+// 큰 창 화면에서 메시지를 받은 뒤 이어서 보낼 요청: 왼쪽 목록이 보이는 것으로 계산한다
+export const bigFollowUps = (s: State, m: BackendMessage): Outgoing[] => followUps(withListView(s), m);
+// 주 창이 패널 요청과 큰 창 요청을 함께 보낼 때 같은 요청을 한 번만
+export const mergeRequests = (...lists: Outgoing[][]): Outgoing[] => unique(lists.flat());
+
+// 큰 창에 넘기는 상태. Tauri 이벤트는 JSON이라 Map은 [키, 값] 배열로 바꾼다
+type MapKeys = "sessions" | "entries" | "schedules" | "activity";
+export type Snapshot = Omit<State, MapKeys> & {
+  sessions: [number, Session][]; entries: [number, Entry[]][]; schedules: [number, Schedule][]; activity: [number, Activity][];
+};
+
+export function toSnapshot(s: State): Snapshot {
+  return { ...s, sessions: [...s.sessions], entries: [...s.entries], schedules: [...s.schedules], activity: [...s.activity] };
+}
+
+export function fromSnapshot(x: Snapshot): State {
+  return { ...x, sessions: new Map(x.sessions), entries: new Map(x.entries), schedules: new Map(x.schedules), activity: new Map(x.activity) };
+}
+
 // 알림 탭: 보고 있는 쪽의 첫 `waiting` 세션만 질문 카드로 보인다. 나머지는 행
 export const firstWaiting = (s: State): Session | undefined => s.lists.alerts?.items.find((t) => t.state === "waiting");
 

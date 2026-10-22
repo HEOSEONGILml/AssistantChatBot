@@ -6,7 +6,7 @@ import {
   afterEdit, draftOf, draftOfProposal, draftToFields, emptyDraft, instructionMeta, rowIcon, rowRight, type RowIcon, type ScheduleDraft,
 } from "../shared/schedules";
 import { BACK_ICON, deleteButton, expandButton, h, header, svg, switchButton } from "./dom";
-import { ICON, pager } from "./lists";
+import { ICON, pager, picked } from "./lists";
 
 type Send = (m: Outgoing) => unknown; // false면 못 보냄
 type Go = (v: View) => void;
@@ -41,8 +41,9 @@ export function schedulesBody(s: State, go: Go): Node[] {
   const now = new Date();
   const rows = list?.items.map((r) => {
     const icon = rowIcon(r, s.schedules.get(r.session_id));
-    return h("li", { class: r.state === "off" ? "row row-off" : "row" },
-      h("button", { type: "button", class: "row-open", onClick: () => go({ tab: "schedules", screen: "schedule", sessionId: r.session_id, page: v.page }) },
+    const sel = picked(s, r.session_id);
+    return h("li", { class: `row${r.state === "off" ? " row-off" : ""}${sel ? " row-sel" : ""}` },
+      h("button", { type: "button", class: "row-open", "aria-current": sel ? "true" : null, onClick: () => go({ tab: "schedules", screen: "schedule", sessionId: r.session_id, page: v.page }) },
         icon ? svg(ROW_ICON[icon]) : h("span", { class: "icon-gap", "aria-hidden": "true" }),
         h("span", { class: "row-text" }, h("b", {}, r.name), " ", h("span", { class: "note" }, `· ${r.label}`))),
       h("span", { class: r.state === "running" ? "row-right row-running" : "row-right" }, rowRight(r, now)));
@@ -74,7 +75,7 @@ export function scheduleHead(s: State, t: Session, send: Send, go: Go, openBig: 
   return sc ? [head, instructionRow(sc, v, go)] : [head];
 }
 
-function instructionRow(sc: Schedule, v: View, go: Go): HTMLElement {
+export function instructionRow(sc: Schedule, v: View, go: Go): HTMLElement {
   return h("div", { class: "instr" },
     h("div", { class: "instr-main" },
       h("span", { class: "instr-meta" }, h("b", {}, "작업 지시서"), ` · ${instructionMeta(sc, new Date())}`),

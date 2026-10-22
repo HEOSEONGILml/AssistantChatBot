@@ -28,9 +28,9 @@
         "visible": true
       },
       {
-        "label": "detail",
-        "url": "detail.html",
-        "title": "작업",
+        "label": "big",
+        "url": "big.html",
+        "title": "패널",
         "width": 880,
         "height": 544,
         "visible": false

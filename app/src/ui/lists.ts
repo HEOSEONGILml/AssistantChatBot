@@ -22,6 +22,8 @@ export const ICON = {
 };
 
 const now = () => new Date();
+// 큰 창 두 칸에서 오른쪽에 열린 세션의 행(파란 바탕 + 굵게). 패널은 목록과 대화를 함께 보이지 않아 늘 false
+export const picked = (s: State, id: number) => s.view.screen !== "list" && s.view.sessionId === id;
 const openSession = (s: State, t: Session, go: Go) => () => go({ tab: s.view.tab, screen: "task", sessionId: t.id, page: s.view.page });
 const scheduleTag = (t: Session) => (t.source === "schedule" ? [" ", h("span", { class: "tag-schedule" }, "스케줄")] : []);
 
@@ -39,8 +41,8 @@ function sessionRow(s: State, t: Session, send: Send, go: Go): HTMLElement {
     : t.state === "working"
       ? h("button", { type: "button", class: "row-stop", "aria-label": `${t.title} 멈추기`, onClick: () => send({ type: "stop", session_id: t.id }) }, svg(ICON.stop))
       : h("span", { class: "row-time" }, timeText(t.created_at, now()));
-  return h("li", { class: "row" },
-    h("button", { type: "button", class: "row-open", onClick: open },
+  return h("li", { class: picked(s, t.id) ? "row row-sel" : "row" },
+    h("button", { type: "button", class: "row-open", "aria-current": picked(s, t.id) ? "true" : null, onClick: open },
       stateIcon(t),
       h("span", { class: "row-text" },
         h("b", {}, t.title), ...scheduleTag(t), " ",
