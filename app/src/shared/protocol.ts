@@ -3,7 +3,7 @@ export const PROTOCOL_VERSION = 7;
 
 const SOURCES = ["user", "schedule", "chat"] as const;
 const SESSION_STATES = ["working", "waiting", "done", "failed", "stopped"] as const;
-const KINDS = ["user", "progress", "question", "result", "failure", "proposal", "run", "edit", "chip"] as const;
+const KINDS = ["user", "progress", "question", "result", "failure", "proposal", "run", "edit", "chip", "nudge"] as const;
 const REPEATS = ["daily", "weekdays", "weekly", "monthly"] as const;
 const RESULTS = ["done", "failed", "stopped"] as const;
 const ROW_STATES = ["running", "next", "off"] as const;
@@ -42,10 +42,11 @@ export type BackendMessage =
   | { type: "session_detail"; session: Session; entries: Entry[]; schedule: Schedule | null }
   | ({ type: "schedules" } & Page<ScheduleRow>)
   | { type: "schedule"; schedule: Schedule }
-  | { type: "settings"; permission_mode: PermissionMode; recording: boolean }
+  | { type: "settings"; permission_mode: PermissionMode; recording: boolean; jev_key_set: boolean }
   | { type: "usage"; limits: Limit[] }
   | { type: "session_deleted"; session_id: number }
-  | { type: "activity"; session_id: number; kind: ActivityKind; text: string };
+  | { type: "activity"; session_id: number; kind: ActivityKind; text: string }
+  | { type: "nudge"; active: boolean };
 
 type ScheduleFields = { name: string; rule: Rule; instruction: string };
 export type Outgoing =
@@ -66,7 +67,10 @@ export type Outgoing =
   | { type: "get_settings" }
   | { type: "set_permission_mode"; mode: PermissionMode }
   | { type: "set_recording"; enabled: boolean }
-  | { type: "get_usage" };
+  | { type: "get_usage" }
+  | { type: "nudge_open" }
+  | { type: "nudge_answer"; help: boolean }
+  | { type: "set_jev_key"; key: string };
 
 // --- 모양 검사 ---
 type O = Record<string, unknown>;
@@ -103,10 +107,11 @@ function valid(o: O): boolean {
     case "session_detail": return isSession(o.session) && listOf(isEntry)(o.entries) && orNull(isSchedule)(o.schedule);
     case "schedules": return isPage(o, isRow);
     case "schedule": return isSchedule(o.schedule);
-    case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording);
+    case "settings": return oneOf(MODES)(o.permission_mode) && isBool(o.recording) && isBool(o.jev_key_set);
     case "usage": return listOf(isLimit)(o.limits);
     case "session_deleted": return isInt(o.session_id);
     case "activity": return isInt(o.session_id) && oneOf(ACTIVITY_KINDS)(o.kind) && isStr(o.text);
+    case "nudge": return isBool(o.active);
     default: return false;
   }
 }

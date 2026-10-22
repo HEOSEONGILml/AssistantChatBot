@@ -2,13 +2,13 @@ import type { Entry, Session } from "./protocol";
 import type { Tab, View } from "./state";
 
 export type Item = {
-  kind: "user" | "agent" | "failure" | "progress" | "question" | "proposal" | "run" | "chip";
+  kind: "user" | "agent" | "failure" | "progress" | "question" | "proposal" | "run" | "chip" | "nudge";
   entries: Entry[];
   text: string;
   choices?: string[];
   data?: unknown;
   spinning?: boolean;
-  // 질문·등록 확인 카드가 아직 답을 기다리는지 (버튼을 보일지)
+  // 질문·등록 확인·먼저 말 걸기 카드가 아직 답을 기다리는지 (버튼을 보일지)
   answerable: boolean;
 };
 
@@ -41,6 +41,12 @@ export function toItems(entries: Entry[], sessionState: Session["state"], source
       if (k === "user") break;
       if (k === "question" || k === "proposal") { items[i].answerable = true; break; }
     }
+  }
+  // 먼저 말 걸기: 세션 상태와 상관없이, 마지막 nudge 줄 뒤에 user 줄이 없을 때 (backend는 `nudge_answer`로 받는다)
+  for (let i = items.length - 1; i >= 0; i--) {
+    const k = items[i].kind;
+    if (k === "user") break;
+    if (k === "nudge") { items[i].answerable = true; break; }
   }
   return items;
 }

@@ -63,11 +63,22 @@ describe("apply", () => {
     s = run(s, { type: "schedule", schedule });
     expect(s.schedules.get(3)).toEqual(schedule);
     expect(s.lists.schedules?.items[0]).toEqual({ session_id: 3, name: "주간 보고", label: "매일 09:00", next_run: null, state: "off" });
-    s = run(s, { type: "settings", permission_mode: "plan", recording: false });
-    expect(s.settings).toEqual({ permissionMode: "plan", recording: false });
+    s = run(s, { type: "settings", permission_mode: "plan", recording: false, jev_key_set: true });
+    expect(s.settings).toEqual({ permissionMode: "plan", recording: false, jevKeySet: true });
     const limits = [{ type: "five_hour", utilization: 0.5, resets_at: null, received_at: "2026-10-22T09:00:00" }];
     s = run(s, { type: "usage", limits });
     expect(s.limits).toEqual(limits);
+  });
+});
+
+describe("nudge", () => {
+  it("turns on and off, and is off after a disconnect", () => {
+    expect(initialState().nudge).toBe(false);
+    let s = run(online(), { type: "nudge", active: true });
+    expect(s.nudge).toBe(true);
+    expect(disconnected(s).nudge).toBe(false);
+    s = run(s, { type: "nudge", active: false });
+    expect(s.nudge).toBe(false);
   });
 });
 

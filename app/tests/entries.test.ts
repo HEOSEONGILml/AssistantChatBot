@@ -93,3 +93,27 @@ describe("chipTarget", () => {
     expect(chipTarget(null, "chat")).toBeNull();
   });
 });
+
+describe("toItems nudge", () => {
+  const nudge = () => e("nudge", "도움이 필요해?", ["도와줘", "괜찮아"]);
+  const answerable = (es: Entry[], state: Parameters<typeof toItems>[1] = "done") => toItems(es, state).map((i) => i.answerable);
+
+  it("마지막 nudge 뒤에 user 줄이 없으면 세션 상태와 상관없이 답할 수 있다", () => {
+    expect(answerable([e("user"), nudge()])).toEqual([false, true]);
+    expect(answerable([nudge()], "working")).toEqual([true]);
+  });
+
+  it("user 줄이 뒤에 있으면 답할 수 없다", () => {
+    expect(answerable([nudge(), e("user", "도와줘")])).toEqual([false, false]);
+  });
+
+  it("앞쪽 nudge는 답할 수 없다", () => {
+    expect(answerable([nudge(), e("result"), nudge()])).toEqual([false, false, true]);
+  });
+
+  it("대화 탭에서도 그리고 종류·선택지·data를 지킨다", () => {
+    const en: Entry = { ...nudge(), data: { app: "a", window: "w" } };
+    const [it] = toItems([e("progress"), en], "done", "chat");
+    expect(it).toMatchObject({ kind: "nudge", text: "도움이 필요해?", choices: ["도와줘", "괜찮아"], data: { app: "a", window: "w" } });
+  });
+});

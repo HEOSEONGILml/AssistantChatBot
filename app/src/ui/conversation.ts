@@ -142,6 +142,7 @@ function itemEl(c: Ctl, it: Item, key: string): HTMLElement {
         choiceRow(it.choices, key, (choice) => say(c, choice)));
     case "proposal": return proposal(c, it, key);
     case "chip": return chip(c, it);
+    case "nudge": return bubble("msg-agent", it.text); // 선택지는 다음 작업(UI)에서 그린다
   }
 }
 

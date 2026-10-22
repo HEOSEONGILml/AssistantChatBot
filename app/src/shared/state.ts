@@ -20,7 +20,8 @@ export type State = {
   schedules: Map<number, Schedule>;
   activity: Map<number, Activity>; // 세션 ID → 지금 하는 일 (준비 중 줄)
   lists: { user?: Page<Session>; alerts?: Page<Session>; schedules?: Page<ScheduleRow> };
-  settings: { permissionMode: PermissionMode; recording: boolean } | null;
+  settings: { permissionMode: PermissionMode; recording: boolean; jevKeySet: boolean } | null;
+  nudge: boolean; // 먼저 말 걸기 배지가 떠 있음
   limits: Limit[];
   panelOpen: boolean;
   view: View;
@@ -30,7 +31,7 @@ export function initialState(): State {
   return {
     connected: false, loggedIn: null, loggingIn: false, chatSessionId: null,
     sessions: new Map(), entries: new Map(), schedules: new Map(), activity: new Map(), lists: {},
-    settings: null, limits: [], panelOpen: false,
+    settings: null, nudge: false, limits: [], panelOpen: false,
     view: { tab: "alerts", screen: "list", page: 1 },
   };
 }
@@ -181,7 +182,9 @@ export function apply(s: State, m: BackendMessage, now: number = Date.now()): St
       };
     }
     case "settings":
-      return { ...s, settings: { permissionMode: m.permission_mode, recording: m.recording } };
+      return { ...s, settings: { permissionMode: m.permission_mode, recording: m.recording, jevKeySet: m.jev_key_set } };
+    case "nudge":
+      return { ...s, nudge: m.active };
     case "usage":
       return { ...s, limits: m.limits };
   }
