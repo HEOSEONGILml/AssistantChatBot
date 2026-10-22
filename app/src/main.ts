@@ -77,7 +77,7 @@ function markSeen(id: number) {
 function markShownSeen() {
   for (const id of seenSent) if (!needsSeen(state, id)) seenSent.delete(id);
   const v = state.view;
-  if (state.panelOpen && v.screen === "task" && v.taskId !== undefined) markSeen(v.taskId);
+  if (state.panelOpen && (v.screen === "task" || v.screen === "schedule") && v.taskId !== undefined) markSeen(v.taskId);
 }
 
 // --- 상세 창 ---

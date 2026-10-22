@@ -12,6 +12,7 @@ type Go = (v: View) => void;
 // height: 줄 목록 높이(px). 0이면 대화 화면이 부모 높이를 채운다
 export type ConversationOpts = { task: Task; entries: Entry[]; height: number; compact: boolean };
 
+const PLACEHOLDER: Record<Task["source"], string> = { user: "답하거나 되묻기", schedule: "이 스케줄에 말하기", chat: "Claude에게 말하기" };
 const TAB_OF: Record<Task["source"], Tab> = { user: "tasks", schedule: "schedules", chat: "chat" };
 
 const ICON = {
@@ -49,7 +50,7 @@ function build(root: HTMLElement, opts: ConversationOpts, send: Send, go: Go): C
     class: "conv-log", tabindex: 0, "aria-label": "대화 기록",
     style: opts.height > 0 ? `flex: none; height: ${opts.height}px` : null,
   });
-  const placeholder = opts.task.source === "chat" ? "Claude에게 말하기" : "답하거나 되묻기";
+  const placeholder = PLACEHOLDER[opts.task.source];
   const area = h("textarea", { id: `msg-${opts.task.id}`, class: "conv-input", rows: 1, placeholder }) as HTMLTextAreaElement;
   // 한 줄 40px(상세 창 44px)에서 120px까지 늘어난다
   const grow = () => {

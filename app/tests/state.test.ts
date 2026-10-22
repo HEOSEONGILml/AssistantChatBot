@@ -295,3 +295,31 @@ describe("needsSeen", () => {
     expect([1, 2, 3, 4, 5, 6, 7].filter((id) => needsSeen(s, id))).toEqual([1, 2, 3]);
   });
 });
+
+describe("스케줄 목록 다시 받기", () => {
+  const rows = (ids: number[]): BackendMessage => ({
+    type: "schedules", page: 1, pages: 1,
+    items: ids.map((id) => ({ task_id: id, name: `s${id}`, label: "매일 09:00", next_run: null, state: "next" as const })),
+  });
+  const viewing = (): State => run({ ...online(), view: { tab: "schedules", screen: "list", page: 1 } }, rows([3]));
+
+  it("목록에 없는 스케줄이 오면(새로 등록) 보던 쪽을 다시 받는다", () => {
+    const m: BackendMessage = { type: "schedule", schedule: { ...schedule, task_id: 9 } };
+    expect(followUps(run(viewing(), m), m)).toEqual([{ type: "list_schedules", page: 1 }]);
+    const known: BackendMessage = { type: "schedule", schedule };
+    expect(followUps(run(viewing(), known), known)).toEqual([]);
+  });
+
+  it("스케줄 작업의 도는 중 여부가 행과 다르면 다시 받는다", () => {
+    const working: BackendMessage = { type: "task", task: task(3, { source: "schedule", state: "working" }) };
+    expect(followUps(run(viewing(), working), working)).toEqual([{ type: "list_schedules", page: 1 }]);
+    const done: BackendMessage = { type: "task", task: task(3, { source: "schedule", state: "done" }) };
+    expect(followUps(run(viewing(), done), done)).toEqual([]);
+  });
+
+  it("스케줄 탭 목록을 보고 있지 않으면 받지 않는다", () => {
+    const m: BackendMessage = { type: "schedule", schedule: { ...schedule, task_id: 9 } };
+    const s = run({ ...online(), view: { tab: "tasks", screen: "list", page: 1 } }, m);
+    expect(followUps(s, m)).toEqual([]);
+  });
+});

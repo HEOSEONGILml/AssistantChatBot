@@ -28,3 +28,14 @@ export function markdown(text: string): HTMLElement {
     ? h("p", {}, ...b.lines.flatMap((l, i) => [...(i ? [h("br")] : []), ...inline(l)]))
     : h(b.type, {}, ...b.items.map((it) => h("li", {}, ...inline(it))))));
 }
+
+// 패널 머리 아이콘(고정 SVG)
+export const BACK_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
+export const EXPAND_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`;
+
+// 패널 머리: 뒤로 + 제목
+export function header(title: string, backLabel: string, back: () => void): HTMLElement {
+  return h("div", { class: "head" },
+    h("button", { type: "button", class: "back", "aria-label": backLabel, onClick: back }, svg(BACK_ICON)),
+    h("span", { class: "head-title" }, title));
+}

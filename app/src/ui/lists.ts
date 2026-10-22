@@ -8,7 +8,7 @@ import { h, markdown, svg } from "./dom";
 type Send = (m: Outgoing) => unknown; // false면 못 보냄
 type Go = (v: View) => void;
 
-const ICON = {
+export const ICON = {
   waiting: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" role="img" aria-label="답을 기다림"><circle cx="12" cy="12" r="10" fill="#C81E1E"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="#FFFFFF"/></svg>`,
   working: `<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" role="img" aria-label="진행 중"><circle cx="12" cy="12" r="9" stroke="#D5DAE1" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="#1D4ED8" stroke-width="3" stroke-linecap="round"/></svg>`,
   scheduleWorking: `<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" role="img" aria-label="스케줄 진행 중"><circle cx="12" cy="12" r="9" stroke="#A7DCD3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="#0F766E" stroke-width="3" stroke-linecap="round"/></svg>`,
@@ -71,7 +71,7 @@ function questionCard(s: State, t: Task, send: Send, go: Go): HTMLElement {
         h("button", { type: "button", class: "link", onClick: openTask(s, t, go) }, "대화 보기 ›"))));
 }
 
-function pager(label: string, page: number, pages: number, onPage: (p: number) => void): HTMLElement {
+export function pager(label: string, page: number, pages: number, onPage: (p: number) => void): HTMLElement {
   return h("nav", { class: "pager", "aria-label": label },
     h("button", { type: "button", "aria-label": "이전 페이지", disabled: page <= 1, onClick: () => onPage(page - 1) }, svg(ICON.prev)),
     h("span", {}, `${page} / ${pages}`),

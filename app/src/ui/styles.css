@@ -499,3 +499,117 @@ html:has(.detail-body), .detail-body { height: 100%; background: #FFFFFF; }
 .md code { padding: 0 4px; border-radius: 4px; background: #F3F4F6; font-family: Consolas, 'Courier New', monospace; font-size: 12px; }
 .msg-agent .md code { background: #FFFFFF; } /* 회색 말풍선 안에서는 흰 바탕 */
 .md b { font-weight: 700; }
+
+/* --- 스케줄 탭 (다이제스트 3절 9·15·16·17, 5절) --- */
+.rows-schedule { padding: 0 12px; }
+.row-off .row-text, .row-off .row-text .note { color: #5B6472; }
+.icon-gap { flex: none; width: 16px; }
+.row-right { flex: none; font-size: 12px; color: #5B6472; white-space: nowrap; }
+.row-running { color: #0F5F52; font-weight: 500; }
+
+/* 스케줄 대화 (16): 패널 높이 고정, 대화 기록만 스크롤 */
+.panel-schedule { height: 460px; }
+.switch {
+  flex: none;
+  min-height: 44px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #0F5F52;
+  font-size: 12px;
+  cursor: pointer;
+}
+.switch:disabled { opacity: 0.5; cursor: default; }
+.switch-track {
+  width: 34px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: 999px;
+  background: #0F766E;
+  display: flex;
+  justify-content: flex-end;
+}
+.switch-knob { width: 16px; height: 16px; border-radius: 999px; background: #FFFFFF; }
+.switch-off { color: #5B6472; }
+.switch-off .switch-track { background: #C4CAD3; justify-content: flex-start; }
+.instr {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px 6px 16px;
+  border-bottom: 1px solid #E6E9EE;
+  background: #F7F8FA;
+  font-size: 13px;
+}
+.instr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.instr-meta { font-size: 12px; color: #5B6472; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.instr-meta b { font-weight: 700; }
+.instr-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #3D4552; }
+.instr-edit {
+  flex: none;
+  min-height: 40px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #1D4ED8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.instr-edit:hover { color: #1E3A8A; }
+
+/* 스케줄 양식 (15·17) */
+.sform { gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field[hidden], .days[hidden] { display: none; }
+.input {
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid #C4CAD3;
+  border-radius: 10px;
+  background: #FFFFFF;
+  font: inherit;
+  font-size: 13px;
+  color: #1B1F27;
+}
+.input:focus { outline: none; border-color: #1D4ED8; }
+.input::placeholder { color: #6B7280; }
+.input.body { height: 96px; padding: 9px 12px; line-height: 20px; resize: none; overflow-y: auto; }
+.when { display: flex; flex-direction: column; gap: 6px; }
+.when-row { display: flex; gap: 8px; }
+.when-row .field { flex: 1; min-width: 0; }
+.when-row .field-day { flex: 0 0 56px; }
+.when-row:has(.field-day:not([hidden])) .field:first-child { flex: 0 0 84px; } /* 매월: 시각 칸이 잘리지 않게 반복 칸을 줄인다 */
+.days { margin: 0; padding: 0; border: 0; display: flex; gap: 4px; }
+.day-chip {
+  position: relative;
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid #C4CAD3;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #1B1F27;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.day-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.day-chip:has(input:checked) { background: #1D4ED8; border-color: #1D4ED8; color: #FFFFFF; }
+.day-chip:has(input:focus-visible) { outline: 2px solid #1D4ED8; outline-offset: 1px; }
+.form-hint { font-size: 12px; color: #5B6472; }
+.form-error { margin: 0; font-size: 12px; color: #B42318; }
+.form-error:empty { display: none; }
+.form-buttons { display: flex; justify-content: flex-end; gap: 6px; }

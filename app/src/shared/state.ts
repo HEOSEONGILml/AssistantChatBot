@@ -64,7 +64,18 @@ export function disconnected(s: State): State {
 
 // 메시지를 받은 뒤 이어서 보낼 요청: 알림 목록에 뒤쪽이 있으면 다음 쪽 (배지 훑기)
 // 작업 탭에서 보던 쪽이 없어져 마지막 쪽으로 당겼으면 그 쪽
+// 스케줄 탭 목록을 보는 중에 목록과 어긋난 스케줄 소식이 오면 그 쪽을 다시 받는다
+// (새로 등록한 스케줄은 1쪽 맨 위, 도는 중 여부는 작업 상태로 바뀐다)
 export function followUps(s: State, m: BackendMessage): Outgoing[] {
+  if (m.type === "schedule" || (m.type === "task" && m.task.source === "schedule")) {
+    const v = s.view, list = s.lists.schedules;
+    if (!list || v.tab !== "schedules" || v.screen !== "list") return [];
+    const id = m.type === "schedule" ? m.schedule.task_id : m.task.id;
+    const row = list.items.find((r) => r.task_id === id);
+    const stale = row ? m.type === "task" && (row.state === "running") !== (m.task.state === "working" || m.task.state === "waiting")
+      : list.page === 1;
+    return stale ? [{ type: "list_schedules", page: list.page }] : [];
+  }
   if (m.type !== "tasks") return [];
   if (m.view === "alerts" && m.pages > m.page) return [{ type: "list_tasks", page: m.page + 1, view: "alerts" }];
   const last = Math.max(m.pages, 1);
