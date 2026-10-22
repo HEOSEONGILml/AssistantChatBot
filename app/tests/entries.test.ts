@@ -24,6 +24,11 @@ describe("toItems", () => {
     expect(items.map((i) => i.kind)).toEqual(["agent", "agent", "failure"]);
   });
 
+  it("대화 탭 세션은 진행을 그리지 않는다", () => {
+    const items = toItems([e("user"), e("progress"), e("result")], "done", "chat");
+    expect(items.map((i) => i.kind)).toEqual(["user", "agent"]);
+  });
+
   it("스피너는 working이고 마지막 묶음이 진행일 때만", () => {
     expect(toItems([e("progress")], "working")[0].spinning).toBe(true);
     expect(toItems([e("progress")], "done")[0].spinning).toBeFalsy();

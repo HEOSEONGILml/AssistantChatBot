@@ -1,1 +1,220 @@
-{"v":3,"createdOnFiles":{"v":1,"at":"2026-10-21T09:00:00Z"},"title":"비서 앱 화면 디자인","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":440,"h":640,"title":"1 작업 없음"},"Progress.dc.html":{"x":520,"y":0,"w":440,"h":640,"title":"2 일하는 중"},"Question.dc.html":{"x":1040,"y":0,"w":440,"h":640,"title":"3 답이 필요함 — 빨강 배지"},"Result.dc.html":{"x":1560,"y":0,"w":440,"h":640,"title":"4 새 소식 — 초록 배지"},"Failed.dc.html":{"x":2080,"y":0,"w":440,"h":640,"title":"5 못 함 — 노랑 배지"},"Input.dc.html":{"x":0,"y":1000,"w":440,"h":640,"title":"6 새 작업 — 작업 탭의 새 작업 버튼"},"Alerts.dc.html":{"x":520,"y":1000,"w":440,"h":640,"title":"7 알림 탭 — 여러 성격이 섞였을 때"},"TaskPanel.dc.html":{"x":1040,"y":1000,"w":440,"h":640,"title":"8 작업 탭"},"SchedulePanel.dc.html":{"x":1560,"y":1000,"w":440,"h":640,"title":"9 스케줄 탭"},"NeedLogin.dc.html":{"x":2080,"y":1000,"w":440,"h":640,"title":"10 로그인 필요 — 설정 탭의 로그인 버튼"},"TaskDetail.dc.html":{"x":0,"y":2000,"w":440,"h":640,"title":"11 작업 대화 — 행을 누르면"},"DetailWindow.dc.html":{"x":520,"y":2000,"w":960,"h":640,"title":"12 상세 창 — 창으로 크게 보기"},"Settings.dc.html":{"x":1560,"y":2000,"w":440,"h":640,"title":"13 설정 탭 — 계정(로그아웃) · 권한 모드"},"Usage.dc.html":{"x":2080,"y":2000,"w":440,"h":640,"title":"14 사용량 탭 — 구독 사용량 한도"},"ScheduleAdd.dc.html":{"x":2600,"y":1000,"w":440,"h":640,"title":"15 새 스케줄 — 양식"},"ScheduleDetail.dc.html":{"x":2600,"y":2000,"w":440,"h":640,"title":"16 스케줄 대화 — 지시서 + 히스토리, 대화 가능"},"ScheduleEdit.dc.html":{"x":3120,"y":2000,"w":440,"h":640,"title":"17 작업 지시서 수정 — 같은 양식"},"Chat.dc.html":{"x":3120,"y":1000,"w":440,"h":640,"title":"18 대화 탭 — Claude Code와 그냥 대화"}},"order":["Main.dc.html","Progress.dc.html","Question.dc.html","Result.dc.html","Failed.dc.html","Input.dc.html","Alerts.dc.html","TaskPanel.dc.html","SchedulePanel.dc.html","NeedLogin.dc.html","TaskDetail.dc.html","DetailWindow.dc.html","Settings.dc.html","Usage.dc.html","ScheduleAdd.dc.html","ScheduleDetail.dc.html","ScheduleEdit.dc.html","Chat.dc.html"],"notes":{"row1":{"x":0,"y":-280,"text":"강아지 — 말풍선 없이 자세와 배지로 알린다","kind":"title1","maxW":2520},"row2":{"x":0,"y":720,"text":"패널 — 강아지를 누르면 열린다 · 작업도 스케줄도 새로 만들기 버튼으로","kind":"title1","maxW":3560},"row3":{"x":0,"y":1760,"text":"대화 · 스케줄 · 설정 · 사용량","kind":"title1","maxW":3560}},"designSystems":[]}
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Alerts.dc.html": {
+      "h": 640,
+      "title": "7 알림 탭 — 여러 성격이 섞였을 때",
+      "w": 440,
+      "x": 520,
+      "y": 1000
+    },
+    "Chat.dc.html": {
+      "h": 640,
+      "title": "18 대화 탭 — Claude Code와 그냥 대화",
+      "w": 440,
+      "x": 3120,
+      "y": 1000
+    },
+    "DetailWindow.dc.html": {
+      "h": 640,
+      "title": "12 큰 창 — 패널의 크게 보기 (작은 패널은 닫힘)",
+      "w": 960,
+      "x": 520,
+      "y": 2000
+    },
+    "Failed.dc.html": {
+      "h": 640,
+      "title": "5 못 함 — 노랑 배지",
+      "w": 440,
+      "x": 2080,
+      "y": 0
+    },
+    "Input.dc.html": {
+      "h": 640,
+      "title": "6 새 작업 — 작업 탭의 새 작업 버튼",
+      "w": 440,
+      "x": 0,
+      "y": 1000
+    },
+    "Main.dc.html": {
+      "h": 640,
+      "title": "1 작업 없음",
+      "w": 440,
+      "x": 0,
+      "y": 0
+    },
+    "NeedLogin.dc.html": {
+      "h": 640,
+      "title": "10 로그인 필요 — 설정 탭의 로그인 버튼",
+      "w": 440,
+      "x": 2080,
+      "y": 1000
+    },
+    "Progress.dc.html": {
+      "h": 640,
+      "title": "2 일하는 중",
+      "w": 440,
+      "x": 520,
+      "y": 0
+    },
+    "Question.dc.html": {
+      "h": 640,
+      "title": "3 답이 필요함 — 빨강 배지",
+      "w": 440,
+      "x": 1040,
+      "y": 0
+    },
+    "Result.dc.html": {
+      "h": 640,
+      "title": "4 새 소식 — 초록 배지",
+      "w": 440,
+      "x": 1560,
+      "y": 0
+    },
+    "ScheduleAdd.dc.html": {
+      "h": 640,
+      "title": "15 새 스케줄 — 양식",
+      "w": 440,
+      "x": 2600,
+      "y": 1000
+    },
+    "ScheduleDetail.dc.html": {
+      "h": 640,
+      "title": "16 스케줄 대화 — 지시서 + 히스토리, 대화 가능",
+      "w": 440,
+      "x": 2600,
+      "y": 2000
+    },
+    "ScheduleEdit.dc.html": {
+      "h": 640,
+      "title": "17 작업 지시서 수정 — 같은 양식",
+      "w": 440,
+      "x": 3120,
+      "y": 2000
+    },
+    "SchedulePanel.dc.html": {
+      "h": 640,
+      "title": "9 스케줄 탭",
+      "w": 440,
+      "x": 1560,
+      "y": 1000
+    },
+    "Settings.dc.html": {
+      "h": 640,
+      "title": "13 설정 탭 — 계정(로그아웃) · 권한 모드",
+      "w": 440,
+      "x": 1560,
+      "y": 2000
+    },
+    "TaskDetail.dc.html": {
+      "h": 640,
+      "title": "11 작업 대화 — 행을 누르면",
+      "w": 440,
+      "x": 0,
+      "y": 2000
+    },
+    "TaskPanel.dc.html": {
+      "h": 640,
+      "title": "8 작업 탭",
+      "w": 440,
+      "x": 1040,
+      "y": 1000
+    },
+    "Usage.dc.html": {
+      "h": 640,
+      "title": "14 사용량 탭 — 구독 사용량 한도",
+      "w": 440,
+      "x": 2080,
+      "y": 2000
+    },
+    "DeleteConfirm.dc.html": {
+      "h": 640,
+      "title": "19 지우기 확인 — 작업·스케줄·대화 공통",
+      "w": 440,
+      "x": 3640,
+      "y": 2000
+    },
+    "Drag.dc.html": {
+      "h": 640,
+      "title": "20 강아지 끌어서 옮기기",
+      "w": 440,
+      "x": 2600,
+      "y": 0
+    },
+    "Moved.dc.html": {
+      "h": 640,
+      "title": "21 옮긴 뒤 — 패널은 강아지 옆에서 열림",
+      "w": 880,
+      "x": 3120,
+      "y": 0
+    },
+    "Thinking.dc.html": {
+      "h": 640,
+      "title": "22 대답 준비 중 — 지금 하는 일 표시",
+      "w": 440,
+      "x": 4160,
+      "y": 2000
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-21T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "row1": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "강아지 — 말풍선 없이 자세와 배지로 알린다 · 끌어서 옮긴다",
+      "w": 240,
+      "x": 0,
+      "y": -280
+    },
+    "row2": {
+      "kind": "title1",
+      "maxW": 3560,
+      "text": "패널 — 강아지를 누르면 열린다 · 작업도 스케줄도 새로 만들기 버튼으로",
+      "w": 240,
+      "x": 0,
+      "y": 720
+    },
+    "row3": {
+      "kind": "title1",
+      "maxW": 4600,
+      "text": "대화 · 스케줄 · 설정 · 사용량 · 지우기",
+      "w": 240,
+      "x": 0,
+      "y": 1760
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Progress.dc.html",
+    "Question.dc.html",
+    "Result.dc.html",
+    "Failed.dc.html",
+    "Input.dc.html",
+    "Alerts.dc.html",
+    "TaskPanel.dc.html",
+    "SchedulePanel.dc.html",
+    "NeedLogin.dc.html",
+    "TaskDetail.dc.html",
+    "DetailWindow.dc.html",
+    "Settings.dc.html",
+    "Usage.dc.html",
+    "ScheduleAdd.dc.html",
+    "ScheduleDetail.dc.html",
+    "ScheduleEdit.dc.html",
+    "Chat.dc.html",
+    "DeleteConfirm.dc.html",
+    "Drag.dc.html",
+    "Moved.dc.html",
+    "Thinking.dc.html"
+  ],
+  "pages": [],
+  "title": "비서 앱 화면 디자인"
+}

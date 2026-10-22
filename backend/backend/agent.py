@@ -30,7 +30,6 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
         setting_sources=[],
         cwd=config.work_dir(),
         extra_args={"chrome": None},
-        disallowed_tools=["Bash", "Write", "Edit", "NotebookEdit", "Task", "Skill"],
         # 데이터 찾기 도구는 묻지 않는다
         allowed_tools=[MCP_PREFIX + "*", "mcp__screenpipe__*"],
         env=config.claude_env(),
@@ -69,6 +68,8 @@ class AgentRun:
         # SDK는 권한 요청·도구 호출을 따로 돌리므로 질문이 겹칠 수 있다. 한 번에 하나만 보이고 기다린다.
         self._ask_lock = asyncio.Lock()
         self._stopped = False
+        # 마지막 글은 최종 답(ResultMessage)과 같으므로, 다음 메시지가 올 때까지 진행으로 보내지 않고 쥔다
+        self._held: str | None = None
 
     @property
     def waiting(self) -> bool:
@@ -88,11 +89,13 @@ class AgentRun:
                 if self._handle(m):
                     return
             if not self._stopped:
+                self._flush()
                 log.warning("세션 %d: 결과 없이 세션이 끝났다", self.session_id)
                 self._events.finished("결과 없이 끝났어요", True)
         except Exception as e:
             if self._stopped:
                 return
+            self._flush()
             # SDK 오류 글·트레이스백에는 CLI 출력(사용자 내용)이 섞일 수 있어 종류만 남긴다
             log.error("세션 %d: Claude Code 실행 실패 (%s)", self.session_id, type(e).__name__)
             self._events.finished("Claude Code를 실행하지 못했어요", True)
@@ -104,8 +107,9 @@ class AgentRun:
         """메시지 하나를 이벤트로. 끝이면 True."""
         if isinstance(m, AssistantMessage):
             for b in m.content:
+                self._flush()
                 if isinstance(b, TextBlock) and b.text.strip():
-                    self._events.progress(b.text)
+                    self._held = b.text
         elif isinstance(m, SystemMessage) and m.subtype == "init":
             self._events.claude_session(m.data["session_id"])
         elif isinstance(m, RateLimitEvent):
@@ -113,9 +117,17 @@ class AgentRun:
             self._events.rate_limit({"type": i.rate_limit_type, "utilization": i.utilization,
                                      "resets_at": i.resets_at})
         elif isinstance(m, ResultMessage):
+            if self._held is not None and self._held.strip() != (m.result or "").strip():
+                self._flush()
+            self._held = None
             self._events.finished(m.result or "", m.is_error)
             return True
         return False
+
+    def _flush(self) -> None:
+        if self._held is not None:
+            self._events.progress(self._held)
+            self._held = None
 
     async def can_use_tool(self, tool_name: str, tool_input: dict, ctx: ToolPermissionContext):
         if tool_name == "AskUserQuestion":

@@ -21,7 +21,7 @@ flowchart TB
 |---|---|---|---|---|
 | 입력 | 프론트 | 사용자 요청을 받아 그대로 넘긴다 | 맥락 모으기 | [0026](docs/decisions/0026-input-layer-passes-request-only.md) |
 | 출력 | 프론트 | 진행·질문·결과·실패를 보여 준다 | 컴퓨터에 행동하기 | [0028](docs/decisions/0028-output-layer-is-ui.md) |
-| 에이전트 | 백엔드 → Claude Code | 요청을 수행하고, 필요한 맥락을 데이터 계층에서 직접 찾는다 | — | [0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md) |
+| 에이전트 | 백엔드 → Claude Code | 요청을 수행하고, 필요한 맥락을 데이터 계층에서 직접 찾는다. Claude Code 기본 도구를 끄지 않는다 | — | [0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md), [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md), [0036](docs/decisions/0036-no-claude-code-tool-restrictions.md) |
 | 데이터 | 백엔드 SQLite + screenpipe DB | 세션 기록(작업·대화·스케줄), 화면 기록을 담는다 | — | [0027](docs/decisions/0027-data-layer-ownership.md) |
 | 화면 기록 (계층 아님) | screenpipe (백그라운드) | 요청과 상관없이 화면을 기록해 데이터 계층에 쓴다 | 요청 처리 | [0026](docs/decisions/0026-input-layer-passes-request-only.md) |
 
@@ -452,7 +452,7 @@ erDiagram
 | `kind` | 쓰는 쪽 | `text` | `choices` | `data` |
 |---|---|---|---|---|
 | `user` | 백엔드 (요청·`say`·[고치기]) | 사용자 글. [고치기]는 `고쳐서 등록: <이름> (<반복>)` | — | — |
-| `progress` | 백엔드 (에이전트 글) | 진행 글 | — | — |
+| `progress` | 백엔드 (에이전트 글, 최종 답과 같은 마지막 글은 뺀다) | 진행 글 | — | — |
 | `question` | 백엔드 (`AskUserQuestion`·권한 요청) | 질문 | 선택지. 권한은 `["허용", "거부"]` | — |
 | `proposal` | 백엔드 Tools (`create_session(schedule)`, `update_schedule`) | `이렇게 등록할까요?` · `이렇게 고칠까요?` | `["등록", "고치기"]` | `{name, rule, label, instruction, first_run}` + 수정이면 `changed`(바뀐 칸 이름 목록) |
 | `result` | 백엔드 (세션 끝) | 결과 글 | — | — |

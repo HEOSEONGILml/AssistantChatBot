@@ -14,9 +14,11 @@ export type Item = {
 
 const kindOf = (k: Entry["kind"]): Item["kind"] => (k === "result" || k === "edit" ? "agent" : k);
 
-export function toItems(entries: Entry[], sessionState: Session["state"]): Item[] {
+// 대화 탭(chat) 세션은 진행을 그리지 않는다 (설계 18번에 진행 칩이 없다)
+export function toItems(entries: Entry[], sessionState: Session["state"], source: Session["source"] = "user"): Item[] {
   const items: Item[] = [];
   for (const en of entries) {
+    if (source === "chat" && en.kind === "progress") continue;
     const last = items[items.length - 1];
     if (en.kind === "progress" && last?.kind === "progress") {
       last.entries.push(en);

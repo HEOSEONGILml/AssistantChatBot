@@ -103,6 +103,23 @@ async def test_text_becomes_progress_and_result_finishes():
     assert client.disconnected == 1
 
 
+async def test_last_text_same_as_result_is_not_progress():
+    client = FakeClient([init(), text("검색 중"), text("찾았어요"), result("찾았어요")])
+    events = FakeEvents()
+    await AgentRun(7, events, make_client=client).run("이어폰 찾아 줘", None)
+    assert events.of("progress") == [("검색 중",)]
+    assert events.of("finished") == [("찾았어요", False)]
+
+
+async def test_held_text_is_sent_when_session_ends_without_result():
+    client = FakeClient([init(), text("검색 중")])
+    events = FakeEvents()
+    await AgentRun(7, events, make_client=client).run("요청", None)
+    assert events.of("progress") == [("검색 중",)]
+    [(_, is_error)] = events.of("finished")
+    assert is_error is True
+
+
 async def test_run_failure_finishes_with_error():
     class Broken(FakeClient):
         async def connect(self):
@@ -216,7 +233,7 @@ def test_build_options_values(tmp_path, monkeypatch):
     assert o.setting_sources == []
     assert o.cwd == config.work_dir()
     assert o.extra_args == {"chrome": None}
-    assert o.disallowed_tools == ["Bash", "Write", "Edit", "NotebookEdit", "Task", "Skill"]
+    assert o.disallowed_tools == []  # Claude Code 기본 도구를 끄지 않는다 (0036)
     assert o.allowed_tools == [MCP_PREFIX + "*", "mcp__screenpipe__*"]
     assert o.permission_mode == "default"
     assert o.can_use_tool is cb

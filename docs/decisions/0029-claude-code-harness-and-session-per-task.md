@@ -1,6 +1,6 @@
 # 0029. Claude Code는 하네스 문서로 동작 원칙을 받고, 작업 하나에 세션 하나로 띄운다
 
-- 상태: 채택
+- 상태: 채택 ("끄는 도구"는 [0036](0036-no-claude-code-tool-restrictions.md)으로 대체)
 - 날짜: 2026-10-21
 
 ## 배경
@@ -51,7 +51,7 @@ flowchart LR
 
 > 너는 사용자의 Windows PC에서 일하는 조수다.
 > 사용자가 무엇을 보며 무엇을 해 왔는지(화면 기록)를 알고 있으므로, 사용자가 맥락을 일일이 설명하지 않아도 하고자 하는 일을 알아듣는다.
-> 사용자의 요청을 받아 대답하거나, 사용자가 보고 있는 브라우저를 직접 조작해 일을 처리한다.
+> 사용자의 요청을 받아 대답하거나, 브라우저·터미널·파일 등 Claude Code가 쓸 수 있는 모든 수단으로 직접 일을 처리한다. 브라우저에 국한하지 않는다. ([0036](0036-no-claude-code-tool-restrictions.md)으로 바뀜. 전: "사용자가 보고 있는 브라우저를 직접 조작해 일을 처리한다")
 > 정해 둔 시간에 스스로 일하기도 한다(스케줄 작업).
 > 화면 한 자리에 강아지 모습으로 있다.
 
@@ -109,7 +109,7 @@ SDK `ClaudeAgentOptions`로 작업마다 이렇게 띄운다. 옵션 이름은 C
 | 다른 설정 막기 | `setting_sources=[]` | 이 PC의 사용자 스킬·플러그인·CLAUDE.md가 섞이지 않게 한다. 스파이크에서 사용자 스킬이 불려 왔다 |
 | 작업 폴더 | `cwd` = 백엔드 데이터 폴더 아래 작업 전용 폴더 | 사용자 파일과 떨어뜨린다 |
 | 켜는 도구 | 크롬 도구(`mcp__claude-in-chrome__*`), `AskUserQuestion`, screenpipe MCP, 작업 기록 MCP, `WebSearch`, `WebFetch`, `Read`(화면 기록의 캡처 이미지를 보는 데 필요) | 1단계 첫 기능은 브라우저 제어다 |
-| 끄는 도구 | `disallowed_tools`로 `Bash`, `Write`, `Edit`, `NotebookEdit`, 하위 에이전트(`Task`), `Skill` | 브라우저 밖의 파일·명령을 건드리지 않게 한다 |
+| 끄는 도구 | ~~[0036](0036-no-claude-code-tool-restrictions.md)으로 폐기~~ `disallowed_tools`로 `Bash`, `Write`, `Edit`, `NotebookEdit`, 하위 에이전트(`Task`), `Skill` | 브라우저 밖의 파일·명령을 건드리지 않게 한다 |
 | 권한 | `permission_mode`는 사용자가 패널 설정 탭에서 고른 값(기본: 매번 묻기 `default`). 새 작업부터 적용한다. 권한 요청은 `can_use_tool` 콜백으로 받아 작업 대화의 질문 줄([허용, 거부])로 바꾼다 | 디자인 설정 탭(사용자) |
 | 한도 | **작업 한도를 두지 않는다** (사용자). `max_turns`, `max_budget_usd` 모두 쓰지 않는다. 모델은 지정하지 않고 Claude Code 기본값을 쓴다 | 사용자가 정했다 |
 

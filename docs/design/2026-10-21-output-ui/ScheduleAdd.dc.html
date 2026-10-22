@@ -12,15 +12,15 @@
 <style>
 body{margin:0}
 a{color:#1D4ED8}a:hover{color:#1E3A8A}
-.dog{width:128px;height:96px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:1024px 864px;background-repeat:no-repeat;image-rendering:pixelated}
-.p-sit{background-position:0 -96px}
+.dog{width:96px;height:72px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:768px 648px;background-repeat:no-repeat;image-rendering:pixelated}
+.p-sit{background-position:0 -72px}
 input::placeholder,textarea::placeholder{color:#6B7280}
 </style>
 </helmet>
 <div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
 <div aria-hidden="true" style="position: absolute; left: 24px; top: 24px; right: -40px; bottom: 80px; background: #F7F8FA; border: 1px solid #D5DAE1; border-radius: 10px"></div>
 <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
-<section aria-label="새 스케줄" style="position: absolute; right: 20px; bottom: 156px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
+<section aria-label="새 스케줄" style="position: absolute; right: 20px; bottom: 132px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
 <div style="display: flex; align-items: center; gap: 4px; padding: 0 4px; border-bottom: 1px solid #E6E9EE">
 <a href="SchedulePanel.dc.html" aria-label="스케줄 목록으로" style="flex: none; width: 44px; height: 44px; color: #1B1F27; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
 <span style="flex: 1; font-size: 14px; font-weight: 700">새 스케줄</span>
@@ -34,7 +34,7 @@ input::placeholder,textarea::placeholder{color:#6B7280}
 <div style="display: flex; gap: 8px">
 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
 <label for="srepeat" style="font-size: 12px; font-weight: 700; color: #5B6472">반복</label>
-<select id="srepeat" style="height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1F27"><option>매일</option><option>평일</option><option selected>매주</option><option>매월</option></select>
+<select id="srepeat" style="height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #C4CAD3; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1F27"><option>매일</option><option>평일</option><option selected="">매주</option><option>매월</option></select>
 </div>
 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
 <label for="stime" style="font-size: 12px; font-weight: 700; color: #5B6472">시각</label>
@@ -43,7 +43,7 @@ input::placeholder,textarea::placeholder{color:#6B7280}
 </div>
 <fieldset style="margin: 0; padding: 0; border: 0; display: flex; gap: 4px">
 <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">요일</legend>
-<label style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #1D4ED8; color: #FFFFFF; border: 1px solid #1D4ED8; font-size: 12px; font-weight: 500; cursor: pointer"><input type="checkbox" name="days" value="월" checked style="position: absolute; opacity: 0; width: 1px; height: 1px">월</label>
+<label style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #1D4ED8; color: #FFFFFF; border: 1px solid #1D4ED8; font-size: 12px; font-weight: 500; cursor: pointer"><input type="checkbox" name="days" value="월" checked="" style="position: absolute; opacity: 0; width: 1px; height: 1px">월</label>
 <label style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #FFFFFF; color: #1B1F27; border: 1px solid #C4CAD3; font-size: 12px; font-weight: 500; cursor: pointer"><input type="checkbox" name="days" value="화" style="position: absolute; opacity: 0; width: 1px; height: 1px">화</label>
 <label style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #FFFFFF; color: #1B1F27; border: 1px solid #C4CAD3; font-size: 12px; font-weight: 500; cursor: pointer"><input type="checkbox" name="days" value="수" style="position: absolute; opacity: 0; width: 1px; height: 1px">수</label>
 <label style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #FFFFFF; color: #1B1F27; border: 1px solid #C4CAD3; font-size: 12px; font-weight: 500; cursor: pointer"><input type="checkbox" name="days" value="목" style="position: absolute; opacity: 0; width: 1px; height: 1px">목</label>
@@ -63,7 +63,7 @@ input::placeholder,textarea::placeholder{color:#6B7280}
 </form>
 <div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
 </section>
-<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 128px; height: 96px"><span class="dog p-sit" style="display: block"></span></a>
+<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 96px; height: 72px"><span class="dog p-sit" style="display: block"></span></a>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":640}}'>

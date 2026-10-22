@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>대답 준비 중</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+.dog{width:96px;height:72px;background-image:url(../../../app/public/sprites/dog/dog-02.png);background-size:768px 648px;background-repeat:no-repeat;image-rendering:pixelated}
+.p-sit{background-position:0 -72px}
+textarea::placeholder{color:#6B7280}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.dot{animation:blink 1.2s infinite}.d2{animation-delay:.2s}.d3{animation-delay:.4s}
+</style>
+</helmet>
+<div style="width: 440px; height: 640px; position: relative; overflow: hidden; background: #E6E9EE; font-family: 'Noto Sans KR', sans-serif; color: #1B1F27">
+<div aria-hidden="true" style="position: absolute; left: 24px; top: 24px; right: -40px; bottom: 80px; background: #F7F8FA; border: 1px solid #D5DAE1; border-radius: 10px"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #20242C"></div>
+<section aria-label="작업 패널" style="position: absolute; right: 20px; bottom: 132px; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 24, 32, 0.18); display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; padding: 0 4px 0 8px; border-bottom: 1px solid #E6E9EE">
+<div role="tablist" aria-label="보기" style="flex: 1; display: flex">
+<a href="Alerts.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">알림</a>
+<button type="button" role="tab" aria-selected="true" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; border: 0; border-bottom: 2px solid #1B1F27; background: transparent; color: #1B1F27; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">대화</button>
+<a href="TaskPanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">작업</a>
+<a href="SchedulePanel.dc.html" role="tab" aria-selected="false" style="min-height: 44px; padding: 0 6px; white-space: nowrap; flex: none; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #5B6472; font-size: 13px; font-weight: 500; text-decoration: none">스케줄</a>
+<a href="Usage.dc.html" role="tab" aria-selected="false" aria-label="사용량" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M8 16v-3"></path><path d="M13 16V9"></path><path d="M18 16V6"></path></svg></a>
+<a href="Settings.dc.html" role="tab" aria-selected="false" aria-label="설정" style="min-height: 44px; width: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid transparent; color: #5B6472; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></a>
+</div>
+<a href="DetailWindow.dc.html" aria-label="크게 보기" title="크게 보기" style="flex: none; width: 36px; height: 44px; color: #5B6472; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg></a>
+</div>
+<div style="flex: none; display: flex; align-items: center; padding: 0 4px 0 16px; border-bottom: 1px solid #E6E9EE; background: #F7F8FA">
+<span style="flex: 1; font-size: 12px; color: #5B6472">Claude와 나눈 대화</span>
+<a href="DeleteConfirm.dc.html" style="flex: none; min-height: 36px; padding: 0 8px; display: flex; align-items: center; gap: 4px; color: #5B6472; font-size: 12px; font-weight: 500; text-decoration: none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>대화 지우기</a>
+</div>
+<div tabindex="0" aria-label="대화 기록" style="flex: none; height: 324px; overflow-y: auto; display: flex; flex-direction: column-reverse">
+<ol style="margin: 0; padding: 12px; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.55">
+<li style="align-self: flex-end; max-width: 80%; padding: 8px 12px; border-radius: 12px 12px 4px 12px; background: #E3ECFF">screenpipe 기록은 며칠 치 남아?</li>
+<li style="align-self: flex-start; max-width: 85%; padding: 8px 12px; border-radius: 12px 12px 12px 4px; background: #F3F4F6">이틀 치만 남기고 그보다 오래된 건 지워요.</li>
+<li style="align-self: flex-end; max-width: 80%; padding: 8px 12px; border-radius: 12px 12px 4px 12px; background: #E3ECFF">오늘 슬랙에서 나한테 온 요청 뭐 있었어?</li>
+<li role="status" aria-live="polite" style="align-self: flex-start; min-height: 32px; padding: 0 10px; display: flex; align-items: center; gap: 8px; border-radius: 10px; background: #F3F4F6; font-size: 12px; color: #3D4552">
+<span aria-hidden="true" style="display: flex; gap: 3px"><span class="dot" style="width: 5px; height: 5px; border-radius: 999px; background: #1D4ED8"></span><span class="dot d2" style="width: 5px; height: 5px; border-radius: 999px; background: #1D4ED8"></span><span class="dot d3" style="width: 5px; height: 5px; border-radius: 999px; background: #1D4ED8"></span></span>
+<span><b style="font-weight: 500">화면 기록에서 찾는 중</b> <span style="color: #5B6472">· 8초</span></span>
+</li>
+</ol>
+</div>
+<form style="flex: none; display: flex; align-items: flex-end; gap: 6px; padding: 8px; border-top: 1px solid #E6E9EE">
+<label for="chatmsg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Claude에게 말하기</label>
+<textarea id="chatmsg" rows="1" placeholder="Claude에게 말하기" style="flex: 1; min-width: 0; height: 40px; max-height: 120px; box-sizing: border-box; padding: 9px 12px; border: 1px solid #C4CAD3; border-radius: 10px; font: inherit; font-size: 13px; line-height: 20px; color: #1B1F27; resize: none; overflow-y: auto"></textarea>
+<button type="submit" aria-label="보내기" style="flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: #1D4ED8; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</form>
+<div aria-hidden="true" style="position: absolute; right: 56px; bottom: -8px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #D5DAE1; border-bottom: 1px solid #D5DAE1; transform: rotate(45deg)"></div>
+</section>
+<a href="Main.dc.html" aria-label="작업 패널 닫기" style="position: absolute; right: 20px; bottom: 48px; display: block; width: 96px; height: 72px"><span class="dog p-sit" style="display: block"></span></a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":640}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

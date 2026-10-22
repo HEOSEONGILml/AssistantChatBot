@@ -82,7 +82,7 @@ function drawLog(c: Ctl): void {
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 8;
   const top = log.scrollTop;
   const { session, entries } = c.opts;
-  const items = toItems(entries, session.state);
+  const items = toItems(entries, session.state, session.source);
   const key = answerKey(session, entries);
   log.replaceChildren(h("ol", { class: "conv-list" },
     ...(c.compact ? [] : [h("li", { class: "run-line" }, dateTimeText(session.created_at))]),

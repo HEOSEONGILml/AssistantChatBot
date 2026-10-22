@@ -24,7 +24,7 @@ flowchart LR
   SchedDetail -->|지시서 수정| SchedEdit[작업 지시서 수정]
   Alerts -->|항목 클릭| Thread[작업 대화]
   Tasks -->|행 클릭| Thread
-  Thread -->|창으로 크게 보기| Window[상세 창]
+  Panel -->|크게 보기| Window[큰 창<br/>작은 패널은 닫힘]
 ```
 
 ## 확정한 것
@@ -50,11 +50,13 @@ flowchart LR
 | 인증 | API 키 입력 대신 Claude Code 구독 로그인을 요청한다 | 사용자 |
 | 설정 | 패널에 설정 탭을 두고, 그 안에서 Claude Code 권한 모드를 고른다 | 사용자 |
 | 사용량 | 패널에 사용량 탭을 두고, Claude Code 구독 사용량 한도를 보여 준다 | 사용자 |
+| 지우기 | 대화·작업·스케줄(= 세션)마다 지우기 버튼이 있다 | 사용자 |
+| 준비 중 표시 | 대답을 준비하는 동안 지금 무엇을 하는지(준비·생각·실행 중) 보인다 | 사용자 |
 | 대화 | 패널에 대화 탭을 둔다. Claude Code와 그냥 대화하는 채팅 화면이고, 세션 하나만 쓴다. 대화로 작업·스케줄을 만들 수도, 그냥 대화만 할 수도 있다 ([0033](../../decisions/0033-chat-tab-single-session.md)) | 사용자 |
 
 ## Claude가 제안하고 사용자가 확정한 값
 
-- 강아지 위치: 화면 오른쪽 아래, 작업 표시줄 위.
+- 강아지 위치: 처음은 화면 오른쪽 아래, 작업 표시줄 위. 끌어서 옮길 수 있다 (사용자, 20·21번).
 - 패널 크기: 너비 340px. 한 쪽에 4줄.
 - 알림 순서: 답 필요 → 못 함 → 다 함. 같은 성격끼리는 최신이 위.
 - 첫 번째 질문만 카드로 펼치고, 나머지 질문은 한 줄 + "답하기".
@@ -114,13 +116,17 @@ flowchart LR
 | `SchedulePanel.dc.html` | 9 스케줄 탭 |
 | `NeedLogin.dc.html` | 10 로그인 필요: 설정 탭의 로그인 버튼 |
 | `TaskDetail.dc.html` | 11 작업 대화 |
-| `DetailWindow.dc.html` | 12 상세 창 |
+| `DetailWindow.dc.html` | 12 큰 창: 패널 전체를 크게 |
 | `Settings.dc.html` | 13 설정 탭, 권한 모드 |
 | `Usage.dc.html` | 14 사용량 탭, 구독 사용량 한도 |
 | `ScheduleAdd.dc.html` | 15 새 스케줄 양식 |
 | `ScheduleDetail.dc.html` | 16 스케줄 대화: 작업 지시서와 히스토리, 대화 입력 |
 | `ScheduleEdit.dc.html` | 17 작업 지시서 수정 |
 | `Chat.dc.html` | 18 대화 탭 |
+| `DeleteConfirm.dc.html` | 19 지우기 확인 |
+| `Drag.dc.html` | 20 강아지 끌어서 옮기기 |
+| `Moved.dc.html` | 21 옮긴 뒤 패널 |
+| `Thinking.dc.html` | 22 대답 준비 중 |
 
 `canvas.json`은 캔버스 배치(아트보드 위치·크기·제목)다.
 
