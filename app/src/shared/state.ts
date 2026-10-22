@@ -48,6 +48,25 @@ function withTasks(s: State, ts: Task[]): Pick<State, "tasks" | "chatTaskId" | "
   return { tasks, chatTaskId, lists: { ...s.lists, user: fresh(s.lists.user), alerts: fresh(s.lists.alerts) } };
 }
 
+const isAlert = (t: Task) => t.source !== "chat"
+  && (t.state === "waiting" || ((t.state === "failed" || t.state === "done") && !t.seen));
+
+function withoutAlerts(tasks: Map<number, Task>, keep: Task[]): Map<number, Task> {
+  const ids = new Set(keep.map((t) => t.id));
+  return new Map([...tasks].filter(([id, t]) => ids.has(id) || !isAlert(t)));
+}
+
+// 끊겼을 때: 백엔드에서 받은 것은 모두 버린다. 보던 화면·패널·로그인 여부만 남긴다
+export function disconnected(s: State): State {
+  return { ...initialState(), view: s.view, panelOpen: s.panelOpen, loggedIn: s.loggedIn };
+}
+
+// 메시지를 받은 뒤 이어서 보낼 요청: 알림 목록에 뒤쪽이 있으면 다음 쪽 (배지 훑기)
+export function followUps(_s: State, m: BackendMessage): Outgoing[] {
+  if (m.type === "tasks" && m.view === "alerts" && m.pages > m.page) return [{ type: "list_tasks", page: m.page + 1, view: "alerts" }];
+  return [];
+}
+
 export function apply(s: State, m: BackendMessage): State {
   switch (m.type) {
     case "status":
@@ -57,8 +76,14 @@ export function apply(s: State, m: BackendMessage): State {
     case "entry":
       return { ...s, entries: new Map(s.entries).set(m.task_id, mergeEntries(s.entries.get(m.task_id), [m.entry])) };
     case "tasks": {
-      const next = withTasks(s, m.items);
-      return { ...s, ...next, lists: { ...next.lists, [m.view]: { page: m.page, pages: m.pages, items: m.items } } };
+      // 배지 훑기: 알림 1쪽이 오면 알림 대상 작업을 지우고 1쪽부터 다시 채운다(뒤쪽은 followUps로 이어 받는다).
+      // 그래야 끊긴 사이 알림에서 빠진 작업이 배지에 남지 않는다
+      const base = m.view === "alerts" && m.page === 1 ? { ...s, tasks: withoutAlerts(s.tasks, m.items) } : s;
+      const next = withTasks(base, m.items);
+      // 훑기로 온 쪽이 보고 있는 쪽을 덮지 않게, 보고 있는 쪽(알림 탭이 아니면 1쪽)만 목록에 둔다
+      const shown = m.view === "user" || m.page === (s.view.tab === "alerts" ? s.view.page : 1);
+      const lists = shown ? { ...next.lists, [m.view]: { page: m.page, pages: m.pages, items: m.items } } : next.lists;
+      return { ...s, ...next, lists };
     }
     case "task_detail": {
       const entries = new Map(s.entries).set(m.task.id, mergeEntries(s.entries.get(m.task.id), m.entries));
@@ -118,9 +143,10 @@ export function tooltip(s: State): string {
   return n > 0 ? `일하는 중 · 작업 ${n}개` : "눌러서 일 맡기기";
 }
 
-// 다시 붙었을 때·화면을 열 때 보낼 요청. 배지를 위해 알림 목록 1쪽은 늘 보낸다
+// 다시 붙었을 때·화면을 열 때 보낼 요청. 늘 알림 1쪽(배지 훑기의 시작, 뒤쪽은 followUps)과
+// 작업 1쪽(최근 작업: 일하는 중인 작업은 대개 최근이라 강아지 자세에 필요)을 보낸다
 export function refreshRequests(s: State): Outgoing[] {
-  const out: Outgoing[] = [{ type: "list_tasks", page: 1, view: "alerts" }];
+  const out: Outgoing[] = [{ type: "list_tasks", page: 1, view: "alerts" }, { type: "list_tasks", page: 1, view: "user" }];
   const v = s.view;
   if (v.screen === "task" || v.screen === "schedule" || v.screen === "editSchedule") {
     if (v.taskId !== undefined) out.push({ type: "get_task", task_id: v.taskId });
@@ -128,8 +154,8 @@ export function refreshRequests(s: State): Outgoing[] {
   }
   if (v.screen !== "list") return out;
   switch (v.tab) {
-    case "alerts": if (v.page !== 1) out.push({ type: "list_tasks", page: v.page, view: "alerts" }); break;
-    case "tasks": out.push({ type: "list_tasks", page: v.page, view: "user" }); break;
+    case "alerts": break; // 보고 있는 쪽은 배지 훑기가 받아 온다
+    case "tasks": if (v.page !== 1) out.push({ type: "list_tasks", page: v.page, view: "user" }); break;
     case "schedules": out.push({ type: "list_schedules", page: v.page }); break;
     case "chat": if (s.chatTaskId !== null) out.push({ type: "get_task", task_id: s.chatTaskId }); break;
     case "settings": out.push({ type: "get_settings" }); break;

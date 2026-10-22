@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackendMessage, Entry, Schedule, Task } from "../src/shared/protocol";
-import { apply, badges, initialState, pose, refreshRequests, tooltip, type State } from "../src/shared/state";
+import { apply, badges, disconnected, followUps, initialState, pose, refreshRequests, tooltip, type State } from "../src/shared/state";
 
 const task = (id: number, o: Partial<Task> = {}): Task => ({
   id, source: "user", title: `작업 ${id}`, state: "done", seen: true, session_id: null, created_at: "2026-10-22T09:00:00", ...o,
@@ -128,26 +128,83 @@ describe("tooltip", () => {
 
 describe("refreshRequests", () => {
   const alerts1 = { type: "list_tasks", page: 1, view: "alerts" };
+  const user1 = { type: "list_tasks", page: 1, view: "user" };
   const at = (view: State["view"], s = online()): State => ({ ...s, view });
 
   it("test_reconnect_requests_current_view", () => {
-    expect(refreshRequests(at({ tab: "tasks", screen: "list", page: 2 }))).toEqual([alerts1, { type: "list_tasks", page: 2, view: "user" }]);
-    expect(refreshRequests(at({ tab: "tasks", screen: "task", taskId: 9, page: 1 }))).toEqual([alerts1, { type: "get_task", task_id: 9 }]);
-    expect(refreshRequests(at({ tab: "settings", screen: "list", page: 1 }))).toEqual([alerts1, { type: "get_settings" }]);
-    expect(refreshRequests(at({ tab: "usage", screen: "list", page: 1 }))).toEqual([alerts1, { type: "get_usage" }]);
-    expect(refreshRequests(at({ tab: "schedules", screen: "list", page: 1 }))).toEqual([alerts1, { type: "list_schedules", page: 1 }]);
-    expect(refreshRequests(at({ tab: "schedules", screen: "schedule", taskId: 3, page: 1 }))).toEqual([alerts1, { type: "get_task", task_id: 3 }]);
-    expect(refreshRequests(at({ tab: "tasks", screen: "newTask", page: 1 }))).toEqual([alerts1]);
+    expect(refreshRequests(at({ tab: "tasks", screen: "list", page: 2 }))).toEqual([alerts1, user1, { type: "list_tasks", page: 2, view: "user" }]);
+    expect(refreshRequests(at({ tab: "tasks", screen: "list", page: 1 }))).toEqual([alerts1, user1]);
+    expect(refreshRequests(at({ tab: "tasks", screen: "task", taskId: 9, page: 1 }))).toEqual([alerts1, user1, { type: "get_task", task_id: 9 }]);
+    expect(refreshRequests(at({ tab: "settings", screen: "list", page: 1 }))).toEqual([alerts1, user1, { type: "get_settings" }]);
+    expect(refreshRequests(at({ tab: "usage", screen: "list", page: 1 }))).toEqual([alerts1, user1, { type: "get_usage" }]);
+    expect(refreshRequests(at({ tab: "schedules", screen: "list", page: 1 }))).toEqual([alerts1, user1, { type: "list_schedules", page: 1 }]);
+    expect(refreshRequests(at({ tab: "schedules", screen: "schedule", taskId: 3, page: 1 }))).toEqual([alerts1, user1, { type: "get_task", task_id: 3 }]);
+    expect(refreshRequests(at({ tab: "tasks", screen: "newTask", page: 1 }))).toEqual([alerts1, user1]);
   });
 
-  it("alerts tab does not repeat page 1", () => {
-    expect(refreshRequests(at({ tab: "alerts", screen: "list", page: 1 }))).toEqual([alerts1]);
-    expect(refreshRequests(at({ tab: "alerts", screen: "list", page: 2 }))).toEqual([alerts1, { type: "list_tasks", page: 2, view: "alerts" }]);
+  it("alerts tab relies on the badge sweep for later pages", () => {
+    expect(refreshRequests(at({ tab: "alerts", screen: "list", page: 1 }))).toEqual([alerts1, user1]);
+    expect(refreshRequests(at({ tab: "alerts", screen: "list", page: 2 }))).toEqual([alerts1, user1]);
   });
 
   it("chat tab opens the chat task once known", () => {
-    expect(refreshRequests(at({ tab: "chat", screen: "list", page: 1 }))).toEqual([alerts1]);
+    expect(refreshRequests(at({ tab: "chat", screen: "list", page: 1 }))).toEqual([alerts1, user1]);
     const s = run(online(), { type: "task", task: task(1, { source: "chat" }) });
-    expect(refreshRequests(at({ tab: "chat", screen: "list", page: 1 }, s))).toEqual([alerts1, { type: "get_task", task_id: 1 }]);
+    expect(refreshRequests(at({ tab: "chat", screen: "list", page: 1 }, s))).toEqual([alerts1, user1, { type: "get_task", task_id: 1 }]);
+  });
+});
+
+describe("badge sweep", () => {
+  const alerts = (page: number, items: Task[]): BackendMessage => ({ type: "tasks", view: "alerts", page, pages: 3, items });
+
+  it("followUps asks for the next alerts page until the last", () => {
+    const s = online();
+    expect(followUps(s, alerts(1, []))).toEqual([{ type: "list_tasks", page: 2, view: "alerts" }]);
+    expect(followUps(s, alerts(2, []))).toEqual([{ type: "list_tasks", page: 3, view: "alerts" }]);
+    expect(followUps(s, alerts(3, []))).toEqual([]);
+    expect(followUps(s, { type: "tasks", view: "user", page: 1, pages: 3, items: [] })).toEqual([]);
+    expect(followUps(s, { type: "status", logged_in: true })).toEqual([]);
+  });
+
+  it("counts every alerts page and drops stale alerts when the sweep restarts", () => {
+    const w = (id: number) => task(id, { state: "waiting" });
+    let s = run(online(),
+      { type: "task", task: task(1, { source: "chat", state: "waiting" }) },
+      { type: "task", task: task(20, { state: "working" }) },
+      { type: "task", task: task(21, { state: "done", seen: true }) },
+      alerts(1, [w(11), w(12), w(13), w(14)]), alerts(2, [w(15), w(16), w(17), w(18)]), alerts(3, [w(19)]),
+    );
+    expect(badges(s).red).toBe(9);
+    expect(s.lists.alerts?.page).toBe(1); // 훑기 쪽이 보이는 1쪽을 덮지 않는다
+    // 다시 훑기: 12·19는 답을 받아 알림에서 빠졌다
+    s = run(s, alerts(1, [w(11), w(13), w(14), w(15)]));
+    expect(badges(s).red).toBe(4);
+    s = run(s, alerts(2, [w(16), w(17), w(18)]));
+    expect(badges(s).red).toBe(7);
+    expect([...s.tasks.keys()]).toEqual(expect.arrayContaining([1, 20, 21])); // 알림 대상이 아닌 작업은 남는다
+  });
+
+  it("shows the alerts page being viewed", () => {
+    const s = { ...online(), view: { tab: "alerts", screen: "list", page: 2 } } as State;
+    const s2 = run(s, alerts(1, [task(11, { state: "waiting" })]), alerts(2, [task(15, { state: "waiting" })]), alerts(3, []));
+    expect(s2.lists.alerts?.page).toBe(2);
+  });
+});
+
+describe("disconnected", () => {
+  it("keeps view, panel and login, forgets backend data", () => {
+    let s = run(online(),
+      { type: "task", task: task(1, { state: "working" }) },
+      { type: "entry", task_id: 1, entry: entry(1, 1) },
+      { type: "schedule", schedule },
+      { type: "tasks", view: "user", page: 1, pages: 1, items: [task(1, { state: "working" })] },
+    );
+    s = { ...s, panelOpen: true, view: { tab: "tasks", screen: "task", taskId: 1, page: 1 } };
+    expect(tooltip(s)).toBe("일하는 중 · 작업 1개");
+    const d = disconnected(s);
+    expect(d).toEqual({ ...initialState(), panelOpen: true, loggedIn: true, view: s.view });
+    expect(d.connected).toBe(false);
+    expect(tooltip(d)).toBe("눌러서 일 맡기기");
+    expect(pose(d)).toBe("sit");
   });
 });
