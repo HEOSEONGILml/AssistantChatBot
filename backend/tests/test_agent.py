@@ -428,10 +428,10 @@ async def test_init_without_mcp_servers_passes_none():
 async def test_fetch_mcp_status_reads_and_disconnects():
     class Status(FakeClient):
         async def get_mcp_status(self):
-            return {"mcpServers": [{"name": "screenpipe", "status": "pending"}]}
+            return {"mcpServers": [{"name": "screenpipe", "status": "connected"}]}
 
     client = Status([])
-    assert await agent.fetch_mcp_status("OPTS", make_client=client) == [{"name": "screenpipe", "status": "pending"}]
+    assert await agent.fetch_mcp_status("OPTS", make_client=client) == [{"name": "screenpipe", "status": "connected"}]
     assert client.options == "OPTS" and client.queries == [] and client.disconnected == 1
 
 
@@ -455,3 +455,49 @@ async def test_startup_probe_times_out(monkeypatch):
 
 def test_probe_timeout_is_ten_seconds():
     assert agent.PROBE_TIMEOUT == 10
+
+
+class Polled(FakeClient):
+    """get_mcp_status가 부를 때마다 statuses의 다음 값을 돌려준다 (끝나면 마지막 값을 되풀이)."""
+
+    def __init__(self, statuses):
+        super().__init__([])
+        self.statuses = statuses
+        self.reads = 0
+
+    async def get_mcp_status(self):
+        s = self.statuses[min(self.reads, len(self.statuses) - 1)]
+        self.reads += 1
+        return {"mcpServers": [{"name": "screenpipe", "status": s}]}
+
+
+async def test_fetch_mcp_status_polls_while_pending(monkeypatch):
+    monkeypatch.setattr(agent, "PROBE_POLL", 0)
+    client = Polled(["pending", "pending", "connected"])
+    assert await agent.fetch_mcp_status("OPTS", make_client=client) == [{"name": "screenpipe", "status": "connected"}]
+    assert client.reads == 3 and client.disconnected == 1
+
+
+async def test_fetch_mcp_status_returns_last_read_at_timeout(monkeypatch):
+    monkeypatch.setattr(agent, "PROBE_POLL", 0.001)
+    monkeypatch.setattr(agent, "PROBE_TIMEOUT", 0.05)
+    client = Polled(["pending"])
+    assert await agent.fetch_mcp_status("OPTS", make_client=client) == [{"name": "screenpipe", "status": "pending"}]
+    assert client.reads >= 2 and client.disconnected == 1
+
+
+async def test_fetch_mcp_status_does_not_hang_on_disconnect(monkeypatch):
+    monkeypatch.setattr(agent, "DISCONNECT_TIMEOUT", 0.01)
+
+    class HangOnClose(Polled):
+        async def disconnect(self):
+            self.disconnected += 1
+            await asyncio.Event().wait()
+
+    client = HangOnClose(["connected"])
+    result = await asyncio.wait_for(agent.fetch_mcp_status("OPTS", make_client=client), 1)
+    assert result == [{"name": "screenpipe", "status": "connected"}] and client.disconnected == 1
+
+
+def test_probe_poll_and_disconnect_limits():
+    assert agent.PROBE_POLL == 1 and agent.DISCONNECT_TIMEOUT == 5

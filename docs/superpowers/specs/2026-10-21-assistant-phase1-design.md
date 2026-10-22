@@ -255,6 +255,7 @@ flowchart TB
   - 상태는 Claude Code가 세션을 시작할 때 보내는 `SystemMessage`(subtype `init`)의 `mcp_servers`에서 받아, 백엔드가 서버마다 마지막 값을 보관한다. `connected` → 연결됨, `failed`·`needs-auth`·`disabled` → 연결 안 됨, `pending` 또는 아직 세션을 띄운 적 없음 → 확인 중. 출처: [Agent SDK MCP 문서](https://code.claude.com/docs/en/agent-sdk/mcp), 2026-10-22 확인.
   - 하는 일 설명은 설정 모듈에 서버 이름별로 둔 문구를 쓴다. 목록에 보이는 서버는 지금 `screenpipe`, `claude-in-chrome`(크롬)이다. 이 프로그램의 파이썬 백엔드 MCP(`backend`)는 내부라 목록에서 뺀다 (사용자).
   - 상태가 바뀌면 `settings`를 다시 보낸다.
+  - 수정 (2026-10-22): 목록은 연결된 MCP 전부다(claude.ai 커넥터 포함). 파이썬 백엔드 MCP(`backend`)만 뺀다(사용자). 상태는 `init`만이 아니라, 백엔드가 시작할 때 Claude Code를 질문 없이 붙여 한 번 읽는 값(`get_mcp_status`, 연결 중이면 1초마다 다시 읽음, 10초 제한)으로도 채운다. 시작 때 읽기 전에는 `screenpipe`·`claude-in-chrome`이 확인 중이다. 하는 일은 이름별 문구, 없으면 `claude.ai `로 시작하는 이름은 "claude.ai 계정 커넥터", 그 밖은 빈 글이다. 자세한 값은 [연결된 MCP 목록 계획](../plans/2026-10-22-mcp-list.md).
 
 ## 6. 외부 도구
 

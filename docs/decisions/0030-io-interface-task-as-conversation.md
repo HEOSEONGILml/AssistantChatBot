@@ -182,3 +182,4 @@ sequenceDiagram
 - 상태는 Claude Code가 세션을 시작할 때 보내는 `init` 시스템 메시지의 MCP 서버 상태에서 받아, 백엔드가 서버마다 마지막 값을 보관한다. 아직 세션을 띄운 적이 없거나 연결을 기다리는 중이면 "확인 중"이다.
 - 하는 일 설명은 백엔드 설정에 서버 이름별로 둔 문구다. 보기만 하고, 추가·삭제는 없다.
 - 이 프로그램의 파이썬 백엔드 MCP(`backend`)는 내부라 목록에서 뺀다(사용자). 외부 MCP(`screenpipe`, `claude-in-chrome`)만 보인다.
+- 수정 (2026-10-22): 목록은 연결된 MCP 전부다(claude.ai 커넥터 포함). 파이썬 백엔드 MCP(`backend`)만 뺀다(사용자). 상태는 백엔드가 시작할 때 Claude Code를 질문 없이 잠깐 붙여 한 번 읽고(`get_mcp_status`, 연결 중이면 1초마다 다시 읽음, 10초 제한), 그 뒤로는 세션 `init`의 `mcp_servers`로 고친다. 그래서 세션을 띄운 적이 없어도 "확인 중"에 머물지 않는다. 자세한 값은 [연결된 MCP 목록 계획](../superpowers/plans/2026-10-22-mcp-list.md)과 [프로토콜](../backend-protocol.md) "연결된 MCP".

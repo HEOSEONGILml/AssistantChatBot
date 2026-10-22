@@ -595,7 +595,7 @@ erDiagram
 | `logged_in` | bool 또는 `None` | 화면에 마지막으로 보낸 `status`의 로그인 상태. 보낸 적 없으면 `None`. 판단 고리가 로그아웃이면 쉰다 | 사라짐 |
 | `_help_later` | (세션 ID, 숨은 지시) 또는 `None` | 답을 기다리는 대화 세션에 누른 [도와줘]. 그 실행이 끝나면 이어 묻는다. 대화 세션을 멈추거나 지우면 버린다 | 사라짐 (미뤄 둔 [도와줘]는 버려진다) |
 | `proactive` | `Proactive` 또는 `None` | 판단 고리 (거절 내역·지금 작업을 묻는 곳) | — |
-| `_mcp_servers` | `{name, description, status}` 목록 | 연결된 MCP의 마지막 상태(`settings.mcp_servers`). 시작 때 한 번 읽고(`read_mcp_status`, 10초 제한) 세션 `init`마다 고친다. 파이썬 백엔드 MCP(`backend`)는 뺀다 | 사라짐. 다음 시작 때 `screenpipe`·`claude-in-chrome`이 확인 중으로 시작 |
+| `_mcp_servers` | `{name, description, status}` 목록 | 연결된 MCP의 마지막 상태(`settings.mcp_servers`). 시작 때 한 번 읽고(`read_mcp_status`, 연결 중이면 1초마다 다시 읽음, 10초 제한) 세션 `init`마다 고친다. `init`이 먼저 오면 뒤늦은 시작 때 읽기는 버린다. 파이썬 백엔드 MCP(`backend`)는 뺀다 | 사라짐. 다음 시작 때 `screenpipe`·`claude-in-chrome`이 확인 중으로 시작 |
 
 `Proactive`의 메모리:
 
@@ -822,6 +822,7 @@ flowchart LR
 | 멈춘 뒤 늦게 온 끝 | 버린다 | 없음 (`stopped` 유지) | `App._finish` |
 | 백엔드가 세션 도중 꺼짐 | 다음 시작 때 `working`·`waiting` 세션을 `failed`로. 대화 세션은 `done`으로만 | `failure` 줄 "앱이 꺼져서 멈췄어요" (대화는 없음) | `App.startup` |
 | Tool 입력 오류 (`create_session` 값 누락, 틀린 규칙 등) | Tool 오류로 에이전트에 돌려준다 | 에이전트가 판단 | `tools.py` |
+| 시작 때 MCP 상태 읽기 실패·시간 초과 (10초) | 한 번이라도 읽었으면 마지막 목록을 쓴다. 못 읽었으면 처음 값을 두고 로그에 종류만. 어느 경우든 끊는다(끊기도 5초 제한). 세션 `init`이 오면 그 값으로 고친다 | 설정 탭 연결된 MCP가 "확인 중"(또는 연결 중이던 것만 "확인 중")으로 남는다 | `agent.fetch_mcp_status`, `App.read_mcp_status` |
 
 ### 7.2 claude CLI
 

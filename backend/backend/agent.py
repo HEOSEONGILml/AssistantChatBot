@@ -23,6 +23,8 @@ SCREENPIPE = ({"command": "cmd", "args": ["/c", "npx", "-y", "screenpipe-mcp@lat
               else {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]})
 STOP_ANSWER = "거부"
 PROBE_TIMEOUT = 10  # 초. 시작 때 MCP 상태 읽기가 매달리면 포기한다 (계획 2026-10-22-mcp-list Review Focus 4)
+PROBE_POLL = 1  # 초. 연결 중(pending)인 MCP가 있으면 이 간격으로 다시 읽는다 (잠정값)
+DISCONNECT_TIMEOUT = 5  # 초. 끊기가 매달려도 시작 때 읽기를 끝낸다 (잠정값)
 
 # 도구 이름 -> 준비 중 줄의 글. 앞부분이 맞으면 그 글이다 (context 정한 값 표)
 _TOOL_PREFIX_TEXT = (("mcp__screenpipe__", "화면 기록에서 찾는 중"),
@@ -73,15 +75,26 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
 
 async def fetch_mcp_status(options, make_client=ClaudeSDKClient) -> list[dict]:
     """Claude Code를 질문 없이 붙여 MCP 상태 목록(mcpServers)만 읽고 끊는다 (모델 호출 없음).
-    PROBE_TIMEOUT 안에 못 읽으면 TimeoutError. 어느 경우든 끊어 프로세스를 남기지 않는다."""
+    연결 중(pending)인 MCP가 있으면 PROBE_POLL마다 다시 읽는다. PROBE_TIMEOUT이 지나면 마지막으로 읽은 목록을,
+    한 번도 못 읽었으면 TimeoutError. 어느 경우든 끊어 프로세스를 남기지 않는다."""
     client = make_client(options=options)
+    last = None
     try:
         async with asyncio.timeout(PROBE_TIMEOUT):
             await client.connect()
-            return (await client.get_mcp_status())["mcpServers"]
+            while True:
+                last = (await client.get_mcp_status())["mcpServers"]
+                if not any(isinstance(s, dict) and s.get("status") == "pending" for s in last):
+                    return last
+                await asyncio.sleep(PROBE_POLL)
+    except TimeoutError:
+        if last is None:
+            raise
+        return last
     finally:
         try:
-            await client.disconnect()
+            async with asyncio.timeout(DISCONNECT_TIMEOUT):
+                await client.disconnect()
         except Exception as e:
             log.warning("MCP 상태 읽기: 연결 끊기 실패 (%s)", type(e).__name__)
 
