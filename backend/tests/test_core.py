@@ -10,6 +10,9 @@ from backend.store import Store
 from backend.tools import build_tools
 
 RULE = {"repeat": "daily", "time": "09:00"}
+# 시작 때 읽기 전의 처음 값 (계획 "정한 값")
+INITIAL_MCP = [{"name": "screenpipe", "description": "화면 기록 검색", "status": "checking"},
+               {"name": "claude-in-chrome", "description": "크롬 브라우저 조작", "status": "checking"}]
 
 
 @pytest.fixture(autouse=True)
@@ -174,7 +177,7 @@ async def test_request_creates_task_and_streams_entries():
     assert session["source"] == "user" and session["title"] == text[:30] and session["state"] == "working"
     [run] = runs
     assert run.prompt == text and run.options.permission_mode == "default"
-    assert "assistant" in run.options.mcp_servers and run.options.resume is None
+    assert "backend" in run.options.mcp_servers and run.options.resume is None
     assert out[0] == {"type": "session", "session": session}
     assert out[1]["type"] == "entry" and out[1]["entry"]["kind"] == "user" and out[1]["entry"]["text"] == text
 
@@ -427,9 +430,9 @@ async def test_usage_keeps_latest_per_type():
 async def test_permission_mode_saved_and_used_for_new_runs():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False, "mcp_servers": INITIAL_MCP}
     await app.set_permission_mode("acceptEdits")
-    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "acceptEdits", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False, "mcp_servers": INITIAL_MCP}
     await app.set_permission_mode("nonsense")
     assert store.get_setting("permission_mode", "default") == "acceptEdits"
     await app.request("일")
@@ -662,7 +665,7 @@ async def test_logout_sends_status():
 async def test_settings_includes_recording():
     app, store, out, runs = make()
     await app.get_settings()
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False, "mcp_servers": INITIAL_MCP}
     assert app.recording_enabled() is True
 
 
@@ -671,7 +674,7 @@ async def test_set_recording_starts_and_stops():
     app, store, out, runs = make(recorder=rec)
     await app.set_recording(False)
     assert rec.calls == ["stop"] and store.get_setting("recording", "on") == "off"
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": False, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": False, "mcp_servers": INITIAL_MCP}
     await app.set_recording(True)
     assert rec.calls == ["stop", "start"] and store.get_setting("recording", "on") == "on"
     assert out[-1]["recording"] is True and app.recording_enabled() is True
@@ -950,7 +953,7 @@ async def test_set_jev_key():
     app, store, out, runs = make()
     await app.set_jev_key("  secret-jev  ")
     assert store.get_setting("jev_key", "") == "secret-jev"
-    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": True}
+    assert out[-1] == {"type": "settings", "permission_mode": "default", "recording": True, "recording_dir": str(config.screenpipe_dir()), "recording_bytes": 0, "jev_key_set": True, "mcp_servers": INITIAL_MCP}
     assert "secret-jev" not in json.dumps(out, ensure_ascii=False)
     await app.set_jev_key("")
     assert store.get_setting("jev_key", "x") == "" and out[-1]["jev_key_set"] is False
@@ -1162,3 +1165,121 @@ async def test_two_clears_do_not_overlap(monkeypatch):
     rec.gate.set()
     await asyncio.gather(first, second)
     assert rec.calls == ["stop_and_wait", "clear", "start"] * 2
+
+
+# --- 연결된 MCP (계획 2026-10-22-mcp-list) ---
+SAMPLE_INIT = [  # 2026-10-22 실제 init의 mcp_servers 모양
+    {"name": "backend", "status": "connected", "source": "sdk"},
+    {"name": "screenpipe", "status": "connected", "source": "dynamic"},
+    {"name": "claude-in-chrome", "status": "connected", "source": "dynamic"},
+    {"name": "claude.ai Notion", "status": "connected", "source": "claudeai"},
+    {"name": "claude.ai Gmail", "status": "needs-auth", "source": "claudeai"},
+    {"name": "other", "status": "failed"},
+    {"name": "off", "status": "disabled"},
+    {"name": "slow", "status": "pending"},
+]
+
+
+async def sent(app):
+    """mcp_status가 띄운 settings 다시 보내기가 끝날 때까지 기다린다."""
+    await settle()
+    await asyncio.gather(*app._settings_jobs)
+
+
+async def test_mcp_status_maps_status_and_description():
+    app, store, out, runs = make()
+    app.mcp_status(SAMPLE_INIT)
+    await sent(app)
+    assert of(out, "settings")[-1]["mcp_servers"] == [
+        {"name": "screenpipe", "description": "화면 기록 검색", "status": "connected"},
+        {"name": "claude-in-chrome", "description": "크롬 브라우저 조작", "status": "connected"},
+        {"name": "claude.ai Notion", "description": "claude.ai 계정 커넥터", "status": "connected"},
+        {"name": "claude.ai Gmail", "description": "claude.ai 계정 커넥터", "status": "disconnected"},
+        {"name": "other", "description": "", "status": "disconnected"},
+        {"name": "off", "description": "", "status": "disconnected"},
+        {"name": "slow", "description": "", "status": "checking"},
+    ]
+
+
+async def test_backend_mcp_excluded():
+    app, store, out, runs = make()
+    app.mcp_status([{"name": "backend", "status": "connected"}, {"name": "screenpipe", "status": "failed"}])
+    await sent(app)
+    assert [s["name"] for s in of(out, "settings")[-1]["mcp_servers"]] == ["screenpipe"]
+
+
+async def test_init_without_mcp_servers_keeps_list():
+    app, store, out, runs = make()
+    app.mcp_status(SAMPLE_INIT)
+    await sent(app)
+    before = of(out, "settings")[-1]["mcp_servers"]
+    for bad in (None, "x", [{"status": "connected"}], [{"name": "a", "status": 1}], ["screenpipe"]):
+        app.mcp_status(bad)
+    await sent(app)
+    assert len(of(out, "settings")) == 1
+    await app.get_settings()
+    assert out[-1]["mcp_servers"] == before
+
+
+async def test_same_status_does_not_resend():
+    app, store, out, runs = make()
+    app.mcp_status(SAMPLE_INIT)
+    app.mcp_status([dict(s) for s in SAMPLE_INIT])
+    await sent(app)
+    assert len(of(out, "settings")) == 1
+    # 처음 값과 같아도 보내지 않는다
+    app2, _, out2, _ = make()
+    app2.mcp_status([{"name": "screenpipe", "status": "pending"}, {"name": "claude-in-chrome", "status": "pending"}])
+    await sent(app2)
+    assert of(out2, "settings") == []
+
+
+async def test_unknown_status_counts_as_disconnected():
+    app, store, out, runs = make()
+    app.mcp_status([{"name": "screenpipe", "status": "something-new"}])
+    await sent(app)
+    assert of(out, "settings")[-1]["mcp_servers"] == [
+        {"name": "screenpipe", "description": "화면 기록 검색", "status": "disconnected"}]
+
+
+async def test_session_init_updates_mcp_list():
+    app, store, out, runs = make()
+    await app.request("일")
+    runs[0].events.mcp_status([{"name": "screenpipe", "status": "failed"}])
+    await sent(app)
+    assert of(out, "settings")[-1]["mcp_servers"] == [
+        {"name": "screenpipe", "description": "화면 기록 검색", "status": "disconnected"}]
+
+
+async def test_read_mcp_status_uses_session_options(monkeypatch):
+    seen = []
+
+    async def fetch(options):
+        seen.append(options)
+        return [{"name": "backend", "status": "connected"}, {"name": "screenpipe", "status": "connected"}]
+
+    monkeypatch.setattr(core, "fetch_mcp_status", fetch)
+    app, store, out, runs = make()
+    store.set_setting("permission_mode", "acceptEdits")
+    await app.read_mcp_status()
+    await sent(app)
+    [options] = seen
+    assert set(options.mcp_servers) == {"backend", "screenpipe"} and options.permission_mode == "acceptEdits"
+    assert options.resume is None and runs == []  # 세션을 만들지 않는다
+    assert store.get_session(1) is None
+    assert of(out, "settings")[-1]["mcp_servers"] == [
+        {"name": "screenpipe", "description": "화면 기록 검색", "status": "connected"}]
+
+
+async def test_read_mcp_status_failure_keeps_initial(monkeypatch, caplog):
+    async def fetch(options):
+        raise TimeoutError()
+
+    monkeypatch.setattr(core, "fetch_mcp_status", fetch)
+    app, store, out, runs = make()
+    await app.read_mcp_status()
+    await sent(app)
+    assert of(out, "settings") == []
+    assert "TimeoutError" in caplog.text
+    await app.get_settings()
+    assert out[-1]["mcp_servers"] == INITIAL_MCP

@@ -22,6 +22,7 @@ SCREENPIPE = ({"command": "cmd", "args": ["/c", "npx", "-y", "screenpipe-mcp@lat
               if sys.platform == "win32"
               else {"command": "npx", "args": ["-y", "screenpipe-mcp@latest"]})
 STOP_ANSWER = "거부"
+PROBE_TIMEOUT = 10  # 초. 시작 때 MCP 상태 읽기가 매달리면 포기한다 (계획 2026-10-22-mcp-list Review Focus 4)
 
 # 도구 이름 -> 준비 중 줄의 글. 앞부분이 맞으면 그 글이다 (context 정한 값 표)
 _TOOL_PREFIX_TEXT = (("mcp__screenpipe__", "화면 기록에서 찾는 중"),
@@ -70,6 +71,21 @@ def build_options(*, permission_mode: str, can_use_tool, mcp_servers: dict, resu
     )
 
 
+async def fetch_mcp_status(options, make_client=ClaudeSDKClient) -> list[dict]:
+    """Claude Code를 질문 없이 붙여 MCP 상태 목록(mcpServers)만 읽고 끊는다 (모델 호출 없음).
+    PROBE_TIMEOUT 안에 못 읽으면 TimeoutError. 어느 경우든 끊어 프로세스를 남기지 않는다."""
+    client = make_client(options=options)
+    try:
+        async with asyncio.timeout(PROBE_TIMEOUT):
+            await client.connect()
+            return (await client.get_mcp_status())["mcpServers"]
+    finally:
+        try:
+            await client.disconnect()
+        except Exception as e:
+            log.warning("MCP 상태 읽기: 연결 끊기 실패 (%s)", type(e).__name__)
+
+
 class RunEvents(Protocol):
     """세션에서 일어난 일을 앱(세션 관리)에 알린다."""
 
@@ -85,6 +101,7 @@ class RunEvents(Protocol):
     def claude_session(self, claude_session_id: str) -> None: ...
     def rate_limit(self, info: dict) -> None: ...
     def activity(self, kind: str, text: str) -> None: ...
+    def mcp_status(self, servers) -> None: ...
 
 
 class AgentRun:
@@ -151,6 +168,7 @@ class AgentRun:
                     self._held = b.text
         elif isinstance(m, SystemMessage) and m.subtype == "init":
             self._events.claude_session(m.data["session_id"])
+            self._events.mcp_status(m.data.get("mcp_servers"))  # 모양 검사는 앱이 한다
         elif isinstance(m, RateLimitEvent):
             i = m.rate_limit_info
             self._events.rate_limit({"type": i.rate_limit_type, "utilization": i.utilization,

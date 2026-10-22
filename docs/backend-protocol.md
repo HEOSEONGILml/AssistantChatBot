@@ -1,6 +1,6 @@
 # 화면 ↔ 백엔드 프로토콜 (v7)
 
-화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. `delete_session`·`session_deleted`·`activity`는 v7에 더한 메시지다(버전은 그대로 `7`, [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 지우기"·"수정: 준비 중 표시"). 먼저 말 걸기의 `nudge`·`nudge_open`·`nudge_answer`·`set_jev_key`, `settings.jev_key_set`, 대화 줄 `nudge`도 v7에 더했다([먼저 말 걸기 설계](superpowers/specs/2026-10-22-proactive-help-design.md)). 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
+화면과 백엔드는 이 문서로만 이어진다. 단위는 **세션**이다. 세션 하나가 대화 하나이고 Claude Code 세션 하나다. 작업·대화·스케줄은 세션의 종류(`source`)다 ([0030](decisions/0030-io-interface-task-as-conversation.md), [0034](decisions/0034-session-as-top-level-term.md)). v7은 v6의 `task` 이름을 `session`으로 바꾼 것이고 동작은 같다. `delete_session`·`session_deleted`·`activity`는 v7에 더한 메시지다(버전은 그대로 `7`, [0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 지우기"·"수정: 준비 중 표시"). 먼저 말 걸기의 `nudge`·`nudge_open`·`nudge_answer`·`set_jev_key`, `settings.jev_key_set`, 대화 줄 `nudge`도 v7에 더했다([먼저 말 걸기 설계](superpowers/specs/2026-10-22-proactive-help-design.md)). `settings.mcp_servers`도 v7에 더했다([연결된 MCP 목록 계획](superpowers/plans/2026-10-22-mcp-list.md)). 메시지 목록의 기준은 [조수 1단계 스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 4절이고, 필드 이름은 백엔드 코드(`backend/backend/server.py`의 `ROUTES`, `core.py`가 보내는 메시지)와 같다.
 
 ## 연결
 
@@ -56,7 +56,7 @@
 | `session_detail` | `session`: 세션, `entries`: 대화 줄 전체, `schedule`: 스케줄 또는 `null` | `get_session`의 답 |
 | `schedules` | `page`, `pages`, `items`: `{session_id, name, label, next_run, state}` 목록 | `list_schedules`의 답 |
 | `schedule` | `schedule`: 스케줄 | 만들거나 고치거나 켜고 끄거나 실행이 끝났을 때 (에이전트가 등록 확인을 받아 만들거나 고쳤을 때도) |
-| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬), `recording_dir`: 문자열(screenpipe 기록 폴더 전체 경로), `recording_bytes`: 정수(지울 수 있는 기록의 바이트 합. 폴더가 없으면 0), `jev_key_set`: 참거짓(Jev 키가 있음. 키 원문은 보내지 않는다) | `get_settings`의 답, 바뀌었을 때 |
+| `settings` | `permission_mode`, `recording`: 참거짓(화면 기록 켬, 기본 켬), `recording_dir`: 문자열(screenpipe 기록 폴더 전체 경로), `recording_bytes`: 정수(지울 수 있는 기록의 바이트 합. 폴더가 없으면 0), `jev_key_set`: 참거짓(Jev 키가 있음. 키 원문은 보내지 않는다), `mcp_servers`: 연결된 MCP 목록(아래 [연결된 MCP](#연결된-mcp-settingsmcp_servers)) | `get_settings`의 답, 바뀌었을 때(MCP 상태 목록이 바뀌었을 때도) |
 | `usage` | `limits`: `{type, utilization, resets_at, received_at}` 목록 | `get_usage`의 답, 새 사용량 이벤트가 왔을 때 |
 | `session_deleted` | `session_id` | `delete_session`의 답. `get_session`에 없는 세션이 왔을 때 |
 | `activity` | `session_id`, `kind`, `text` | 돌고 있는 세션이 하는 일이 바뀔 때. 대화 기록에 남기지 않는다. 아래 [지금 하는 일](#지금-하는-일-activity) |
@@ -136,7 +136,7 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 | `text` | `writing` | `답 쓰는 중` |
 | `tool_use` `mcp__screenpipe__*` | `tool` | `화면 기록에서 찾는 중` |
 | `tool_use` `mcp__claude-in-chrome__*` | `tool` | `크롬에서 작업하는 중` |
-| `tool_use` `mcp__assistant__*` (백엔드 Tools) | `tool` | `지난 작업 찾는 중` |
+| `tool_use` `mcp__backend__*` (백엔드 Tools) | `tool` | `지난 작업 찾는 중` |
 | `tool_use` `WebSearch` | `tool` | `웹에서 검색하는 중` |
 | `tool_use` `WebFetch` | `tool` | `웹 페이지 읽는 중` |
 | `tool_use` `Bash` | `tool` | `명령 실행하는 중` |
@@ -150,6 +150,27 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 ### 사용량 `usage`
 
 `limits`의 각 칸은 Claude Code의 사용량 이벤트(`RateLimitEvent`) 중 한도 종류(`type`)별 마지막 값이다. `utilization`은 쓴 비율, `resets_at`은 초기화 시각, `received_at`은 백엔드가 받은 시각이다. 세션이 돌지 않으면 갱신되지 않는다. 종류 이름과 오는 때는 아직 실제로 확인하지 않았다 ([수동 확인](manual-checks/backend.md)).
+
+### 연결된 MCP `settings.mcp_servers`
+
+설정 탭 "연결된 MCP" 칸의 목록이다. 각 칸은 `{name, description, status}`이다. Claude Code에 연결된 MCP 전부를 받은 순서대로 담고, 이 프로그램의 파이썬 백엔드 MCP(이름 `backend`)만 뺀다(사용자).
+
+- `status`: `connected`(연결됨), `disconnected`(연결 안 됨), `checking`(확인 중) 셋 중 하나다. Claude Code 상태 `connected`는 `connected`, `failed`·`needs-auth`·`disabled`는 `disconnected`, `pending`은 `checking`으로 바꾼다. 모르는 상태는 `disconnected`로 본다.
+- `description`: 이름별 문구(`config.MCP_DESCRIPTIONS`). `screenpipe` `화면 기록 검색`, `claude-in-chrome` `크롬 브라우저 조작`. 그 밖에 이름이 `claude.ai `로 시작하면 `claude.ai 계정 커넥터`, 아니면 빈 글이다.
+- 값은 백엔드 메모리에만 둔다. 처음에는 `screenpipe`, `claude-in-chrome` 두 칸이 `checking`이다. 백엔드가 뜬 뒤 한 번 세션과 같은 옵션으로 Claude Code를 붙여 상태만 읽고(모델 호출 없음, 10초 제한) 끊는다. 그 뒤로는 세션이 시작될 때마다 오는 `init`의 `mcp_servers`로 고친다. 읽기가 실패하거나 모양이 다르면 이전 값을 둔다.
+- 목록이 바뀌었을 때만 `settings`를 다시 보낸다.
+
+```mermaid
+sequenceDiagram
+  participant S as 화면
+  participant B as 백엔드
+  participant C as Claude Code
+  B->>C: 시작 때 한 번: 붙기 → get_mcp_status → 끊기
+  C-->>B: mcpServers [{name, status}]
+  B-->>S: settings {mcp_servers} (바뀌었으면)
+  C-->>B: 세션 init {mcp_servers}
+  B-->>S: settings {mcp_servers} (바뀌었으면)
+```
 
 ### 먼저 말 걸기
 

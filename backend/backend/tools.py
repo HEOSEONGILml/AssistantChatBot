@@ -8,7 +8,8 @@ from claude_agent_sdk import SdkMcpTool, create_sdk_mcp_server, tool
 from .schedule_rule import label, next_run, validate
 from .store import Store
 
-MCP_PREFIX = "mcp__assistant__"
+MCP_NAME = "backend"  # 파이썬 백엔드 MCP의 서버 이름
+MCP_PREFIX = f"mcp__{MCP_NAME}__"
 
 
 class SessionContext(Protocol):
@@ -182,4 +183,4 @@ def build_tools(store: Store, ctx: SessionContext) -> list[SdkMcpTool]:
 
 
 def backend_server(store: Store, ctx: SessionContext):
-    return create_sdk_mcp_server(name="assistant", tools=build_tools(store, ctx))
+    return create_sdk_mcp_server(name=MCP_NAME, tools=build_tools(store, ctx))

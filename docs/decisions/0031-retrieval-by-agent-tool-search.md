@@ -32,4 +32,5 @@ flowchart LR
 ## 결과
 
 - 작업 기록도 키워드·기간으로 찾는 도구를 열어 screenpipe와 같은 방식으로 맞춘다.
+- 백엔드 MCP의 서버 이름은 처음 `assistant`였다. → `backend`로 바꿈(도구 접두사 `mcp__backend__`, 2026-10-22, 사용자: `assistant`는 헷갈린다. [연결된 MCP 목록 계획](../superpowers/plans/2026-10-22-mcp-list.md)).
 - 할 일: RAG 고도화(의미 검색 등). "뜻은 같은데 말이 달라 못 찾는" 경우가 쌓이면 다시 본다.

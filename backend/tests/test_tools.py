@@ -66,10 +66,10 @@ def payload(result):
 
 def test_server_and_prefix(setup):
     store, ctx, tools, _ = setup()
-    assert MCP_PREFIX == "mcp__assistant__"
+    assert MCP_PREFIX == "mcp__backend__"
     assert set(tools) == {"recent_sessions", "search_sessions", "get_session", "get_schedule",
                           "set_session_title", "create_session", "update_schedule"}
-    assert backend_server(store, ctx)["name"] == "assistant"
+    assert backend_server(store, ctx)["name"] == "backend"
 
 
 async def test_search_sessions_returns_matches(setup):

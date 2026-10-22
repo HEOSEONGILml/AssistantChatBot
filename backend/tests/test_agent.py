@@ -229,17 +229,17 @@ def test_build_options_values(tmp_path, monkeypatch):
     async def cb(*a):
         pass
 
-    o = build_options(permission_mode="default", can_use_tool=cb, mcp_servers={"assistant": "S"}, resume="r1")
+    o = build_options(permission_mode="default", can_use_tool=cb, mcp_servers={"backend": "S"}, resume="r1")
     assert o.system_prompt == {"type": "preset", "preset": "claude_code", "append": HARNESS}
     assert o.setting_sources == []
     assert o.cwd == config.work_dir()
     assert o.extra_args == {"chrome": None}
     assert o.disallowed_tools == []  # Claude Code 기본 도구를 끄지 않는다 (0036)
-    assert o.allowed_tools == [MCP_PREFIX + "*", "mcp__screenpipe__*"]
+    assert o.allowed_tools == ["mcp__backend__*", "mcp__screenpipe__*"]
     assert o.permission_mode == "default"
     assert o.can_use_tool is cb
     assert o.resume == "r1"
-    assert o.mcp_servers == {"assistant": "S",
+    assert o.mcp_servers == {"backend": "S",
                              "screenpipe": _expected_screenpipe()}
     # SDK는 options.env를 os.environ 위에 덮으므로 빈 값으로 덮어야 키가 빠진다
     assert not o.env.get("ANTHROPIC_API_KEY")
@@ -408,3 +408,50 @@ async def test_no_activity_after_stop():
     await run.stop()
     run._handle(tool("Bash"))
     assert events.of("activity") == []
+
+
+async def test_init_sends_mcp_status():
+    servers = [{"name": "screenpipe", "status": "connected", "source": "dynamic"}]
+    client = FakeClient([SystemMessage(subtype="init", data={"session_id": "s1", "mcp_servers": servers}), result()])
+    events = FakeEvents()
+    await AgentRun(1, events, make_client=client).run("처음", None)
+    assert events.of("mcp_status") == [(servers,)]
+
+
+async def test_init_without_mcp_servers_passes_none():
+    """모양 검사는 App.mcp_status가 한다. agent는 받은 그대로 넘긴다."""
+    events = FakeEvents()
+    await AgentRun(1, events, make_client=FakeClient([init(), result()])).run("처음", None)
+    assert events.of("mcp_status") == [(None,)]
+
+
+async def test_fetch_mcp_status_reads_and_disconnects():
+    class Status(FakeClient):
+        async def get_mcp_status(self):
+            return {"mcpServers": [{"name": "screenpipe", "status": "pending"}]}
+
+    client = Status([])
+    assert await agent.fetch_mcp_status("OPTS", make_client=client) == [{"name": "screenpipe", "status": "pending"}]
+    assert client.options == "OPTS" and client.queries == [] and client.disconnected == 1
+
+
+async def test_startup_probe_times_out(monkeypatch):
+    """연결이 매달리면 시간 제한 뒤 포기하고 끊는다 (Review Focus 4)."""
+    monkeypatch.setattr(agent, "PROBE_TIMEOUT", 0.01)
+
+    class Hang(FakeClient):
+        async def connect(self):
+            await asyncio.Event().wait()
+
+    client = Hang([])
+    try:
+        await agent.fetch_mcp_status("OPTS", make_client=client)
+    except TimeoutError:
+        pass
+    else:
+        raise AssertionError("시간 제한이 걸리지 않았다")
+    assert client.disconnected == 1
+
+
+def test_probe_timeout_is_ten_seconds():
+    assert agent.PROBE_TIMEOUT == 10

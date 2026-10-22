@@ -7,11 +7,11 @@ from datetime import datetime
 from typing import Awaitable, Callable, Protocol
 
 from . import config
-from .agent import AgentRun, build_options
+from .agent import AgentRun, build_options, fetch_mcp_status
 from .clients import clear_recording_files, recording_bytes
 from .schedule_rule import label, next_run, validate
 from .store import Store
-from .tools import backend_server, edit_text
+from .tools import MCP_NAME, backend_server, edit_text
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +27,9 @@ NUDGE_TEXT = "도움이 필요해?"
 NUDGE_CHOICES = ["도와줘", "괜찮아"]
 HELP_PROMPT = ("[먼저 말 걸기] 사용자가 {app} · {window}에서 막힌 것 같아 도움을 청했다. "
                "최근 화면 기록을 찾아보고 의견이나 해결 방법을 두세 문장으로 짧게 말해.")
+# 연결된 MCP (계획 2026-10-22-mcp-list "정한 값"). 파이썬 백엔드 MCP는 내부라 목록에서 뺀다 (사용자)
+MCP_STATUS = {"connected": "connected", "failed": "disconnected", "needs-auth": "disconnected",
+              "disabled": "disconnected", "pending": "checking"}
 
 
 class Auth(Protocol):
@@ -47,6 +50,24 @@ class Proactive(Protocol):
     """먼저 말 걸기의 판단 고리 (proactive.Proactive). 만들 때 App.proactive에 자기를 붙인다."""
     def current_task(self) -> tuple[str, str] | None: ...
     def decline(self, at: datetime, app: str, window: str) -> None: ...
+
+
+def _mcp_view(servers) -> list[dict] | None:
+    """Claude Code의 MCP 상태 목록 -> settings.mcp_servers. 모양이 다르면 None. 순서는 받은 그대로.
+    모르는 상태는 연결 안 됨으로 본다."""
+    if not isinstance(servers, list):
+        return None
+    view = []
+    for s in servers:
+        if not (isinstance(s, dict) and isinstance(s.get("name"), str) and isinstance(s.get("status"), str)):
+            return None
+        name = s["name"]
+        if name == MCP_NAME:
+            continue
+        description = config.MCP_DESCRIPTIONS.get(name, "claude.ai 계정 커넥터" if name.startswith("claude.ai ") else "")
+        view.append({"name": name, "description": description,
+                     "status": MCP_STATUS.get(s["status"], "disconnected")})
+    return view
 
 
 def _now() -> datetime:
@@ -106,6 +127,9 @@ class _Events:
     def claude_session(self, claude_session_id: str) -> None:
         self._app._store.update_session(self._id, claude_session_id=claude_session_id)
 
+    def mcp_status(self, servers) -> None:
+        self._app.mcp_status(servers)
+
     def rate_limit(self, info: dict) -> None:
         kind = info.get("type")
         if kind is None:
@@ -136,6 +160,9 @@ class App:
         # 화면 기록 켜기·끄기, 비우기, 먼저 말 걸기의 DB 읽기를 한 줄로 세운다 (비우는 중에 screenpipe를 띄우거나 DB를 열지 않게)
         self.recording_lock = asyncio.Lock()
         self.clearing = False  # 화면 기록을 비우는 중 (판단 고리가 쉰다)
+        # 서버별 마지막 MCP 상태. 시작 때 읽기 전에는 외부 MCP 둘을 확인 중으로 둔다
+        self._mcp_servers = _mcp_view([{"name": n, "status": "pending"} for n in config.MCP_DESCRIPTIONS])
+        self._settings_jobs: set[asyncio.Task] = set()  # mcp_status가 띄운 settings 다시 보내기
 
     # --- 화면 메시지 ---
     async def connected(self, on: bool) -> None:
@@ -320,7 +347,35 @@ class App:
         size = await asyncio.to_thread(recording_bytes, rec_dir)
         await self._send({"type": "settings", "permission_mode": self._permission_mode(),
                           "recording": self.recording_enabled(), "recording_dir": str(rec_dir),
-                          "recording_bytes": size, "jev_key_set": bool(self.jev_key())})
+                          "recording_bytes": size, "jev_key_set": bool(self.jev_key()),
+                          "mcp_servers": self._mcp_servers})
+
+    def mcp_status(self, servers) -> None:
+        """세션 init·시작 때 읽기의 MCP 상태를 받아 둔다. 모양이 다르면 이전 값을 두고,
+        목록이 바뀌었을 때만 settings를 다시 보낸다 (init 이벤트는 동기 콜백이라 작업으로 띄운다)."""
+        view = _mcp_view(servers)
+        if view is None:
+            log.info("MCP 상태 모양이 달라 무시함")
+            return
+        if view == self._mcp_servers:
+            return
+        self._mcp_servers = view
+        job = asyncio.create_task(self.get_settings())
+        self._settings_jobs.add(job)
+        job.add_done_callback(self._settings_jobs.discard)
+
+    async def read_mcp_status(self) -> None:
+        """백엔드 시작 때 MCP 상태를 한 번 읽는다. 세션과 같은 옵션으로 붙어 목록이 같다.
+        세션은 만들지 않는다(세션 0은 없어 이벤트가 버려진다). 실패하면 처음 값을 두고 종류만 남긴다."""
+        probe = AgentRun(0, _Events(self, 0))
+        try:
+            options = build_options(permission_mode=self._permission_mode(), can_use_tool=probe.can_use_tool,
+                                    mcp_servers={MCP_NAME: backend_server(self._store, probe)}, resume=None)
+            servers = await fetch_mcp_status(options)
+        except Exception as e:
+            log.warning("시작 때 MCP 상태를 읽지 못했다 (%s)", type(e).__name__)
+            return
+        self.mcp_status(servers)
 
     async def set_permission_mode(self, mode: str) -> None:
         if mode not in PERMISSION_MODES:
@@ -502,7 +557,7 @@ class App:
         try:
             run = self._new_run(session_id, events)
             options = build_options(permission_mode=self._permission_mode(), can_use_tool=run.can_use_tool,
-                                    mcp_servers={"assistant": backend_server(self._store, run)}, resume=resume)
+                                    mcp_servers={MCP_NAME: backend_server(self._store, run)}, resume=resume)
         except Exception as e:
             log.error("세션 %d: Claude Code 세션을 준비하지 못했다 (%s)", session_id, type(e).__name__)
             self._finish(session_id, "작업을 실행하지 못했어요", True)

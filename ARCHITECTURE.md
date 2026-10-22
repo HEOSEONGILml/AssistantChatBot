@@ -59,7 +59,7 @@ flowchart LR
 |---|---|---|
 | 앱 ↔ 백엔드 | WebSocket. 포트·토큰은 `backend.json`에서 읽고 `hello`로 인증 | [프로토콜](docs/backend-protocol.md) |
 | 백엔드 ↔ Claude Code | Agent SDK (`ClaudeSDKClient`). 질문·권한 요청은 `can_use_tool` 콜백으로 온다 | [스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
-| Claude Code → 백엔드 Tools | 백엔드 프로세스 안의 MCP 서버 (이름 `assistant`) (`create_sdk_mcp_server`). 별도 프로세스가 아니다 | [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md), `backend/tools.py` |
+| Claude Code → 백엔드 Tools | 백엔드 프로세스 안의 MCP 서버 (파이썬 백엔드 MCP, 이름 `backend`) (`create_sdk_mcp_server`). 별도 프로세스가 아니다 | [0031](docs/decisions/0031-retrieval-by-agent-tool-search.md), `backend/tools.py` |
 | Claude Code ↔ 크롬 | `--chrome` 옵션. 구독 로그인일 때만 켜진다 | [스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md) |
 | screenpipe MCP → screenpipe | localhost:3030 REST | [비슷한 제품 조사](docs/references/similar-products.md) |
 | 백엔드 → screenpipe DB | `~/.screenpipe/db.sqlite`를 읽기 전용(`mode=ro`)으로 직접 연다. HTTP API는 토큰이 필요해서 | [먼저 말 걸기 설계](docs/superpowers/specs/2026-10-22-proactive-help-design.md) 4절, `clients.py` `ScreenHistory` |
@@ -154,7 +154,7 @@ flowchart LR
 | 구성 요소 | 값 | 비고 |
 |---|---|---|
 | 시스템 프롬프트 | `claude_code` preset 뒤에 `harness.md`를 덧붙임 | 역할·맥락 검색·질문 기준·금지 사항·말투 ([0029](docs/decisions/0029-claude-code-harness-and-session-per-task.md)). 백엔드 시작 때 한 번 읽음 |
-| 백엔드 Tools (MCP 이름 `assistant`) | 아래 표 | 백엔드 프로세스 안에서 동작. 권한 요청 없음 |
+| 백엔드 Tools (파이썬 백엔드 MCP, 이름 `backend`) | 아래 표 | 백엔드 프로세스 안에서 동작. 권한 요청 없음 |
 | MCP `screenpipe` | `screenpipe-mcp` (`cmd /c npx`) | 권한 요청 없음 |
 | MCP `claude-in-chrome` | `--chrome` 옵션 | 구독 로그인일 때만 켜짐 ([스파이크](docs/spikes/2026-10-21-agent-sdk-claude-code.md)) |
 | 권한 모드 | 설정 탭 값 (기본 `default`) | 세션 시작 때 읽음. 실행 중 바꿔도 다음 세션부터 |
@@ -216,6 +216,7 @@ sequenceDiagram
 | 끝 | `result` / `failure` | `done` / `failed` |
 | Claude Code 세션 ID | — (`claude_session_id`에 저장. 이어 쓰기에 쓴다) | — |
 | 사용량 | — (메모리에만. `usage`로 보낸다) | — |
+| `init`의 `mcp_servers` | — (메모리에만. 바뀌면 `settings`로 보낸다) | — |
 | 블록 시작 (생각·글·도구) | — (저장하지 않는다. 하는 일이 바뀔 때만 `activity`로 보낸다. `AskUserQuestion`은 보내지 않음) | — |
 
 - 질문은 한 번에 하나만 보인다. 겹치면 줄 서서 기다린다.
@@ -594,6 +595,7 @@ erDiagram
 | `logged_in` | bool 또는 `None` | 화면에 마지막으로 보낸 `status`의 로그인 상태. 보낸 적 없으면 `None`. 판단 고리가 로그아웃이면 쉰다 | 사라짐 |
 | `_help_later` | (세션 ID, 숨은 지시) 또는 `None` | 답을 기다리는 대화 세션에 누른 [도와줘]. 그 실행이 끝나면 이어 묻는다. 대화 세션을 멈추거나 지우면 버린다 | 사라짐 (미뤄 둔 [도와줘]는 버려진다) |
 | `proactive` | `Proactive` 또는 `None` | 판단 고리 (거절 내역·지금 작업을 묻는 곳) | — |
+| `_mcp_servers` | `{name, description, status}` 목록 | 연결된 MCP의 마지막 상태(`settings.mcp_servers`). 시작 때 한 번 읽고(`read_mcp_status`, 10초 제한) 세션 `init`마다 고친다. 파이썬 백엔드 MCP(`backend`)는 뺀다 | 사라짐. 다음 시작 때 `screenpipe`·`claude-in-chrome`이 확인 중으로 시작 |
 
 `Proactive`의 메모리:
 

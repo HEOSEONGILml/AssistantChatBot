@@ -65,8 +65,8 @@ async def main() -> None:
             info.write_text(json.dumps({"port": port, "token": link.token, "pid": os.getpid()}), encoding="utf-8")
             log.info("백엔드 시작: 포트 %d", port)
             try:
-                # 끌 때까지 연결을 받으며 스케줄과 먼저 말 걸기 판단을 돌린다
-                await asyncio.gather(Scheduler(store, app).run_forever(), proactive.run_forever())
+                # 끌 때까지 연결을 받으며 스케줄과 먼저 말 걸기 판단을 돌린다. MCP 상태는 한 번만 읽는다 (뜨는 것을 막지 않는다)
+                await asyncio.gather(Scheduler(store, app).run_forever(), proactive.run_forever(), app.read_mcp_status())
             finally:
                 info.unlink(missing_ok=True)
     finally:

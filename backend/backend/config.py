@@ -43,3 +43,7 @@ def screenpipe_dir() -> Path:
 def screenpipe_db() -> Path:
     """screenpipe가 화면 기록을 쌓는 DB. 그 HTTP API는 토큰이 필요해 DB를 읽기 전용으로 직접 읽는다 (2026-10-22 확인)."""
     return screenpipe_dir() / "db.sqlite"
+
+
+# 설정 탭 "연결된 MCP"의 하는 일 (계획 2026-10-22-mcp-list "정한 값"). 없는 이름은 core가 정한다
+MCP_DESCRIPTIONS = {"screenpipe": "화면 기록 검색", "claude-in-chrome": "크롬 브라우저 조작"}
