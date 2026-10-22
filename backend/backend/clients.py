@@ -1,11 +1,16 @@
-"""claude CLI(로그인)와 screenpipe(화면 기록) 호출. 외부 프로세스는 여기서만 띄운다."""
+"""claude CLI(로그인), screenpipe(화면 기록), Jev(판단) 호출. 외부 프로세스는 여기서만 띄운다."""
 import asyncio
 import json
 import logging
 import shutil
+import re
+import sqlite3
 import subprocess
 import sys
+import urllib.error
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
 
 from backend import config
 
@@ -13,6 +18,10 @@ log = logging.getLogger(__name__)
 
 STATUS_TIMEOUT = 20  # 초. 상태 확인이 멈추면 로그인 안 된 것으로 본다
 LOGOUT_TIMEOUT = 20  # 초. 로그아웃은 브라우저를 거치지 않아 상태 확인과 같은 제한을 둔다 (잠정)
+JEV_URL = "https://api.typesafe.ai/v1/systemone"
+JEV_TIMEOUT = 10  # 초. 실측 응답은 0.2~0.3초라 넉넉히 둔다 (잠정)
+# 강아지 앱 자신의 창은 판단 기록에서 뺀다 (스펙 5.1)
+OWN_APPS = ("app.exe", "tamagotchichatbot.exe")
 HEALTH_URL = "http://localhost:3030/health"
 # 끈 직후 다시 켤 때 죽어 가는 screenpipe가 내려가길 기다린다: 0.5초씩 10번 = 5초 (잠정)
 DOWN_WAIT_S, DOWN_WAIT_TRIES = 0.5, 10
@@ -147,3 +156,63 @@ class Recorder:
             if not await self._health():
                 return
             await self._sleep(DOWN_WAIT_S)
+
+
+class ScreenHistory:
+    """screenpipe DB의 최근 화면 기록. 읽기 전용으로 열고, 없거나 열 수 없으면 빈 목록."""
+
+    def __init__(self, path: Path):
+        self._path = path
+
+    def recent(self, since: datetime) -> list[dict]:
+        """since 이후의 프레임을 오래된 것부터. Frame = {at, app, window, text}. 글은 full_text, 없으면 accessibility_text."""
+        floor = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # timestamp는 UTC ISO. 앞부분 문자열 비교
+        marks = ",".join("?" * len(OWN_APPS))
+        try:
+            con = sqlite3.connect(f"file:{self._path.as_posix()}?mode=ro", uri=True, timeout=2)
+            try:
+                rows = con.execute(
+                    "select timestamp, app_name, window_name, coalesce(nullif(full_text, ''), accessibility_text, '') "
+                    f"from frames where timestamp >= ? and lower(coalesce(app_name, '')) not in ({marks}) order by timestamp",
+                    (floor, *OWN_APPS)).fetchall()
+            finally:
+                con.close()
+            return [{"at": _parse_utc(ts), "app": app or "", "window": win or "", "text": text} for ts, app, win, text in rows]
+        except Exception as e:
+            log.warning("화면 기록 읽기 실패: %s", type(e).__name__)
+            return []
+
+
+def _parse_utc(ts: str) -> datetime:
+    """소수 자리가 9자리일 수 있어 6자리로 자른다."""
+    return datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"", ts).replace("Z", "+00:00"))
+
+
+def _post_json(key: str, body: dict) -> tuple[int, dict]:
+    req = urllib.request.Request(JEV_URL, data=json.dumps(body).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=JEV_TIMEOUT) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+
+
+class Jev:
+    """판단 API. 실패하면 None을 돌려주고 종류만 로그에 남긴다 (키·글은 남기지 않는다)."""
+
+    def __init__(self, post=_post_json):
+        self._post = post  # (key, body) -> (상태 코드, JSON)
+
+    async def ask(self, key: str, state: str, questions: dict) -> dict[str, float] | None:
+        body = {"state": state, "model": "jev-latest", "questions": questions}
+        try:
+            status, data = await asyncio.to_thread(self._post, key, body)
+            if status != 200:
+                log.warning("Jev 응답 오류: %s", status)
+                return None
+            answers = data["answers"]
+            return {name: float(answers[name]["noul"]) for name in questions}
+        except Exception as e:
+            log.warning("Jev 호출 실패: %s", type(e).__name__)
+            return None
