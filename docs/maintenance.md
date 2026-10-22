@@ -10,6 +10,12 @@
   - 화면은 받은 값만 막대로 그린다(`app/src/ui/usage.ts`). 종류 이름 대응(`five_hour` → 현재 세션, `seven_day` → 이번 주, `opus`·`sonnet` → 모델별)은 실제 값으로 확인하지 않은 짐작이다.
 - **확인한 적 없는 것:** `RateLimitEvent`가 언제 오는지, 한도 종류 이름과 값의 모양 ([스펙](superpowers/specs/2026-10-21-assistant-phase1-design.md) 8절, [수동 확인](manual-checks/backend.md) 4번이 아직 비어 있다).
 - **볼 것:** 실제 작업을 몇 개 돌리며 받은 `RateLimitEvent`를 기록해 이름·값 모양을 확인한다. 그다음 갱신 시점(작업이 없을 때, 재시작 뒤)과 화면 대응을 고친다.
+- **참고: BusinessFactory (사용자: "거기 사용량 체크는 잘 동작하던데", 2026-10-23 조사)**
+  - 같은 이벤트(`rate_limit_event`)를 쓰지만, 창별 값이 모두 든 `rate_limit_info.unifiedWindows`를 읽는다. 모양: `{five_hour: {utilization, resetsAt}, seven_day: {utilization, resetsAt}}`, `utilization`은 0~1, `resetsAt`은 epoch 초 (`C:\Users\lab2ai\BusinessFactory\engine\src\stream.ts:75-86`).
+  - 받은 값을 파일(`.engine-usage.json`, `{at, status, windows}`)에 저장해 다시 켜도 남긴다 (`engine.ts:1022-1026`, `watch.ts:8-16`). 화면에는 "구독 사용량은 직원이 한 번 일하면 표시됩니다"라고 밝힌다.
+  - 이름 대응: `five_hour` → 5시간 한도, `seven_day` → 주간 한도. 모르는 이름은 그대로 보인다.
+  - 한도에 걸렸을 때는 결과 글의 "You've hit your … limit"과 "resets …"를 읽어 다시 시도할 시각을 잡는다 (`runner.ts:241-271`).
+- **짐작되는 원인 (확인 안 함):** 우리 백엔드는 SDK가 풀어 준 칸(`rate_limit_type`, `utilization`, `resets_at`)만 읽는다. 이 칸은 이벤트마다 창 하나 분량이고 `utilization`이 비어 올 수 있다. 창별 값 전체는 `RateLimitInfo.raw["unifiedWindows"]`에 있다(설치된 SDK의 `types.py` `RateLimitInfo.raw`). BusinessFactory처럼 `raw`의 `unifiedWindows`를 읽고, 받은 값을 저장해 재시작 뒤에도 보이게 하는 쪽으로 고친다.
 
 ## 2. 답하기 전에 메시지를 연달아 보내면 답이 제대로 오지 않는다 (2026-10-22 등록)
 
