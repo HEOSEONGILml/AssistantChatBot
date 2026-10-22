@@ -1,6 +1,6 @@
 // 패널 틀: 연결 띠, 탭 바, 탭별 본문, 새 작업 화면, 대화 화면, 지우기 확인, 꼬리. 값은 다이제스트 2절, 3절 6·7·8·11·16·18·19번.
 import type { Entry, Outgoing, Session } from "../shared/protocol";
-import { badges, STATE_TEXT, type State, type Tab, type View } from "../shared/state";
+import { badges, confirmOwner, STATE_TEXT, type ConfirmOwner, type State, type Tab, type View } from "../shared/state";
 import { isSendKey } from "../shared/forms";
 import { BACK_ICON, deleteButton, expandButton, h, header, svg, trashIcon } from "./dom";
 import { renderConversation } from "./conversation";
@@ -123,15 +123,15 @@ export function chatStrip(askDelete: () => void): HTMLElement {
 }
 
 // --- 확인 상자: 지우기(19), 화면 기록 비우기(25). 같은 덮개·상자 ---
-// 지우기(19): 패널 안 덮개 + alertdialog. 문구는 context "정한 값" ---
+// 지우기(19): 패널 안 덮개 + alertdialog. 문구는 context "정한 값"
 const DELETE_TEXT: Record<Session["source"], { title: string; body: (name: string) => (Node | string)[] }> = {
   user: { title: "이 작업을 지울까요?", body: (n) => [h("b", {}, n), "과 그 대화 기록이 모두 지워져요. 되돌릴 수 없어요. 돌고 있는 작업이면 먼저 멈춰요."] },
   schedule: { title: "이 스케줄을 지울까요?", body: (n) => [h("b", {}, n), "과 작업 지시서, 대화 기록이 모두 지워져요. 되돌릴 수 없어요. 돌고 있으면 먼저 멈춰요."] },
   chat: { title: "대화를 지울까요?", body: () => ["Claude와 나눈 대화 기록이 모두 지워지고 새 대화로 시작해요. 되돌릴 수 없어요."] },
 };
 
-// 열린 확인 상자. 연 화면(세션 대화, 또는 sessionId 없는 설정 탭)을 떠나면(다시 그릴 때) 닫는다
-let confirming: { sessionId: number | undefined; el: HTMLElement } | null = null;
+// 열린 확인 상자. 연 화면(세션 대화 또는 설정 탭)을 떠나면(다시 그릴 때) 닫는다
+let confirming: { owner: ConfirmOwner; el: HTMLElement } | null = null;
 
 export type ConfirmSpec = { title: string; body: (Node | string)[]; action: string; run: () => unknown };
 
@@ -140,7 +140,6 @@ function closeConfirm(): void {
   confirming = null;
 }
 
-// 다시 그릴 때: 확인 상자를 연 세션의 대화 화면이 아니면 닫는다
 export function deleteConfirm(root: HTMLElement, t: Session, name: string, send: Send): void {
   const text = DELETE_TEXT[t.source];
   openConfirm(root, t.id, {
@@ -149,12 +148,13 @@ export function deleteConfirm(root: HTMLElement, t: Session, name: string, send:
   });
 }
 
-export function syncConfirm(root: HTMLElement, sessionId: number | undefined): void {
-  if (confirming && (confirming.sessionId !== sessionId || !root.contains(confirming.el))) closeConfirm();
+// 다시 그릴 때: 확인 상자를 연 화면(confirmOwner)이 아니면 닫는다
+export function syncConfirm(root: HTMLElement, owner: ConfirmOwner): void {
+  if (confirming && (confirming.owner !== owner || !root.contains(confirming.el))) closeConfirm();
 }
 
 // [취소]·Esc는 닫기. 실행 버튼은 run()을 부르고 닫는다. run()이 false를 돌려주면(못 보냄·끊김) 상자를 둔다
-export function openConfirm(root: HTMLElement, sessionId: number | undefined, spec: ConfirmSpec): void {
+export function openConfirm(root: HTMLElement, owner: ConfirmOwner, spec: ConfirmSpec): void {
   closeConfirm();
   const cancel = h("button", { type: "button", class: "btn-secondary", onClick: closeConfirm }, "취소");
   const run = () => { if (spec.run() !== false) closeConfirm(); };
@@ -166,7 +166,7 @@ export function openConfirm(root: HTMLElement, sessionId: number | undefined, sp
         cancel,
         h("button", { type: "button", class: "btn-danger", onClick: run }, spec.action))));
   root.append(el);
-  confirming = { sessionId, el };
+  confirming = { owner, el };
   cancel.focus();
 }
 
@@ -191,7 +191,7 @@ export function renderPanel(root: HTMLElement, state: State, send: Send, go: Go,
 
   // 대화 화면: 입력줄을 지키려고 대화 자리는 그대로 두고 위(연결 띠·탭 바·머리)만 바꾼다
   const t = conversationSession(state);
-  syncConfirm(root, t?.id);
+  syncConfirm(root, confirmOwner(v, t?.id));
   if (t) {
     const isChat = v.screen === "list";
     const key = `conv|${t.id}|${v.screen}`;

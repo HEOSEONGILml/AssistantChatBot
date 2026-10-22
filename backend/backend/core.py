@@ -133,6 +133,9 @@ class App:
         self.logged_in: bool | None = None  # 마지막으로 보낸 status의 로그인 상태 (보낸 적 없으면 None)
         # 질문·제안을 기다리는 대화 세션에 누른 [도와줘]: (세션 ID, 숨은 지시). 그 실행이 끝나면 이어 묻는다. 하나만 둔다
         self._help_later: tuple[int, str] | None = None
+        # 화면 기록 켜기·끄기, 비우기, 먼저 말 걸기의 DB 읽기를 한 줄로 세운다 (비우는 중에 screenpipe를 띄우거나 DB를 열지 않게)
+        self.recording_lock = asyncio.Lock()
+        self.clearing = False  # 화면 기록을 비우는 중 (판단 고리가 쉰다)
 
     # --- 화면 메시지 ---
     async def connected(self, on: bool) -> None:
@@ -327,27 +330,36 @@ class App:
         await self.get_settings()
 
     async def set_recording(self, enabled: bool) -> None:
-        self._store.set_setting("recording", "on" if enabled else "off")
-        if enabled:
-            await self._recorder.start()
-        else:
-            self._recorder.stop()
+        async with self.recording_lock:
+            self._store.set_setting("recording", "on" if enabled else "off")
+            if enabled:
+                await self._recorder.start()
+            else:
+                self._recorder.stop()
         await self.get_settings()
 
     async def clear_recording(self) -> None:
         """화면 기록을 지운다. 쓰는 중에 지우지 않게 내가 띄운 screenpipe를 끄고 내려간 뒤 지운다 (0030).
-        남이 띄운 screenpipe가 떠 있으면 지우지 않는다."""
+        남이 띄운 screenpipe가 떠 있으면 지우지 않는다. 비우는 동안 켜기·끄기와 다른 비우기는 기다린다."""
+        self.clearing = True
+        try:
+            async with self.recording_lock:
+                await self._clear_recording()
+        finally:
+            self.clearing = False
+        await self.get_settings()
+
+    async def _clear_recording(self) -> None:
         owned = self._recorder.owns()
         if not owned and await self._recorder.is_up():
             log.info("남이 띄운 screenpipe가 떠 있어 기록을 지우지 않음")
+            return
+        if owned and not await self._recorder.stop_and_wait():
+            log.warning("screenpipe가 시간 안에 내려가지 않아 기록을 지우지 않음")
         else:
-            if owned and not await self._recorder.stop_and_wait():
-                log.warning("screenpipe가 시간 안에 내려가지 않아 기록을 지우지 않음")
-            else:
-                await asyncio.to_thread(clear_recording_files, config.screenpipe_dir())
-            if self.recording_enabled():
-                await self._recorder.start()
-        await self.get_settings()
+            await asyncio.to_thread(clear_recording_files, config.screenpipe_dir())
+        if self.recording_enabled():
+            await self._recorder.start()
 
     def recording_enabled(self) -> bool:
         return self._store.get_setting("recording", "on") == "on"

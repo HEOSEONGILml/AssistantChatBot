@@ -201,7 +201,15 @@ def recording_bytes(root: Path) -> int:
 
 
 def clear_recording_files(root: Path, remove=Path.unlink) -> None:
-    """기록 파일을 지운다. 파일 하나를 못 지워도 나머지는 계속 지운다. 실패는 종류만 로그."""
+    """기록 파일을 지운다. db.sqlite를 먼저 지우고, 못 지우면(누가 열고 있음) 나머지도 두고 멈춘다.
+    그 밖의 파일은 하나를 못 지워도 나머지를 계속 지운다. 실패는 종류만 로그."""
+    db = root / RECORDING_DB_FILES[0]
+    if db.is_file():
+        try:
+            remove(db)
+        except OSError as e:
+            log.warning("기록 DB 삭제 실패, 비우기 멈춤: %s", type(e).__name__)
+            return
     for p in _recording_files(root):
         try:
             remove(p)

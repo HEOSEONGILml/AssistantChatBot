@@ -342,7 +342,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 로그아웃 · 대화 중 · 기록 꺼짐 · 키 없음"}
+  T["Proactive.tick<br>30초마다"] --> REST{"쉬는 때?<br>배지 떠 있음 · 로그아웃 · 대화 중 · 비우는 중 · 기록 꺼짐 · 키 없음"}
   REST -->|"아니오"| H["ScreenHistory.recent<br>최근 5분 frames"]
   H -->|"없음"| SKIP["건너뜀"]
   H --> SUM["summarize<br>2,000자 + 최근 [괜찮아]"]
@@ -381,7 +381,7 @@ sequenceDiagram
 
 | 단계 | 하는 일 | 코드 |
 |---|---|---|
-| 쉬는 때 | 배지가 떠 있음, 로그아웃, 대화 중, 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 대화 중은 대화 세션에 답하지 않은 `nudge` 줄이 있거나(`nudge_answer`와 같은 `_unanswered_nudge`) 대화 세션이 `working`·`waiting`인 때다(`App.chatting`, 사용자 결정). 로그아웃은 화면에 마지막으로 보낸 `status`(`App.logged_in`)로 본다. 로그인 CLI는 느려서 배지를 켜기 직전에만 부른다 | `Proactive.tick`, `App.chatting`, `App.set_nudge` |
+| 쉬는 때 | 배지가 떠 있음, 로그아웃, 대화 중, 화면 기록을 비우는 중(`App.clearing`), 화면 기록 꺼짐, Jev 키 없음이면 Jev를 부르지 않는다. 화면 기록 DB는 `App.recording_lock`을 쥐고 읽는다. 읽는 중에 비우기가 오면 다 읽을 때까지 지우지 않는다(Windows는 열린 `db.sqlite`를 못 지운다). 대화 중은 대화 세션에 답하지 않은 `nudge` 줄이 있거나(`nudge_answer`와 같은 `_unanswered_nudge`) 대화 세션이 `working`·`waiting`인 때다(`App.chatting`, 사용자 결정). 로그아웃은 화면에 마지막으로 보낸 `status`(`App.logged_in`)로 본다. 로그인 CLI는 느려서 배지를 켜기 직전에만 부른다 | `Proactive.tick`, `App.chatting`, `App.set_nudge`, `App.recording_lock` |
 | 배지 끄기 | 켠 뒤 5분이 지나면 다음 `tick`에서 끈다 | `Proactive.tick` |
 | 판단 | 화면 기록이 없으면 건너뛴다. 가장 최근 프레임의 (앱, 창)을 지금 작업으로 둔다. Jev 답이 `should_nudge`를 넘으면 확률을 로그에 남기고(글은 남기지 않는다) 배지를 켠다. 정말 켰을 때만 `배지 켬`을 남긴다 | `Proactive.tick`, `App.set_nudge` |
 | 배지 누름 | 지금 대화 세션(지웠으면 새로 만든 것)에 `nudge` 줄을 남기고 배지를 끈다. 배지가 이미 꺼졌으면 무시 | `App.nudge_open` |
@@ -688,8 +688,8 @@ flowchart TB
 | 시점 | 동작 | 코드 |
 |---|---|---|
 | 백엔드 시작 | 화면 기록 설정이 켜져 있으면(기본 켬) `start()` | `core.py` `startup` |
-| 설정 탭 스위치 켬 | 설정 저장 후 `start()` | `core.py` `set_recording` |
-| 설정 탭 [비우기] | 내가 띄운 것이면 `stop_and_wait()`(health가 내려갈 때까지) → 스레드에서 `clear_recording_files` → 화면 기록이 켜 있으면 `start()` | `core.py` `clear_recording`, `clients.py` |
+| 설정 탭 스위치 켬 | `recording_lock`을 쥐고 설정 저장 후 `start()` | `core.py` `set_recording` |
+| 설정 탭 [비우기] | `clearing`을 켜고 `recording_lock`을 쥔다. 내가 띄운 것이면 `stop_and_wait()`(health가 내려갈 때까지) → 스레드에서 `clear_recording_files`(`db.sqlite`를 먼저 지우고, 못 지우면 나머지를 남긴다) → 화면 기록이 켜 있으면 `start()`. 시간 안에 안 내려가면 지우지 않고 그대로 둔다. 비우는 동안 스위치 켜기·끄기와 다른 비우기는 자물쇠를 기다린다 | `core.py` `clear_recording`, `clients.py` |
 | 설정 탭 스위치 끔 | 설정 저장 후 `stop()`. 내가 띄운 것만 `taskkill /T`로 트리째 끈다 | `core.py` `set_recording`, `clients.py` `_kill` |
 | 백엔드 종료 | `stop()` | `__main__.py` |
 | 앱 종료 | 백엔드 트리째 종료에 함께 꺼진다 | `src-tauri/src/backend.rs` |

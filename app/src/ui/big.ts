@@ -2,7 +2,7 @@
 // 알림·작업·스케줄 탭은 두 칸(왼쪽 300px 목록, 오른쪽 고른 대화 또는 양식), 대화·사용량·설정은 한 칸(context "정한 값").
 // 패널의 목록·양식·대화·지우기 확인을 그대로 쓰고, 탭 바와 오른쪽 대화 머리만 큰 창 모양이다.
 import type { Entry, Outgoing, Session } from "../shared/protocol";
-import { STATE_TEXT, TWO_COLUMN, type State, type Tab, type View } from "../shared/state";
+import { confirmOwner, STATE_TEXT, TWO_COLUMN, type State, type Tab, type View } from "../shared/state";
 import { clockText } from "../shared/forms";
 import { h, svg, switchButton, trashIcon } from "./dom";
 import { renderConversation } from "./conversation";
@@ -73,7 +73,7 @@ export function renderBig(root: HTMLElement, s: State, send: Send, go: Go): void
   const v = s.view;
   const two = TWO_COLUMN.has(v.tab);
   const t = conversationSession(s);
-  syncConfirm(root, t?.id);
+  syncConfirm(root, confirmOwner(v, t?.id));
   const name = t && ((t.source === "schedule" && s.schedules.get(t.id)?.name) || t.title);
   const askDelete = () => { if (t) deleteConfirm(root, t, name!, send); };
 

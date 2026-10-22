@@ -66,6 +66,19 @@ class FakeRecorder:
         self.calls.append("stop")
 
 
+class GatedRecorder(FakeRecorder):
+    """stop_and_wait가 gate가 열릴 때까지 멈춘다 (비우는 중을 붙잡아 둔다)."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.gate = asyncio.Event()
+
+    async def stop_and_wait(self):
+        self.calls.append("stop_and_wait")
+        await self.gate.wait()
+        return self._goes_down
+
+
 class FakeRun:
     """테스트가 이벤트를 직접 일으킨다. run은 end()나 stop()까지 기다린다."""
 
@@ -1121,3 +1134,31 @@ async def test_clear_skips_when_screenpipe_does_not_go_down(monkeypatch):
     monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
     await app.clear_recording()
     assert rec.calls == ["stop_and_wait", "start"] and out[-1]["type"] == "settings"
+
+
+async def test_set_recording_waits_for_clear(monkeypatch):
+    rec = GatedRecorder(owned=True)
+    app, store, out, runs = make(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
+    clearing = asyncio.create_task(app.clear_recording())
+    await settle()
+    assert app.clearing
+    toggling = asyncio.create_task(app.set_recording(True))
+    await settle()
+    assert rec.calls == ["stop_and_wait"]  # 비우기가 끝날 때까지 screenpipe를 띄우지 않는다
+    rec.gate.set()
+    await asyncio.gather(clearing, toggling)
+    assert rec.calls == ["stop_and_wait", "clear", "start", "start"] and not app.clearing
+
+
+async def test_two_clears_do_not_overlap(monkeypatch):
+    rec = GatedRecorder(owned=True)
+    app, store, out, runs = make(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: rec.calls.append("clear"))
+    first = asyncio.create_task(app.clear_recording())
+    second = asyncio.create_task(app.clear_recording())
+    await settle()
+    assert rec.calls == ["stop_and_wait"]
+    rec.gate.set()
+    await asyncio.gather(first, second)
+    assert rec.calls == ["stop_and_wait", "clear", "start"] * 2

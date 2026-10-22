@@ -87,10 +87,13 @@ class Proactive:
             return  # 화면에 보낸 마지막 로그인 상태로 본다. CLI는 배지를 켜기 직전에만 부른다
         if self._app.chatting():
             return  # 대화 중에는 판단하지 않는다 (사용자, 2026-10-22)
+        if self._app.clearing:
+            return  # 비우는 중에는 DB를 열지 않는다. Windows는 열린 db.sqlite를 못 지운다
         key = self._app.jev_key()
         if not key or not self._app.recording_enabled():
             return
-        frames = await asyncio.to_thread(self._history.recent, now - HISTORY_WINDOW)
+        async with self._app.recording_lock:  # 읽는 중에 비우기가 오면 다 읽을 때까지 기다리게 한다
+            frames = await asyncio.to_thread(self._history.recent, now - HISTORY_WINDOW)
         if not frames:
             return  # 기록이 없거나 DB를 못 읽음
         self._task = (frames[-1]["app"], frames[-1]["window"])

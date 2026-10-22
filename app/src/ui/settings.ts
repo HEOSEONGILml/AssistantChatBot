@@ -64,7 +64,7 @@ function recordingFolder(s: State, send: Send): HTMLElement {
   const ask = (e: Event) => {
     const root = (e.currentTarget as HTMLElement).closest(".panel, .big") as HTMLElement | null;
     if (!root) return;
-    openConfirm(root, undefined, {
+    openConfirm(root, "settings", {
       title: "화면 기록을 모두 비울까요?",
       body: ["기록 폴더의 ", h("b", {}, size), "가 지워져요. 지금까지 본 화면을 찾지 못하게 돼요. 되돌릴 수 없어요. 화면 기록은 켜진 그대로 이어서 쌓여요."],
       action: "비우기",

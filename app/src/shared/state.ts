@@ -248,6 +248,11 @@ export function refreshRequests(s: State): Outgoing[] {
   return out;
 }
 
+// 확인 상자의 주인: 설정 탭이면 "settings", 그 밖은 대화 세션 ID. 다시 그릴 때 주인이 바뀌면 상자를 닫는다
+export type ConfirmOwner = number | "settings" | undefined;
+export const confirmOwner = (v: View, sessionId: number | undefined): ConfirmOwner =>
+  v.screen === "list" && v.tab === "settings" ? "settings" : sessionId;
+
 // --- 큰 창 (12): 패널과 따로 화면을 갖는다. 주 창이 큰 창 몫의 State를 하나 더 들고 같은 메시지를 apply한다 ---
 // 알림·작업·스케줄 탭은 두 칸이다: 대화·양식을 열어도 왼쪽에 그 탭 목록이 늘 보인다
 export const TWO_COLUMN = new Set<Tab>(["alerts", "tasks", "schedules"]);

@@ -33,7 +33,7 @@
 | `set_schedule_enabled` | `session_id`: 정수, `enabled`: 참거짓 | 스케줄 스위치 |
 | `get_settings` | 없음 | 설정 탭 |
 | `set_permission_mode` | `mode`: 권한 모드 | 설정 탭에서 바꿀 때. 새로 띄우는 세션부터 적용 |
-| `clear_recording` | 없음 | 설정 탭 [비우기]. 백엔드가 띄운 screenpipe를 끄고 내려갈 때까지 기다린 뒤 기록(`db.sqlite*`, `data/`)을 지우고, 화면 기록이 켜 있으면 다시 띄운 다음 `settings`를 보낸다. screenpipe 자체 설정(`secrets.sqlite`, `machine_id` 등)은 남긴다. 사용자가 따로 띄운 screenpipe가 떠 있으면 지우지 않고 `settings`만 보낸다. 끈 screenpipe가 5초 안에 내려가지 않아도 지우지 않는다(다시 띄우고 `settings`만 보낸다). 파일 하나를 못 지워도 나머지는 지운다. 폴더가 없으면 아무 일 없이 끝난다. ([0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 화면 기록 폴더와 비우기") |
+| `clear_recording` | 없음 | 설정 탭 [비우기]. 백엔드가 띄운 screenpipe를 끄고 내려갈 때까지 기다린 뒤 기록(`db.sqlite*`, `data/`)을 지우고, 화면 기록이 켜 있으면 다시 띄운 다음 `settings`를 보낸다. screenpipe 자체 설정(`secrets.sqlite`, `machine_id` 등)은 남긴다. 사용자가 따로 띄운 screenpipe가 떠 있으면 지우지 않고 `settings`만 보낸다. 끈 screenpipe가 5초 안에 내려가지 않아도 지우지 않는다(그대로 두고 `settings`만 보낸다). `db.sqlite`를 먼저 지우고, 그것을 못 지우면(누가 열고 있음) 나머지도 남긴다. 그 밖의 파일은 하나를 못 지워도 나머지는 지운다. 비우는 동안 `set_recording`과 다른 `clear_recording`은 비우기가 끝날 때까지 기다리고, 먼저 말 걸기 판단은 쉰다. 폴더가 없으면 아무 일 없이 끝난다. ([0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 화면 기록 폴더와 비우기") |
 | `set_recording` | `enabled`: 참거짓 | 설정 탭 화면 기록 스위치. 저장하고 screenpipe를 띄우거나 끈 뒤 `settings`를 보낸다. 끈 채 저장되면 다음 시작 때도 띄우지 않는다. 백엔드가 띄운 screenpipe만 끈다(사용자가 따로 켠 것은 건드리지 않는다). 끈 직후 다시 켜면 이전 것이 내려갈 때까지 최대 5초 기다렸다 띄운다 |
 | `get_usage` | 없음 | 사용량 탭 |
 | `nudge_open` | 없음 | 배지(`nudge {active: true}`)가 뜬 강아지를 누름. 대화 세션에 `nudge` 줄을 남기고 `nudge {active: false}`를 보낸다. 그새 배지가 꺼졌으면 무시한다. 아래 [먼저 말 걸기](#먼저-말-걸기) |
@@ -155,7 +155,7 @@ Claude Code를 `include_partial_messages`로 띄워 받은 `StreamEvent` 중 `co
 
 백엔드가 30초마다 최근 화면 기록을 Jev에 물어 사용자가 작업 화면에서 일하고 있으면 배지를 켠다(같은 창에서 [괜찮아]라고 했으면 그 창에서는 켜지 않는다). 판단 방법과 값은 [설계](superpowers/specs/2026-10-22-proactive-help-design.md) 4절에 있다.
 
-- 배지는 켠 뒤 5분이 지나면 백엔드가 끈다. 켜기 직전에 로그인을 확인해 로그아웃이면 켜지 않는다. 마지막으로 보낸 `status`가 `logged_in: false`면 판단도 쉰다. 대화 중(답하지 않은 `nudge` 줄이 있거나 대화 세션이 `working`·`waiting`)에도 쉰다.
+- 배지는 켠 뒤 5분이 지나면 백엔드가 끈다. 켜기 직전에 로그인을 확인해 로그아웃이면 켜지 않는다. 마지막으로 보낸 `status`가 `logged_in: false`면 판단도 쉰다. 대화 중(답하지 않은 `nudge` 줄이 있거나 대화 세션이 `working`·`waiting`)과 화면 기록을 비우는 중에도 쉰다.
 - [도와줘] (`nudge_answer {help: true}`): `user` 줄 `도와줘`를 남기고, 대화 세션에 숨은 지시를 보낸다. 지시 글은 대화 줄에 남지 않는다. 대화 세션이 답을 쓰는 중이면 `say`처럼 이어서 받는다. 질문·등록 확인의 답을 기다리는 중이면 지시를 그 답으로 쓰지 않고 미뤄 두었다가 그 실행이 끝나면 이어 묻는다. 그사이 대화 세션을 멈추거나 지우면 버린다(기다리던 질문은 그대로 답할 수 있다. 화면은 `nudge` 줄 바로 뒤의 `user` 줄을 질문의 답으로 치지 않는다). 로그아웃이면 `say`처럼 `status {logged_in: false}`만 보낸다.
 - [괜찮아] (`nudge_answer {help: false}`): `user` 줄 `괜찮아`를 남긴다. 백엔드는 그 시각과 `nudge` 줄의 앱·창을 다음 판단에 넣는다(최근 1시간, 메모리에만 둔다).
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackendMessage, Entry, Schedule, Session } from "../src/shared/protocol";
-import { alertRows, apply, badges, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, pose, refreshRequests, rowNote, elapsedText, tooltip, type State } from "../src/shared/state";
+import { alertRows, apply, badges, confirmOwner, disconnected, firstWaiting, followUps, initialState, needsSeen, pendingQuestion, pose, refreshRequests, rowNote, elapsedText, tooltip, type State } from "../src/shared/state";
 
 const session = (id: number, o: Partial<Session> = {}): Session => ({
   id, source: "user", title: `작업 ${id}`, state: "done", seen: true, claude_session_id: null, created_at: "2026-10-22T09:00:00", ...o,
@@ -483,5 +483,13 @@ describe("elapsedText", () => {
     expect(elapsedText(125000)).toBe("2분 5초");
     expect(elapsedText(180000)).toBe("3분 0초");
     expect(elapsedText(-500)).toBe("0초");
+  });
+});
+
+describe("confirmOwner", () => {
+  it("설정 탭이면 'settings', 그 밖은 대화 세션 ID (탭을 바꾸면 설정 확인 상자가 닫힌다)", () => {
+    expect(confirmOwner({ tab: "settings", screen: "list", page: 1 }, undefined)).toBe("settings");
+    expect(confirmOwner({ tab: "alerts", screen: "list", page: 1 }, undefined)).toBeUndefined();
+    expect(confirmOwner({ tab: "tasks", screen: "task", sessionId: 4, page: 1 }, 4)).toBe(4);
   });
 });

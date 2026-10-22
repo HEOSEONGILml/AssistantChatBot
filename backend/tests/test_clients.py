@@ -208,17 +208,29 @@ def test_clear_missing_dir_is_noop(tmp_path):
     clients.clear_recording_files(tmp_path / "none")
 
 
-def test_clear_continues_when_a_file_is_locked(tmp_path):
-    _make_recording_dir(tmp_path)
-    locked = tmp_path / "db.sqlite"
-
+def _locking(locked):
     def remove(p):
         if p == locked:
             raise PermissionError("locked")
         p.unlink()
-    clients.clear_recording_files(tmp_path, remove=remove)
-    assert locked.exists()
-    assert not (tmp_path / "db.sqlite-wal").exists() and not (tmp_path / "data").exists()
+    return remove
+
+
+def test_clear_stops_when_db_is_locked(tmp_path):
+    """db.sqlite를 못 지우면 -wal·data/도 남긴다 (DB와 짝이 어긋나지 않게)."""
+    _make_recording_dir(tmp_path)
+    clients.clear_recording_files(tmp_path, remove=_locking(tmp_path / "db.sqlite"))
+    assert (tmp_path / "db.sqlite").exists() and (tmp_path / "db.sqlite-wal").exists()
+    assert (tmp_path / "data" / "a" / "b.jpg").exists()
+
+
+def test_clear_continues_when_a_data_file_is_locked(tmp_path):
+    _make_recording_dir(tmp_path)
+    (tmp_path / "data" / "c.jpg").write_bytes(b"x")
+    clients.clear_recording_files(tmp_path, remove=_locking(tmp_path / "data" / "a" / "b.jpg"))
+    assert (tmp_path / "data" / "a" / "b.jpg").exists()
+    assert not (tmp_path / "db.sqlite").exists() and not (tmp_path / "db.sqlite-wal").exists()
+    assert not (tmp_path / "data" / "c.jpg").exists()
 
 
 async def test_recorder_owns_and_stop_and_wait(monkeypatch):

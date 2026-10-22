@@ -1,15 +1,16 @@
 import asyncio
 import re
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-from backend import clients, proactive
+from backend import clients, core, proactive
 from backend.clients import Jev, ScreenHistory
 from backend.proactive import Proactive
-from tests.test_core import FakeAuth, make
+from tests.test_core import FakeAuth, FakeRecorder, GatedRecorder, make, settle
 
 NOW = datetime(2026, 10, 22, 6, 0, 0, tzinfo=timezone.utc)
 
@@ -122,8 +123,10 @@ def appdata(tmp_path, monkeypatch):
 class FakeHistory:
     def __init__(self, frames):
         self.frames = frames
+        self.reads = 0
 
     def recent(self, since):
+        self.reads += 1
         return self.frames
 
 
@@ -149,8 +152,8 @@ class Clock:
 HELPS = {"working": 0.89, "declined_same": 0.23}
 
 
-async def loop(answers=HELPS, key="k", logged_in=True, frames=None):
-    app, store, out, runs = make(FakeAuth(logged_in))
+async def loop(answers=HELPS, key="k", logged_in=True, frames=None, recorder=None):
+    app, store, out, runs = make(FakeAuth(logged_in), recorder=recorder)
     await app.startup()
     if key:
         await app.set_jev_key(key)
@@ -198,6 +201,42 @@ async def test_tick_rests(appdata):
     await app.set_nudge(True)
     await p.tick()
     assert jev.calls == []
+
+
+async def test_tick_rests_while_clearing(appdata, monkeypatch):
+    """비우는 동안 DB를 열지 않는다 (Windows는 열린 db.sqlite를 못 지운다)."""
+    rec = GatedRecorder(owned=True)
+    p, app, store, out, jev, clock = await loop(recorder=rec)
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: None)
+    clearing = asyncio.create_task(app.clear_recording())
+    await settle()
+    await p.tick()
+    assert p._history.reads == 0 and jev.calls == []
+    rec.gate.set()
+    await clearing
+
+
+async def test_clear_waits_for_reading_history(appdata, monkeypatch):
+    """이미 DB를 읽는 중이면 다 읽을 때까지 지우지 않는다."""
+    started, release = threading.Event(), threading.Event()
+
+    class SlowHistory(FakeHistory):
+        def recent(self, since):
+            started.set()
+            release.wait(5)
+            return super().recent(since)
+    p, app, store, out, jev, clock = await loop(recorder=FakeRecorder(owned=False))
+    p._history = SlowHistory(p._history.frames)
+    cleared = []
+    monkeypatch.setattr(core, "clear_recording_files", lambda d: cleared.append(d))
+    ticking = asyncio.create_task(p.tick())
+    await asyncio.to_thread(started.wait, 5)
+    clearing = asyncio.create_task(app.clear_recording())
+    await settle()
+    assert cleared == []
+    release.set()
+    await asyncio.gather(ticking, clearing)
+    assert len(cleared) == 1
 
 
 async def test_tick_logged_out_judges_but_no_badge(appdata):
