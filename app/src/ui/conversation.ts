@@ -147,7 +147,7 @@ function itemEl(c: Ctl, it: Item, key: string): Node {
 }
 
 // 먼저 말 걸기(24번): 가운데 구분 글 + 파란 테두리 말풍선 + 빠른 답 칩(답할 수 있을 때만).
-// 칩은 say가 아니라 nudge_answer로 보낸다([도와줘]가 help: true). 보내기에 성공하면 기존 선택지처럼 막는다
+// 칩은 say가 아니라 nudge_answer로 보낸다. 첫 칩([도와줘], 백엔드 NUDGE_CHOICES 순서)이 help: true. 보내기에 성공하면 기존 선택지처럼 막는다
 function nudge(c: Ctl, it: Item, key: string): DocumentFragment {
   const out = document.createDocumentFragment();
   out.append(
@@ -156,11 +156,11 @@ function nudge(c: Ctl, it: Item, key: string): DocumentFragment {
   if (!it.answerable || !it.choices?.length) return out;
   const done = answered.has(key);
   const row = h("li", { class: "nudge-chips" });
-  for (const choice of it.choices) {
+  for (const [i, choice] of it.choices.entries()) {
     row.append(h("button", {
       type: "button", class: "nudge-chip", disabled: done,
       onClick: () => {
-        if (c.send({ type: "nudge_answer", help: choice === "도와줘" }) === false) return;
+        if (c.send({ type: "nudge_answer", help: i === 0 }) === false) return;
         answered.add(key);
         for (const b of row.querySelectorAll("button")) b.disabled = true;
       },

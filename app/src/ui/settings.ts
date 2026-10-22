@@ -64,6 +64,17 @@ function jevKey(s: State, send: Send): HTMLElement {
     onInput: (e) => { jevDraft = (e.target as HTMLInputElement).value; },
   }) as HTMLInputElement;
   input.value = jevDraft;
+  // 다시 그릴 때(열쇠가 바뀜) 옛 입력칸에 커서가 있었으면 새 입력칸에 초점과 선택 범위를 되돌린다.
+  // 이 함수는 옛 입력칸을 치우기 전에 불리므로 옛 칸의 초점·커서를 여기서 읽을 수 있다
+  const old = document.getElementById("jev-key") as HTMLInputElement | null;
+  if (old && old === document.activeElement) {
+    const [start, end] = [old.selectionStart, old.selectionEnd];
+    queueMicrotask(() => {
+      if (!input.isConnected) return;
+      input.focus();
+      if (start !== null && end !== null) input.setSelectionRange(start, end);
+    });
+  }
   const save = (e: Event) => {
     e.preventDefault();
     if (send({ type: "set_jev_key", key: input.value }) === false) return;
