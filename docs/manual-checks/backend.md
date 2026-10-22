@@ -32,6 +32,11 @@ flowchart LR
 | 10 | 로그아웃 뒤 로그인 | 로그인된 상태에서 `logout`을 보낸 뒤 `request`를 보내고, 이어 `login`을 보낸다 | `logout` 뒤 `status {logged_in: false}`가 오고 `claude auth status`도 로그아웃으로 나온다. `request`에는 `status {logged_in: false}`만 다시 온다. `login`으로 다시 로그인되면 `status {logged_in: true}` | [ ] |
 | 11 | 화면 기록 끄기·켜기 | 백엔드가 띄운 screenpipe가 도는 중에 `set_recording {enabled: false}`, 이어 `{enabled: true}`를 보낸다. 끈 상태로 백엔드를 다시 띄워 본다 | 끄면 `screenpipe.exe`와 그 위의 `npx`·`node`가 작업 관리자에서 사라지고, 켜면 다시 생긴다. 매번 `settings {recording}`이 온다. 끈 채 다시 띄우면 로그에 `screenpipe 시작`이 찍히지 않는다 | [ ] |
 | 12 | 대화 탭 세션 이어 쓰기 | 접속해 받은 대화 세션(`source: chat`)에 `say`를 두 번 보내고, 백엔드를 껐다 켠 뒤 또 `say`를 보낸다. 한 번은 "회의 자료 모아 줘"처럼 일을 맡긴다 | 같은 `claude_session_id`로 이어지고 앞 이야기를 기억한다. 일을 맡기면 새 작업이 생기고 대화에 `chip` 줄이 남는다. 그냥 묻는 말에는 새 작업 없이 대화에서 답한다 | [ ] |
+| 13 | 지우기: 돌고 있는 세션 (`delete_session`) | 크롬을 쓰는 오래 걸리는 `request`를 보내 일하는 동안 `delete_session`을 보낸다 | 먼저 멈추고(`claude` 프로세스와 그 밑 MCP·크롬 연결이 사라진다) `session_deleted {session_id}`가 온다. 지운 뒤 늦게 오는 `entry`·`activity`는 오지 않는다. `assistant.db`에서 세션·대화 줄이 사라진다 | [ ] |
+| 14 | 지우기: 답 기다리는 세션 | 질문하게 될 `request`(예: "결제 전에 물어봐 줘")를 보내 질문이 오면 `delete_session`을 보낸다 | 질문이 거부로 풀리고 세션이 끊긴 뒤 `session_deleted`가 온다. 백엔드가 멈추거나 오류를 남기지 않는다 | [ ] |
+| 15 | 지우기: 스케줄 세션 | `add_schedule`로 만든 스케줄(돌고 있을 때 한 번, 꺼진 채 한 번)에 `delete_session`을 보낸다 | 세션·대화 줄·지시서(`schedules`)가 지워지고 `session_deleted`가 온다. 다음 `tick`에서 더는 실행되지 않는다 | [ ] |
+| 16 | 지우기: 대화 세션 | 접속해 받은 대화 세션(`source: chat`)에 `say`로 대화를 쌓은 뒤 `delete_session`을 보낸다 | `session_deleted` 뒤에 새 대화 세션이 `session`으로 온다(제목 `대화`, 새 `session_id`). 이어서 `say`를 보내면 이전 대화를 모른다 | [ ] |
+| 17 | `activity` 실제 이벤트 | 생각·글·도구(크롬·`WebSearch`·`Read`·`Bash`·`AskUserQuestion`)를 쓰게 하는 `request`를 보내며 `activity` 메시지를 본다 | [backend-protocol.md](../backend-protocol.md) 표의 `kind`·`text`로 오고, 같은 값이 연달아 가지 않으며, `AskUserQuestion`은 보내지 않는다. 실제 `StreamEvent` 모양이 문서와 다르면 매핑을 고친다. 서브에이전트(`Task`) 안의 도구가 `activity`를 바꾸는지 적어 둔다 | [ ] |
 
 ## 화면 계획에 넘기는 주의
 

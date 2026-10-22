@@ -94,6 +94,8 @@ flowchart TB
 
 ## 4. 프로토콜 v6
 
+> **v7 이름 (2026-10-22).** 이 절은 v6 때의 표다. v7은 `task` 이름을 `session`으로 바꿨다 ([0034](../../decisions/0034-session-as-top-level-term.md)). 아래 `delete_task`는 `delete_session`, `task_deleted`는 `session_deleted`이고, 표의 "작업 ID"는 `session_id`다. `activity`도 `session_id`를 담는다. 지금 메시지 이름과 필드는 [backend-protocol.md](../../backend-protocol.md)가 기준이다.
+
 [0030](../../decisions/0030-io-interface-task-as-conversation.md)이 기준이다. 구현할 때 [backend-protocol.md](../../backend-protocol.md)를 v6으로 바꾼다. 모든 메시지는 지금처럼 `v`와 `type`을 갖는다.
 
 **작업 하나 = 대화 하나.** 스케줄도 작업 하나다. 대화 탭도 출처가 '대화'인 작업 하나다 ([0033](../../decisions/0033-chat-tab-single-session.md)).
@@ -144,7 +146,7 @@ flowchart TB
 - **등록 확인** 줄은 에이전트에게 말로 시켜 만들 때만 생긴다. 양식(`add_schedule`)은 확인 없이 바로 저장한다.
 - **대화 탭** (Claude 제안, 사용자 수용): 새 메시지를 두지 않는다. 접속하면 백엔드가 대화 작업의 `task`를 보낸다. 프론트는 그 작업 ID로 `get_task`(열기)와 `say`(말하기)를 쓴다. 대화 작업은 `list_tasks`의 작업 목록에 넣지 않는다.
 - **준비 중 표시** (사용자: 대답을 준비하는 동안 지금 하는 일이 보여야 한다. 메시지 설계는 Claude 제안, 사용자 수용): 프론트는 `activity`를 받으면 대화 맨 아래에 "지금 하는 일" 줄을 띄우고, 첫 `activity`를 받은 때부터 걸린 시간을 센다. 대답이 끝나 결과·실패·질문 `entry`가 오거나 멈추면 줄을 지운다. 이 줄은 대화 기록에 남지 않는다.
-- **지우기** (사용자: 세션은 지울 수 있어야 한다. 메시지 설계는 Claude 제안, 사용자 수용): `delete_task` 하나로 작업·스케줄·대화 탭을 지운다. 프론트는 지우기 확인을 거친 뒤에만 보낸다.
+- **지우기** (사용자: 세션은 지울 수 있어야 한다. 메시지 설계는 Claude 제안, 사용자 수용): `delete_task`(v7 `delete_session`) 하나로 작업·스케줄·대화 탭을 지운다. 프론트는 지우기 확인을 거친 뒤에만 보낸다.
 
 ## 5. 백엔드
 
@@ -152,7 +154,7 @@ flowchart TB
 
 - **작업 하나 = Claude Code 세션 하나** ([0029](../../decisions/0029-claude-code-harness-and-session-per-task.md)). 파이썬 Agent SDK(`ClaudeSDKClient`)로 띄운다.
 - 다른 작업의 맥락은 세션이 아니라 데이터 계층에서 찾는다.
-- **지우기** (`delete_task`, Claude 제안, 사용자 수용): 돌고 있거나 답을 기다리는 작업이면 먼저 멈춘다. 그다음 `tasks`·`entries`(스케줄이면 `schedules`까지)의 그 작업을 지우고 `task_deleted`를 보낸다. Claude Code 세션은 다시 잇지 않는다.
+- **지우기** (`delete_task`, v7 `delete_session`, Claude 제안, 사용자 수용): 돌고 있거나 답을 기다리는 작업이면 먼저 멈춘다. 그다음 `tasks`·`entries`(스케줄이면 `schedules`까지)의 그 작업을 지우고 `task_deleted`(v7 `session_deleted`)를 보낸다. Claude Code 세션은 다시 잇지 않는다.
   - 대화 탭을 지우면 대화 기록을 비우고 새 세션으로 다시 시작한다. 대화 작업 자체는 늘 하나 남고, 백엔드가 새 `task`를 보낸다.
 - **대화 탭**: 대화 작업은 하나뿐이다. 앱을 처음 켤 때 만들고, 그 뒤로는 같은 세션을 이어(`resume`) 쓴다 (사용자 결정은 세션 하나, 만드는 때와 잇는 방식은 Claude 제안·사용자 수용, [0033](../../decisions/0033-chat-tab-single-session.md)).
 - 여러 작업이 동시에 돈다 (사용자).

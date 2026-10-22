@@ -133,6 +133,8 @@ sequenceDiagram
 
 ## 수정: 지우기 (2026-10-22)
 
+> **v7 이름.** 이 절은 v6 때 쓴 것이다. v7은 `task`를 `session`으로 바꿨다([0034](0034-session-as-top-level-term.md)). 아래 `delete_task`는 `delete_session`, `task_deleted`는 `session_deleted`, "작업 ID"는 `session_id`다. 지금 이름은 [backend-protocol.md](../backend-protocol.md)가 기준이다.
+
 대화·작업·스케줄(= 세션)은 지울 수 있어야 한다(사용자). 메시지는 Claude가 제안하고 사용자가 수용했다.
 
 | 방향 | 메시지 | 담는 것 | 언제 |
@@ -144,6 +146,8 @@ sequenceDiagram
 - 대화 탭을 지우면 대화 기록을 비우고 새 세션으로 다시 시작한다. 대화 작업은 늘 하나 남고, 백엔드가 새 `task`를 보낸다.
 
 ## 수정: 준비 중 표시 (2026-10-22)
+
+> **v7 이름.** 이 절은 v6 때 쓴 것이다. v7은 `task`를 `session`으로 바꿨다([0034](0034-session-as-top-level-term.md)). 아래 `activity`의 "작업 ID"는 `session_id`다. 지금 이름은 [backend-protocol.md](../backend-protocol.md)가 기준이다.
 
 대답을 준비하는 동안 지금 무엇을 하는지(준비 중, 생각 중, 실행 중)가 보여야 한다(사용자). 메시지는 Claude가 제안하고 사용자가 수용했다.
 

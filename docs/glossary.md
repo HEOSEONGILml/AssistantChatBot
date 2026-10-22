@@ -22,6 +22,8 @@
 | **작업** | 사용자가 맡긴 일을 처리하는 세션(`source = user`). 작업 탭의 "새 작업"이나 에이전트의 `create_session`으로 생긴다 |
 | **Claude Code 세션 ID** | 세션이 이어 쓰는 Claude Code 쪽 세션의 ID(`claude_session_id`). 세션과 다른 것이다 |
 | **큰 창** | 패널 전체를 크게 띄운 별도 창. 패널의 [크게 보기]로 열고, 그때 작은 패널은 닫힌다 ([디자인](design/2026-10-21-output-ui/README.md) 12번) |
+| **지금 하는 일 (`activity`)** | 세션이 대답을 준비하는 동안 하는 일(생각 중·도구 실행 중·답 쓰는 중). 백엔드가 `activity`로 보내고, 프론트는 대화 맨 아래 줄과 걸린 시간으로 보인다. 대화 기록에는 남지 않는다 ([0030](decisions/0030-io-interface-task-as-conversation.md) "수정: 준비 중 표시") |
+| **지우기 확인** | [지우기]를 누르면 바로 지우지 않고 한 번 묻는 상자. 작업·스케줄·대화 탭 모두 거치고, 확인 뒤에만 `delete_session`을 보낸다 ([디자인](design/2026-10-21-output-ui/README.md) 19번) |
 | **대화 (탭)** | 패널의 대화 탭에서 Claude Code와 그냥 이야기하는 것. 대화 세션(`source = chat`) 하나만 쓰고, 여기서 작업이나 스케줄을 만들 수도 있다 ([0033](decisions/0033-chat-tab-single-session.md)). "세션 대화"와 다르다 |
 | **세션 칩** | 에이전트가 `create_session`으로 새 세션(작업·스케줄)을 만들었을 때 그 세션을 만든 대화에 남는 줄(`chip`). 종류와 제목을 보이고, 누르면 그 세션의 대화로 간다 ([0035](decisions/0035-create-session-from-any-session.md)) |
 | **세션 대화** | 세션 하나에서 사용자와 에이전트가 주고받은 말(대화 줄, `entries`). 되물음과 답도 쌓인다. 작업 세션이면 "작업 대화", 스케줄 세션이면 "스케줄 대화"라고도 한다 |
